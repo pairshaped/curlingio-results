@@ -1,7 +1,6 @@
 {
   "club": {
-    "name": "Demo Curling Club",
-    "domain": "demo.curling.io"
+    "name": "Demo Curling Club"
   },
   "leagues": [
     { "id": 1, "name": "First League", "registration_state": "open", "price": "$200.00", "runs": "Sep 22, 2022 - Sep 25, 2022", "location": "RA Centre, Orrawa, Ontario" },

@@ -25,28 +25,39 @@ type alias Model =
     , items : WebData (List Item)
     , selectedEvent : WebData Event
     , fullScreen : Bool
+    , errorMsg : Maybe String
     }
+
 
 type alias Flags =
     { baseUrl : String
-    , section : String
+    , section : ItemsSection
     , registration : Bool
     , pageSize : Int
     }
 
+
+type ItemsSection
+    = LeaguesSection
+    | CompetitionsSection
+    | ProductsSection
+
+
 type alias Item =
     { id : Int
     , name : String
-    , registrationState: Maybe RegistrationState
-    , price: Maybe String
+    , registrationState : Maybe RegistrationState
+    , price : Maybe String
     , runs : Maybe String
-    , location: Maybe String
+    , location : Maybe String
     }
+
 
 type RegistrationState
     = RegistrationOpen
     | RegistrationSoldOut
     | RegistrationClosed
+
 
 type alias Event =
     { stages : List Stage
@@ -83,12 +94,39 @@ type GameState
     | GameComplete
 
 
+
 -- DECODERS
 
 
 isLocalMode : String -> Bool
 isLocalMode url =
     String.contains "localhost" url
+
+
+decodeFlags : Decoder Flags
+decodeFlags =
+    Decode.succeed Flags
+        |> required "baseUrl" string
+        |> optional "section" decodeSection LeaguesSection
+        |> optional "registration" bool False
+        |> optional "pageSize" int 10
+
+
+decodeSection : Decoder ItemsSection
+decodeSection =
+    Decode.string
+        |> Decode.andThen
+            (\str ->
+                case str of
+                    "competitions" ->
+                        Decode.succeed CompetitionsSection
+
+                    "products" ->
+                        Decode.succeed ProductsSection
+
+                    _ ->
+                        Decode.succeed LeaguesSection
+            )
 
 
 decodeItems : Decoder (List Item)
@@ -105,6 +143,7 @@ decodeItem =
         |> optional "price" (nullable string) Nothing
         |> optional "runs" (nullable string) Nothing
         |> optional "location" (nullable string) Nothing
+
 
 decodeRegistrationState : Decoder (Maybe RegistrationState)
 decodeRegistrationState =
@@ -130,11 +169,18 @@ decodeRegistrationState =
 -- HELPERS
 
 
-init : Flags -> ( Model, Cmd Msg )
-init flags =
-    ( Model flags NotAsked NotAsked False
-    , getItems flags.section flags.baseUrl
-    )
+init : Decode.Value -> ( Model, Cmd Msg )
+init flags_ =
+    case Decode.decodeValue decodeFlags flags_ of
+        Ok flags ->
+            ( Model flags NotAsked NotAsked False Nothing
+            , getItems flags.section flags.baseUrl
+            )
+
+        Err error ->
+            ( Model (Flags "" LeaguesSection False 10) NotAsked NotAsked False (Just (Decode.errorToString error))
+            , Cmd.none
+            )
 
 
 errorMessage : Http.Error -> String
@@ -156,21 +202,25 @@ errorMessage error =
             "Bad body response from server. Please contact Curling I/O support if the issue persists for more than a few minutes. Details: \"" ++ string ++ "\""
 
 
-getItems : String -> String -> Cmd Msg
+getItems : ItemsSection -> String -> Cmd Msg
 getItems section baseUrl =
     let
-        validSection =
-            case section of
-                "competitions" ->
-                    "competitions"
-                "products" ->
-                    "products"
-                _ ->
-                    "leagues"
         url =
-            baseUrl ++ "/api/" ++ validSection
+            baseUrl
+                ++ "/api/"
+                ++ (case section of
+                        LeaguesSection ->
+                            "leagues"
+
+                        CompetitionsSection ->
+                            "competitions"
+
+                        ProductsSection ->
+                            "products"
+                   )
     in
     RemoteData.Http.get url GotItems decodeItems
+
 
 
 -- UPDATE
@@ -189,10 +239,10 @@ update msg model =
             ( { model | fullScreen = not model.fullScreen }, Cmd.none )
 
         GotItems response ->
-            ( { model | items = response }, Cmd.none )
+            ( { model | items = response, errorMsg = Nothing }, Cmd.none )
 
         ReloadItems ->
-            (model, getItems model.flags.section model.flags.baseUrl )
+            ( model, getItems model.flags.section model.flags.baseUrl )
 
 
 
@@ -219,20 +269,14 @@ view model =
                 []
             )
         )
-        [ case model.items of
-            NotAsked ->
-                viewNotReady "Initializing..."
+        [ case model.errorMsg of
+            Just errorMsg ->
+                viewNotReady errorMsg
 
-            Loading ->
-                viewNotReady "Loading..."
-
-            Failure error ->
-                viewFetchError (errorMessage error)
-
-            Success items ->
-                case model.selectedEvent of
-                    Success event ->
-                        viewSelectedEvent event
+            Nothing ->
+                case model.items of
+                    NotAsked ->
+                        viewNotReady "Initializing..."
 
                     Loading ->
                         viewNotReady "Loading..."
@@ -240,8 +284,19 @@ view model =
                     Failure error ->
                         viewFetchError (errorMessage error)
 
-                    _ ->
-                        viewItems model items
+                    Success items ->
+                        case model.selectedEvent of
+                            Success event ->
+                                viewSelectedEvent event
+
+                            Loading ->
+                                viewNotReady "Loading..."
+
+                            Failure error ->
+                                viewFetchError (errorMessage error)
+
+                            _ ->
+                                viewItems model items
         ]
 
 
@@ -261,11 +316,23 @@ viewFetchError message =
 
 viewItems : Model -> List Item -> Html Msg
 viewItems { flags, fullScreen } items =
+    let
+        sectionTitle =
+            case flags.section of
+                LeaguesSection ->
+                    "Leagues"
+
+                CompetitionsSection ->
+                    "Competitions"
+
+                ProductsSection ->
+                    "Products"
+    in
     div
         [ class "p-3" ]
         [ div
             [ class "d-flex justify-content-between mb-2" ]
-            [ h5 [] [ text "Items" ]
+            [ h5 [] [ text sectionTitle ]
             , div [ class "text-right" ]
                 [ button [ class "btn btn-sm btn-primary mr-2", onClick ReloadItems ] [ text "Reload" ]
                 , button [ class "btn btn-sm btn-secondary", onClick ToggleFullScreen ]
@@ -283,15 +350,18 @@ viewItems { flags, fullScreen } items =
             [ class "table-responsive" ]
             [ table
                 [ class "table" ]
-                []
+                [ tr []
+                    [ th [] []
+                    ]
+                ]
             ]
         ]
 
 
-
 viewSelectedEvent : Event -> Html Msg
 viewSelectedEvent event =
-    div [] [ text "Event"]
+    div [] [ text "Event" ]
+
 
 
 -- SUBSCRIPTIONS
