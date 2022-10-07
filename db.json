@@ -4,9 +4,9 @@
     "domain": "demo.curling.io"
   },
   "leagues": [
-    { "id": 1, "name": "First League", "runs": "Sep 22, 2022 - Sep 25, 2022", "location": "RA Centre, Orrawa, Ontario", "registration_state": "open", "price": "$200.00" },
-    { "id": 2, "name": "Second League", "runs": "Sep 22, 2022 - Sep 25, 2022", "location": "RA Centre, Orrawa, Ontario", "registration_state": "closed", "price": null },
-    { "id": 3, "name": "Third League" },
+    { "id": 1, "name": "First League", "registration_state": "open", "price": "$200.00", "runs": "Sep 22, 2022 - Sep 25, 2022", "location": "RA Centre, Orrawa, Ontario" },
+    { "id": 2, "name": "Second League", "registration_state": "sold_out", "runs": "Sep 22, 2022 - Sep 25, 2022", "location": "RA Centre, Orrawa, Ontario" },
+    { "id": 3, "name": "Third League", "registration_state": "closed", "runs": "Sep 22, 2022 - Sep 25, 2022", "location": "RA Centre, Orrawa, Ontario" },
     { "id": 4, "name": "Fourth League" },
     { "id": 5, "name": "Fifth League" },
     { "id": 6, "name": "Sixth League" },
@@ -30,17 +30,17 @@
     { "id": 111, "name": "Eleventh Competition" }
   ],
   "products": [
-    { "id": 1, "name": "First Product" },
-    { "id": 2, "name": "Second Product" },
-    { "id": 3, "name": "Third Product" },
-    { "id": 4, "name": "Fourth Product" },
-    { "id": 5, "name": "Fifth Product" },
-    { "id": 6, "name": "Sixth Product" },
-    { "id": 7, "name": "Seventh Product" },
-    { "id": 8, "name": "Eighth Product" },
-    { "id": 9, "name": "Nineth Product" },
-    { "id": 10, "name": "Tenth Product" },
-    { "id": 11, "name": "Eleventh Product" }
+    { "id": 1, "name": "First Product", "registration_state": "open", "price": "$200.00" },
+    { "id": 2, "name": "Second Product", "registration_state": "sold_out" },
+    { "id": 3, "name": "Third Product", "registration_state": "closed" },
+    { "id": 4, "name": "Fourth Product", "registration_state": "closed" },
+    { "id": 5, "name": "Fifth Product", "registration_state": "closed" },
+    { "id": 6, "name": "Sixth Product", "registration_state": "closed" },
+    { "id": 7, "name": "Seventh Product", "registration_state": "closed" },
+    { "id": 8, "name": "Eighth Product", "registration_state": "closed" },
+    { "id": 9, "name": "Nineth Product", "registration_state": "closed" },
+    { "id": 10, "name": "Tenth Product", "registration_state": "closed" },
+    { "id": 11, "name": "Eleventh Product", "registration_state": "closed" }
   ],
   "events": [
     {

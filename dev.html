@@ -20,17 +20,15 @@
     <div id="results"></div>
   </div>
   <script>
-    var scoring = Elm.Scoring.init(
+    var scoring = Elm.Results.init(
       {
         node: document.getElementById("results"),
         flags: {
-          host: "http://localhost:3000", // For local dev with json-server only.
-          // host: "http://demo.curling.test:3000", // For local dev only.
-          // host: "https://demo.curling.io", // Your curling.io domain, E.g. "https://demo.curling.io"
+          baseUrl: "http://localhost:3000", // For local dev with json-server only.
+          // baseUrl: "http://demo.curling.test:3000", // For local dev only.
+          // baseUrl: "https://demo.curling.io", // Your curling.io domain, E.g. "https://demo.curling.io"
+          section: "leagues", // Can be "leagues", "competition", or "products". Will default to "leagues".
           registration: true, // Set to false if you don't want add to cart / register buttons.
-          leagues: true, // Set to false if you don't want to show leagues.
-          competitions: true, // Set to false if you don't want to show competitions.
-          products: true, // Set to false if you don't want to show products.
           pageSize: 10 // How many items (leagues, competitions, or products) should be shown per page.
         }
       }
