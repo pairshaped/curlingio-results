@@ -2,7 +2,7 @@ module Results exposing (..)
 
 import Browser
 import Html exposing (Html, a, button, div, h3, h5, h6, hr, input, label, option, p, select, span, table, tbody, td, text, th, thead, tr)
-import Html.Attributes exposing (class, classList, disabled, href, id, placeholder, property, selected, style, tabindex, title, type_, value)
+import Html.Attributes exposing (class, classList, disabled, href, id, placeholder, property, selected, style, tabindex, target, title, type_, value)
 import Html.Events exposing (onBlur, onClick, onFocus, onInput)
 import Html.Events.Extra exposing (onClickPreventDefault)
 import Http
@@ -27,6 +27,7 @@ type alias Model =
     , items : WebData (List Item)
     , selectedEvent : WebData Event
     , fullScreen : Bool
+    , search : String
     , errorMsg : Maybe String
     }
 
@@ -55,6 +56,7 @@ type alias Item =
     , noRegistrationMessage : Maybe String
     , price : Maybe String
     , purchaseUrl : Maybe String
+    , publishResults : Bool
     }
 
 
@@ -145,6 +147,7 @@ decodeItem =
         |> optional "no_registration_message" (nullable string) Nothing
         |> optional "price" (nullable string) Nothing
         |> optional "url" (nullable string) Nothing
+        |> optional "publish_results" bool False
 
 
 
@@ -155,12 +158,12 @@ init : Decode.Value -> ( Model, Cmd Msg )
 init flags_ =
     case Decode.decodeValue decodeFlags flags_ of
         Ok flags ->
-            ( Model flags NotAsked NotAsked False Nothing
+            ( Model flags NotAsked NotAsked False "" Nothing
             , getItems flags
             )
 
         Err error ->
-            ( Model (Flags "" "" LeaguesSection False 10) NotAsked NotAsked False (Just (Decode.errorToString error))
+            ( Model (Flags "" "" LeaguesSection False 10) NotAsked NotAsked False "" (Just (Decode.errorToString error))
             , Cmd.none
             )
 
@@ -235,6 +238,8 @@ type Msg
     = ToggleFullScreen
     | GotItems (WebData (List Item))
     | ReloadItems
+    | SelectEvent Int
+    | UpdateSearch String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -248,6 +253,12 @@ update msg model =
 
         ReloadItems ->
             ( model, getItems model.flags )
+
+        SelectEvent id ->
+            ( model, Cmd.none )
+
+        UpdateSearch val ->
+            ( { model | search = String.toLower val }, Cmd.none )
 
 
 
@@ -320,8 +331,16 @@ viewFetchError message =
 
 
 viewItems : Model -> List Item -> Html Msg
-viewItems { flags, fullScreen } items =
+viewItems { flags, fullScreen, search } items =
     let
+        filteredItems =
+            case String.trim search of
+                "" ->
+                    items
+
+                _ ->
+                    List.filter (\i -> String.contains search (String.toLower i.name)) items
+
         sectionTitle =
             case flags.section of
                 LeaguesSection ->
@@ -332,12 +351,63 @@ viewItems { flags, fullScreen } items =
 
                 ProductsSection ->
                     "Products"
+
+        viewItem item =
+            tr []
+                ([ td []
+                    [ div [] [ text item.name ]
+                    , if item.publishResults then
+                        a [ href ("#" ++ String.fromInt item.id), onClick (SelectEvent item.id) ] [ text "Results" ]
+
+                      else
+                        text ""
+                    ]
+                 ]
+                    ++ (if flags.registration then
+                            [ td [] [ text (Maybe.withDefault "" item.summary) ]
+                            , td [ class "text-right" ]
+                                [ case item.noRegistrationMessage of
+                                    Just msg ->
+                                        case item.purchaseUrl of
+                                            Just url ->
+                                                a [ href url, target "_blank" ] [ text (msg ++ " →") ]
+
+                                            Nothing ->
+                                                text msg
+
+                                    Nothing ->
+                                        case ( item.price, item.purchaseUrl ) of
+                                            ( Just price, Just url ) ->
+                                                div []
+                                                    [ div [ class "mb-1" ] [ text price ]
+                                                    , a [ href url, target "_blank" ] [ text "Register →" ]
+                                                    ]
+
+                                            _ ->
+                                                text ""
+                                ]
+                            ]
+
+                        else
+                            [ td [] [ text (Maybe.withDefault "" item.occursOn) ]
+                            , td [] [ text (Maybe.withDefault "" item.location) ]
+                            ]
+                       )
+                )
     in
     div
         [ class "p-3" ]
         [ div
             [ class "d-flex justify-content-between" ]
-            [ h5 [] [ text sectionTitle ]
+            [ div [ class "form-group" ]
+                [ input
+                    [ class "form-control"
+                    , placeholder "Search"
+                    , value search
+                    , onInput UpdateSearch
+                    ]
+                    []
+                ]
 
             -- I don't think we want the user initiating reloads, unless the initial load fails maybe, but even then I think
             -- we're better off having a ticker doing reloads every 30s if they're on an event.
@@ -359,10 +429,7 @@ viewItems { flags, fullScreen } items =
             [ class "table-responsive" ]
             [ table
                 [ class "table" ]
-                [ tr []
-                    [ th [] []
-                    ]
-                ]
+                (List.map viewItem filteredItems)
             ]
         ]
 
