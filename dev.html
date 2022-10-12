@@ -31,9 +31,9 @@
       {
         node: document.getElementById("results"),
         flags: {
-          baseUrl: "http://localhost:3000", // For local dev with json-server only.
-          // baseUrl: "http://demo.curling.test:3000", // For local dev only.
-          // baseUrl: "https://demo.curling.io", // Your curling.io domain, E.g. "https://demo.curling.io"
+          baseUrl: "http://api.curling.test:3000", // For local dev only.
+          // baseUrl: "https://api-curlingio.global.ssl.fastly.net", // Required. Should always be "https://api.curling.io"
+          apiKey: "FV7HeT0-f_M", // Required. You can find this in Curling I/O under your Club's Settings section (look in the top right dropdown menu).
           section: "leagues", // Can be "leagues", "competition", or "products". Will default to "leagues" if omitted or invalid value passed.
           registration: true, // Set to false if you don't want add to cart / register buttons.
           pageSize: 10 // How many items (leagues, competitions, or products) should be shown per page.

@@ -33,6 +33,7 @@ type alias Model =
 
 type alias Flags =
     { baseUrl : String
+    , apiKey : String
     , section : ItemsSection
     , registration : Bool
     , pageSize : Int
@@ -48,17 +49,13 @@ type ItemsSection
 type alias Item =
     { id : Int
     , name : String
-    , registrationState : Maybe RegistrationState
-    , price : Maybe String
-    , runs : Maybe String
+    , summary : Maybe String
+    , occursOn : Maybe String
     , location : Maybe String
+    , noRegistrationMessage : Maybe String
+    , price : Maybe String
+    , purchaseUrl : Maybe String
     }
-
-
-type RegistrationState
-    = RegistrationOpen
-    | RegistrationSoldOut
-    | RegistrationClosed
 
 
 type alias Event =
@@ -108,7 +105,8 @@ isLocalMode url =
 decodeFlags : Decoder Flags
 decodeFlags =
     Decode.succeed Flags
-        |> required "baseUrl" string
+        |> optional "baseUrl" string "https://api-curlingio.global.ssl.fastly.net"
+        |> required "apiKey" string
         |> optional "section" decodeSection LeaguesSection
         |> optional "registration" bool False
         |> optional "pageSize" int 10
@@ -141,30 +139,12 @@ decodeItem =
     Decode.succeed Item
         |> required "id" int
         |> required "name" string
-        |> optional "registration_state" decodeRegistrationState Nothing
-        |> optional "price" (nullable string) Nothing
-        |> optional "runs" (nullable string) Nothing
+        |> optional "summary" (nullable string) Nothing
+        |> optional "occurs_on" (nullable string) Nothing
         |> optional "location" (nullable string) Nothing
-
-
-decodeRegistrationState : Decoder (Maybe RegistrationState)
-decodeRegistrationState =
-    Decode.string
-        |> Decode.andThen
-            (\str ->
-                case str of
-                    "open" ->
-                        Decode.succeed (Just RegistrationOpen)
-
-                    "sold_out" ->
-                        Decode.succeed (Just RegistrationSoldOut)
-
-                    "closed" ->
-                        Decode.succeed (Just RegistrationClosed)
-
-                    _ ->
-                        Decode.succeed Nothing
-            )
+        |> optional "no_registration_message" (nullable string) Nothing
+        |> optional "price" (nullable string) Nothing
+        |> optional "url" (nullable string) Nothing
 
 
 
@@ -176,11 +156,11 @@ init flags_ =
     case Decode.decodeValue decodeFlags flags_ of
         Ok flags ->
             ( Model flags NotAsked NotAsked False Nothing
-            , getItems flags.section flags.baseUrl
+            , getItems flags
             )
 
         Err error ->
-            ( Model (Flags "" LeaguesSection False 10) NotAsked NotAsked False (Just (Decode.errorToString error))
+            ( Model (Flags "" "" LeaguesSection False 10) NotAsked NotAsked False (Just (Decode.errorToString error))
             , Cmd.none
             )
 
@@ -204,12 +184,14 @@ errorMessage error =
             "Bad body response from server. Please contact Curling I/O support if the issue persists for more than a few minutes. Details: \"" ++ string ++ "\""
 
 
-getItems : ItemsSection -> String -> Cmd Msg
-getItems section baseUrl =
+getItems : Flags -> Cmd Msg
+getItems { section, baseUrl, apiKey } =
     let
         url =
             baseUrl
-                ++ "/api/"
+                ++ "/clubs/"
+                ++ apiKey
+                ++ "/"
                 ++ (case section of
                         LeaguesSection ->
                             "leagues"
@@ -262,7 +244,7 @@ update msg model =
             ( { model | items = response, errorMsg = Nothing }, Cmd.none )
 
         ReloadItems ->
-            ( model, getItems model.flags.section model.flags.baseUrl )
+            ( model, getItems model.flags )
 
 
 
