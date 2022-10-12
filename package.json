@@ -1,14 +1,10 @@
 {
   "scripts": {
-    "start": "nf start",
-    "client": "elm-live src/Results.elm --start-page=dev.html --open -- --output=dev.js --debug",
-    "server": "json-server -w db.json -d 50 --routes routes.json"
+    "start": "elm-live src/Results.elm --start-page=dev.html --open -- --output=dev.js --debug"
   },
   "dependencies": {
     "elm": "^0.19.1-5",
     "elm-live": "github:wking-io/elm-live#e317b4914c471addea7243c47f28dcebe27a5d36",
-    "foreman": "^3.0.1",
-    "json-server": "^0.17.0",
     "uglify-js": "^3.15.5"
   }
 }
