@@ -1,21 +1,16 @@
-module Results exposing (..)
+module Results exposing (init)
 
 import Browser
-import Html exposing (Html, a, button, div, h3, h5, h6, hr, input, label, option, p, select, small, span, table, tbody, td, text, th, thead, tr)
-import Html.Attributes exposing (class, classList, disabled, href, id, placeholder, property, selected, style, tabindex, target, title, type_, value)
-import Html.Events exposing (onBlur, onClick, onFocus, onInput)
-import Html.Events.Extra exposing (onClickPreventDefault)
+import Html exposing (Html, a, button, div, h3, input, label, p, small, table, td, text, tr)
+import Html.Attributes exposing (class, href, id, placeholder, style, target, value)
+import Html.Events exposing (onClick, onInput)
 import Http
-import Json.Decode as Decode exposing (Decoder, array, bool, float, int, list, nullable, string)
-import Json.Decode.Pipeline exposing (hardcoded, optional, required)
-import List.Extra
-import Process
+import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
+import Json.Decode.Pipeline exposing (optional, required)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Svg
 import Svg.Attributes
-import Task
-import Time
 
 
 
@@ -33,7 +28,7 @@ type alias Model =
 
 
 type alias Flags =
-    { baseUrl : String
+    { host : Maybe String
     , apiKey : String
     , section : ItemsSection
     , registration : Bool
@@ -203,7 +198,7 @@ decodeFlags =
                     )
     in
     Decode.succeed Flags
-        |> optional "baseUrl" string "https://api-curlingio.global.ssl.fastly.net"
+        |> optional "host" (nullable string) Nothing
         |> required "apiKey" string
         |> optional "section" decodeSection LeaguesSection
         |> optional "registration" bool False
@@ -441,7 +436,7 @@ init flags_ =
             )
 
         Err error ->
-            ( Model (Flags "" "" LeaguesSection False 10 Nothing) NotAsked NotAsked False "" (Just (Decode.errorToString error))
+            ( Model (Flags Nothing "" LeaguesSection False 10 Nothing) NotAsked NotAsked False "" (Just (Decode.errorToString error))
             , Cmd.none
             )
 
@@ -466,7 +461,26 @@ errorMessage error =
 
 
 baseClubUrl : Flags -> String
-baseClubUrl { baseUrl, apiKey } =
+baseClubUrl { host, apiKey } =
+    let
+        devUrl =
+            "http://api.curling.test:3000"
+
+        productionUrl =
+            "https://api-curlingio.global.ssl.fastly.net"
+
+        baseUrl =
+            case host of
+                Just h ->
+                    if String.contains "localhost" h || String.contains ".curling.test" h then
+                        devUrl
+
+                    else
+                        productionUrl
+
+                Nothing ->
+                    productionUrl
+    in
     baseUrl ++ "/clubs/" ++ apiKey ++ "/"
 
 
@@ -602,7 +616,7 @@ view model =
             Nothing ->
                 case model.event of
                     Success event ->
-                        viewSelectedEvent event
+                        viewEvent event
 
                     Loading ->
                         viewNotReady "Loading..."
@@ -743,8 +757,8 @@ viewItems { flags, fullScreen, search } items =
         ]
 
 
-viewSelectedEvent : Event -> Html Msg
-viewSelectedEvent event =
+viewEvent : Event -> Html Msg
+viewEvent event =
     div [ class "p-3" ]
         [ h3 [] [ text event.name ]
         ]
