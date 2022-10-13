@@ -1,12 +1,12 @@
 module Results exposing (..)
 
 import Browser
-import Html exposing (Html, a, button, div, h3, h5, h6, hr, input, label, option, p, select, span, table, tbody, td, text, th, thead, tr)
+import Html exposing (Html, a, button, div, h3, h5, h6, hr, input, label, option, p, select, small, span, table, tbody, td, text, th, thead, tr)
 import Html.Attributes exposing (class, classList, disabled, href, id, placeholder, property, selected, style, tabindex, target, title, type_, value)
 import Html.Events exposing (onBlur, onClick, onFocus, onInput)
 import Html.Events.Extra exposing (onClickPreventDefault)
 import Http
-import Json.Decode as Decode exposing (Decoder, array, bool, int, list, nullable, string)
+import Json.Decode as Decode exposing (Decoder, array, bool, float, int, list, nullable, string)
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import List.Extra
 import Process
@@ -38,6 +38,7 @@ type alias Flags =
     , section : ItemsSection
     , registration : Bool
     , pageSize : Int
+    , eventId : Maybe Int
     }
 
 
@@ -61,31 +62,102 @@ type alias Item =
 
 
 type alias Event =
-    { stages : List Stage
+    { id : Int
+    , name : String
+    , summary : Maybe String
+    , startsOn : String
+    , endsOn : String
+    , endScoresEnabled : Bool
+    , shotByShotEnabled : Bool
+    , numberOfEnds : Int
+    , topRock : String
+    , botRock : String
+    , sheetNames : List String
+    , teams : List Team
+    , stages : List Stage
     , draws : List Draw
     , games : List Game
     }
 
 
+type alias Team =
+    { id : Int
+    , name : String
+    , shortName : String
+    , lineup : List TeamCurler
+    }
+
+
+type alias TeamCurler =
+    { curlerId : Int
+    , position : TeamPosition
+    , skip : Bool
+    , name : String
+    , delivery : Maybe RockDelivery
+    , clubName : Maybe String
+    , clubCity : Maybe String
+    }
+
+
+type TeamPosition
+    = TeamFourth
+    | TeamThird
+    | TeamSecond
+    | TeamFirst
+    | TeamAlternate
+
+
+type RockDelivery
+    = RockDeliveryRight
+    | RockDeliveryLeft
+
+
 type alias Stage =
     { id : Int
-    , label : String
+    , stageType : StageType
+    , name : String
+    , rankingMethod : Maybe RankingMethod
+    , pointsPerWin : Float
+    , pointsPerTie : Float
+    , pointsPerLoss : Float
+    , pointsPerEnd : Float
+    , tiebreaker : Tiebreaker
     }
+
+
+type StageType
+    = RoundRobin
+    | Bracket
+
+
+type RankingMethod
+    = PointsRanking
+    | SkinsRanking
+    | ScoresRanking
+
+
+type Tiebreaker
+    = TiebreakerNone
+    | TiebreakerHeadToHead
+    | TiebreakerHeadToHeadThenSkillRank
+    | TiebreakerScores
 
 
 type alias Draw =
     { id : Int
-    , label : String
     , startsAt : String
+    , label : String
+    , attendance : Maybe Int
+    , drawSheets : List String
     }
 
 
 type alias Game =
     { id : String
-    , drawId : Int
-    , sheet : Int
     , name : String
+    , stageName : String
     , state : GameState
+    , sides : List Side
     }
 
 
@@ -93,6 +165,13 @@ type GameState
     = GamePending
     | GameActive
     | GameComplete
+
+
+type alias Side =
+    { teamId : Maybe Int
+    , topRock : Bool
+    , firstHammer : Bool
+    }
 
 
 
@@ -106,29 +185,30 @@ isLocalMode url =
 
 decodeFlags : Decoder Flags
 decodeFlags =
+    let
+        decodeSection : Decoder ItemsSection
+        decodeSection =
+            string
+                |> Decode.andThen
+                    (\str ->
+                        case String.toLower str of
+                            "competitions" ->
+                                Decode.succeed CompetitionsSection
+
+                            "products" ->
+                                Decode.succeed ProductsSection
+
+                            _ ->
+                                Decode.succeed LeaguesSection
+                    )
+    in
     Decode.succeed Flags
         |> optional "baseUrl" string "https://api-curlingio.global.ssl.fastly.net"
         |> required "apiKey" string
         |> optional "section" decodeSection LeaguesSection
         |> optional "registration" bool False
         |> optional "pageSize" int 10
-
-
-decodeSection : Decoder ItemsSection
-decodeSection =
-    Decode.string
-        |> Decode.andThen
-            (\str ->
-                case str of
-                    "competitions" ->
-                        Decode.succeed CompetitionsSection
-
-                    "products" ->
-                        Decode.succeed ProductsSection
-
-                    _ ->
-                        Decode.succeed LeaguesSection
-            )
+        |> optional "eventId" (nullable int) Nothing
 
 
 decodeItems : Decoder (List Item)
@@ -150,6 +230,191 @@ decodeItem =
         |> optional "publish_results" bool False
 
 
+decodeEvent : Decoder Event
+decodeEvent =
+    Decode.succeed Event
+        |> required "id" int
+        |> required "name" string
+        |> optional "summary" (nullable string) Nothing
+        |> required "starts_on" string
+        |> required "ends_on" string
+        |> optional "end_scores_enabled" bool False
+        |> optional "shot_by_shot_enabled" bool False
+        |> optional "number_of_ends" int 10
+        |> optional "top_rock" string "red"
+        |> optional "bot_rock" string "yellow"
+        |> required "sheet_names" (list string)
+        |> optional "teams" (list decodeTeam) []
+        |> optional "stages" (list decodeStage) []
+        |> optional "draws" (list decodeDraw) []
+        |> optional "games" (list decodeGame) []
+
+
+decodeTeam : Decoder Team
+decodeTeam =
+    Decode.succeed Team
+        |> required "id" int
+        |> required "name" string
+        |> required "short_name" string
+        |> optional "lineup" (list decodeTeamCurler) []
+
+
+decodeTeamCurler : Decoder TeamCurler
+decodeTeamCurler =
+    let
+        decodeTeamPosition : Decoder TeamPosition
+        decodeTeamPosition =
+            string
+                |> Decode.andThen
+                    (\str ->
+                        case String.toLower str of
+                            "fourth" ->
+                                Decode.succeed TeamFourth
+
+                            "third" ->
+                                Decode.succeed TeamThird
+
+                            "second" ->
+                                Decode.succeed TeamSecond
+
+                            "first" ->
+                                Decode.succeed TeamFirst
+
+                            _ ->
+                                Decode.succeed TeamAlternate
+                    )
+
+        decodeDelivery : Decoder RockDelivery
+        decodeDelivery =
+            string
+                |> Decode.andThen
+                    (\str ->
+                        case String.toLower str of
+                            "left" ->
+                                Decode.succeed RockDeliveryLeft
+
+                            _ ->
+                                Decode.succeed RockDeliveryRight
+                    )
+    in
+    Decode.succeed TeamCurler
+        |> required "curler_id" int
+        |> required "position" decodeTeamPosition
+        |> optional "skip" bool False
+        |> required "name" string
+        |> optional "delivery" (nullable decodeDelivery) Nothing
+        |> optional "club_name" (nullable string) Nothing
+        |> optional "club_city" (nullable string) Nothing
+
+
+decodeStage : Decoder Stage
+decodeStage =
+    let
+        decodeStageType : Decoder StageType
+        decodeStageType =
+            string
+                |> Decode.andThen
+                    (\str ->
+                        case String.toLower str of
+                            "bracket" ->
+                                Decode.succeed Bracket
+
+                            _ ->
+                                Decode.succeed RoundRobin
+                    )
+
+        decodeRankingMethod : Decoder RankingMethod
+        decodeRankingMethod =
+            string
+                |> Decode.andThen
+                    (\str ->
+                        case String.toLower str of
+                            "skins" ->
+                                Decode.succeed SkinsRanking
+
+                            "scores" ->
+                                Decode.succeed ScoresRanking
+
+                            _ ->
+                                Decode.succeed PointsRanking
+                    )
+
+        decodeTiebreaker : Decoder Tiebreaker
+        decodeTiebreaker =
+            string
+                |> Decode.andThen
+                    (\str ->
+                        case String.toLower str of
+                            "head_to_head" ->
+                                Decode.succeed TiebreakerHeadToHead
+
+                            "head_to_head_then_skill_rank" ->
+                                Decode.succeed TiebreakerHeadToHeadThenSkillRank
+
+                            "scores" ->
+                                Decode.succeed TiebreakerScores
+
+                            _ ->
+                                Decode.succeed TiebreakerNone
+                    )
+    in
+    Decode.succeed Stage
+        |> required "id" int
+        |> required "type" decodeStageType
+        |> required "name" string
+        |> optional "ranking_method" (nullable decodeRankingMethod) Nothing
+        |> optional "points_per_win" float 0
+        |> optional "points_per_tie" float 0
+        |> optional "points_per_loss" float 0
+        |> optional "points_per_end" float 0
+        |> optional "tiebreaker" decodeTiebreaker TiebreakerNone
+
+
+decodeDraw : Decoder Draw
+decodeDraw =
+    Decode.succeed Draw
+        |> required "id" int
+        |> required "starts_at" string
+        |> required "label" string
+        |> optional "attendance" (nullable int) Nothing
+        |> required "draw_sheets" (list string)
+
+
+decodeGame : Decoder Game
+decodeGame =
+    let
+        decodeGameState : Decoder GameState
+        decodeGameState =
+            string
+                |> Decode.andThen
+                    (\str ->
+                        case String.toLower str of
+                            "active" ->
+                                Decode.succeed GameActive
+
+                            "complete" ->
+                                Decode.succeed GameComplete
+
+                            _ ->
+                                Decode.succeed GamePending
+                    )
+    in
+    Decode.succeed Game
+        |> required "id" string
+        |> required "name" string
+        |> required "stage_name" string
+        |> required "state" decodeGameState
+        |> required "game_positions" (list decodeSide)
+
+
+decodeSide : Decoder Side
+decodeSide =
+    Decode.succeed Side
+        |> optional "team_id" (nullable int) Nothing
+        |> optional "top_rock" bool False
+        |> optional "first_hammer" bool False
+
+
 
 -- HELPERS
 
@@ -163,7 +428,7 @@ init flags_ =
             )
 
         Err error ->
-            ( Model (Flags "" "" LeaguesSection False 10) NotAsked NotAsked False "" (Just (Decode.errorToString error))
+            ( Model (Flags "" "" LeaguesSection False 10 Nothing) NotAsked NotAsked False "" (Just (Decode.errorToString error))
             , Cmd.none
             )
 
@@ -187,15 +452,17 @@ errorMessage error =
             "Bad body response from server. Please contact Curling I/O support if the issue persists for more than a few minutes. Details: \"" ++ string ++ "\""
 
 
+baseClubUrl : Flags -> String
+baseClubUrl { baseUrl, apiKey } =
+    baseUrl ++ "/clubs/" ++ apiKey ++ "/"
+
+
 getItems : Flags -> Cmd Msg
-getItems { section, baseUrl, apiKey } =
+getItems flags =
     let
         url =
-            baseUrl
-                ++ "/clubs/"
-                ++ apiKey
-                ++ "/"
-                ++ (case section of
+            baseClubUrl flags
+                ++ (case flags.section of
                         LeaguesSection ->
                             "leagues"
 
@@ -207,6 +474,17 @@ getItems { section, baseUrl, apiKey } =
                    )
     in
     RemoteData.Http.get url GotItems decodeItems
+
+
+getEvent : Flags -> Int -> Cmd Msg
+getEvent flags id =
+    let
+        url =
+            baseClubUrl flags
+                ++ "events/"
+                ++ String.fromInt id
+    in
+    RemoteData.Http.get url GotEvent decodeEvent
 
 
 
@@ -238,8 +516,9 @@ type Msg
     = ToggleFullScreen
     | GotItems (WebData (List Item))
     | ReloadItems
-    | SelectEvent Int
     | UpdateSearch String
+    | SelectEvent Int
+    | GotEvent (WebData Event)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -254,11 +533,14 @@ update msg model =
         ReloadItems ->
             ( model, getItems model.flags )
 
-        SelectEvent id ->
-            ( model, Cmd.none )
-
         UpdateSearch val ->
             ( { model | search = String.toLower val }, Cmd.none )
+
+        SelectEvent id ->
+            ( model, getEvent model.flags id )
+
+        GotEvent response ->
+            ( { model | selectedEvent = response }, Cmd.none )
 
 
 
@@ -339,7 +621,18 @@ viewItems { flags, fullScreen, search } items =
                     items
 
                 _ ->
-                    List.filter (\i -> String.contains search (String.toLower i.name)) items
+                    let
+                        matches item =
+                            String.contains search (String.toLower item.name)
+                                || (case item.location of
+                                        Just location ->
+                                            String.contains search (String.toLower location)
+
+                                        Nothing ->
+                                            False
+                                   )
+                    in
+                    List.filter matches items
 
         sectionTitle =
             case flags.section of
@@ -355,17 +648,17 @@ viewItems { flags, fullScreen, search } items =
         viewItem item =
             tr []
                 ([ td []
-                    [ div [] [ text item.name ]
-                    , if item.publishResults then
-                        a [ href ("#" ++ String.fromInt item.id), onClick (SelectEvent item.id) ] [ text "Results" ]
+                    [ if item.publishResults then
+                        a [ href ("#" ++ String.fromInt item.id), onClick (SelectEvent item.id) ] [ text item.name ]
 
                       else
-                        text ""
+                        text item.name
+                    , small [ class "d-block" ] [ text (Maybe.withDefault "" item.summary) ]
                     ]
+                 , td [] [ text (Maybe.withDefault "" item.occursOn) ]
                  ]
                     ++ (if flags.registration then
-                            [ td [] [ text (Maybe.withDefault "" item.summary) ]
-                            , td [ class "text-right" ]
+                            [ td [ class "text-right" ]
                                 [ case item.noRegistrationMessage of
                                     Just msg ->
                                         case item.purchaseUrl of
@@ -379,8 +672,8 @@ viewItems { flags, fullScreen, search } items =
                                         case ( item.price, item.purchaseUrl ) of
                                             ( Just price, Just url ) ->
                                                 div []
-                                                    [ div [ class "mb-1" ] [ text price ]
-                                                    , a [ href url, target "_blank" ] [ text "Register →" ]
+                                                    [ a [ href url, target "_blank" ] [ text "Register →" ]
+                                                    , small [ class "d-block" ] [ text price ]
                                                     ]
 
                                             _ ->
@@ -389,8 +682,7 @@ viewItems { flags, fullScreen, search } items =
                             ]
 
                         else
-                            [ td [] [ text (Maybe.withDefault "" item.occursOn) ]
-                            , td [] [ text (Maybe.withDefault "" item.location) ]
+                            [ td [] [ text (Maybe.withDefault "" item.location) ]
                             ]
                        )
                 )
