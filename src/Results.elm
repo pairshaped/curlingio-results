@@ -25,7 +25,7 @@ import Time
 type alias Model =
     { flags : Flags
     , items : WebData (List Item)
-    , selectedEvent : WebData Event
+    , event : WebData Event
     , fullScreen : Bool
     , search : String
     , errorMsg : Maybe String
@@ -38,7 +38,7 @@ type alias Flags =
     , section : ItemsSection
     , registration : Bool
     , pageSize : Int
-    , eventId : Maybe Int
+    , eventId : Maybe String
     }
 
 
@@ -208,7 +208,7 @@ decodeFlags =
         |> optional "section" decodeSection LeaguesSection
         |> optional "registration" bool False
         |> optional "pageSize" int 10
-        |> optional "eventId" (nullable int) Nothing
+        |> optional "eventId" (nullable string) Nothing
 
 
 decodeItems : Decoder (List Item)
@@ -424,7 +424,20 @@ init flags_ =
     case Decode.decodeValue decodeFlags flags_ of
         Ok flags ->
             ( Model flags NotAsked NotAsked False "" Nothing
-            , getItems flags
+            , case flags.eventId of
+                Just eventId ->
+                    -- It's kind of annoying, but document.location.hash is always a string, and it will contain the #,
+                    -- To keep our flag setting simple (eventId: document.location.hash), we replace the # and concert to an integer in elm.
+                    -- I'd rather do this in the flags decoder, but I'm not sure how to yet.
+                    case String.toInt (String.replace "#" "" eventId) of
+                        Just id ->
+                            getEvent flags id
+
+                        Nothing ->
+                            getItems flags
+
+                Nothing ->
+                    getItems flags
             )
 
         Err error ->
@@ -540,7 +553,7 @@ update msg model =
             ( model, getEvent model.flags id )
 
         GotEvent response ->
-            ( { model | selectedEvent = response }, Cmd.none )
+            ( { model | event = response }, Cmd.none )
 
 
 
@@ -551,7 +564,9 @@ view : Model -> Html Msg
 view model =
     div
         (List.append
-            [ id "curlingio__results" ]
+            [ id "curlingio__results"
+            , style "position" "relative"
+            ]
             (if model.fullScreen then
                 [ style "width" "100%"
                 , style "height" "100%"
@@ -567,14 +582,27 @@ view model =
                 []
             )
         )
-        [ case model.errorMsg of
+        [ div
+            [ style "cursor" "pointer"
+            , style "position" "absolute"
+            , style "top" "10px"
+            , style "right" "10px"
+            , onClick ToggleFullScreen
+            ]
+            [ if model.fullScreen then
+                svgExitFullScreen
+
+              else
+                svgFullScreen
+            ]
+        , case model.errorMsg of
             Just errorMsg ->
                 viewNotReady errorMsg
 
             Nothing ->
-                case model.items of
-                    NotAsked ->
-                        viewNotReady "Initializing..."
+                case model.event of
+                    Success event ->
+                        viewSelectedEvent event
 
                     Loading ->
                         viewNotReady "Loading..."
@@ -582,10 +610,10 @@ view model =
                     Failure error ->
                         viewFetchError (errorMessage error)
 
-                    Success items ->
-                        case model.selectedEvent of
-                            Success event ->
-                                viewSelectedEvent event
+                    NotAsked ->
+                        case model.items of
+                            NotAsked ->
+                                viewNotReady "Initializing..."
 
                             Loading ->
                                 viewNotReady "Loading..."
@@ -593,7 +621,7 @@ view model =
                             Failure error ->
                                 viewFetchError (errorMessage error)
 
-                            _ ->
+                            Success items ->
                                 viewItems model items
         ]
 
@@ -705,17 +733,6 @@ viewItems { flags, fullScreen, search } items =
             -- we're better off having a ticker doing reloads every 30s if they're on an event.
             -- , div [ class "d-flex text-right" ]
             -- [ button [ class "btn btn-sm btn-primary mr-2", onClick ReloadItems ] [ text "Reload" ]
-            , div
-                [ style "cursor" "pointer"
-                , style "margin-right" "-10px"
-                , onClick ToggleFullScreen
-                ]
-                [ if fullScreen then
-                    svgExitFullScreen
-
-                  else
-                    svgFullScreen
-                ]
             ]
         , div
             [ class "table-responsive" ]
@@ -728,7 +745,9 @@ viewItems { flags, fullScreen, search } items =
 
 viewSelectedEvent : Event -> Html Msg
 viewSelectedEvent event =
-    div [] [ text "Event" ]
+    div [ class "p-3" ]
+        [ h3 [] [ text event.name ]
+        ]
 
 
 
