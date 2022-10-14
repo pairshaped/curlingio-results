@@ -31,12 +31,14 @@
       {
         node: document.getElementById("results"),
         flags: {
-          host: document.location.host,
+          host: document.location.host, // Let's us make slight behavioural changes when hosted offsite versus within your curling.io site.
+          hash: document.location.hash, // This will allow users to bookmark and share specific event links.
           apiKey: "FV7HeT0-f_M", // Required. You can find this in Curling I/O under your Club's Settings section (look in the top right dropdown menu).
           section: "leagues", // Can be "leagues", "competition", or "products". Will default to "leagues" if omitted or an invalid value is passed.
           registration: true, // Set to false if you don't want add to cart / register buttons.
           pageSize: 10, // How many items (leagues, competitions, or products) should be shown per page.
-          eventId: document.location.hash // If you want to load directly into a specific event.
+          excludeEventSections: ["Details", "Notes", "Registrations", "Spares"], // Event sections you don't want to show up. Possible values: "Details", "Notes", "Registrations", "Spares", "Schedule", "Standings", "Teams", "Reports"
+          // eventId: 1234 // If you only want to show one specific event, enter it's ID here.
         }
       }
     )

@@ -1,12 +1,12 @@
 module Results exposing (init)
 
 import Browser
-import Html exposing (Html, a, button, div, h3, input, label, p, small, table, td, text, tr)
-import Html.Attributes exposing (class, href, id, placeholder, style, target, value)
+import Html exposing (Html, a, button, div, h3, input, label, li, p, small, table, td, text, tr, ul)
+import Html.Attributes exposing (class, classList, href, id, placeholder, style, target, value)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
-import Json.Decode.Pipeline exposing (optional, required)
+import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Svg
@@ -19,21 +19,24 @@ import Svg.Attributes
 
 type alias Model =
     { flags : Flags
-    , items : WebData (List Item)
-    , event : WebData Event
     , fullScreen : Bool
+    , items : WebData (List Item)
     , search : String
+    , event : WebData Event
+    , onEventSection : Maybe String
     , errorMsg : Maybe String
     }
 
 
 type alias Flags =
     { host : Maybe String
+    , hash : Maybe String
     , apiKey : String
     , section : ItemsSection
     , registration : Bool
     , pageSize : Int
-    , eventId : Maybe String
+    , excludeEventSections : List String
+    , eventId : Maybe Int
     }
 
 
@@ -73,6 +76,17 @@ type alias Event =
     , draws : List Draw
     , games : List Game
     }
+
+
+type EventSection
+    = EventSectionDetails
+    | EventSectionNotes
+    | EventSectionRegistrations
+    | EventSectionSpares
+    | EventSectionTeams
+    | EventSectionSchedule
+    | EventSectionStandings
+    | EventSectionReports
 
 
 type alias Team =
@@ -199,11 +213,13 @@ decodeFlags =
     in
     Decode.succeed Flags
         |> optional "host" (nullable string) Nothing
+        |> optional "hash" (nullable string) Nothing
         |> required "apiKey" string
         |> optional "section" decodeSection LeaguesSection
         |> optional "registration" bool False
         |> optional "pageSize" int 10
-        |> optional "eventId" (nullable string) Nothing
+        |> optional "excludeEventSections" (list string) []
+        |> optional "eventId" (nullable int) Nothing
 
 
 decodeItems : Decoder (List Item)
@@ -418,25 +434,30 @@ init : Decode.Value -> ( Model, Cmd Msg )
 init flags_ =
     case Decode.decodeValue decodeFlags flags_ of
         Ok flags ->
-            ( Model flags NotAsked NotAsked False "" Nothing
+            ( Model flags False NotAsked "" NotAsked Nothing Nothing
             , case flags.eventId of
                 Just eventId ->
-                    -- It's kind of annoying, but document.location.hash is always a string, and it will contain the #,
-                    -- To keep our flag setting simple (eventId: document.location.hash), we replace the # and concert to an integer in elm.
-                    -- I'd rather do this in the flags decoder, but I'm not sure how to yet.
-                    case String.toInt (String.replace "#" "" eventId) of
-                        Just id ->
-                            getEvent flags id
+                    getEvent flags eventId
+
+                Nothing ->
+                    case flags.hash of
+                        -- It's kind of annoying, but document.location.hash is always a string, and it will contain the #,
+                        -- To keep our flag setting simple (eventId: document.location.hash), we replace the # and concert to an integer in elm.
+                        -- I'd rather do this in the flags decoder, but I'm not sure how to yet.
+                        Just hash ->
+                            case String.toInt (String.replace "#" "" hash) of
+                                Just eventId ->
+                                    getEvent flags eventId
+
+                                Nothing ->
+                                    getItems flags
 
                         Nothing ->
                             getItems flags
-
-                Nothing ->
-                    getItems flags
             )
 
         Err error ->
-            ( Model (Flags Nothing "" LeaguesSection False 10 Nothing) NotAsked NotAsked False "" (Just (Decode.errorToString error))
+            ( Model (Flags Nothing Nothing "" LeaguesSection False 10 [] Nothing) False NotAsked "" NotAsked Nothing (Just (Decode.errorToString error))
             , Cmd.none
             )
 
@@ -514,6 +535,16 @@ getEvent flags id =
     RemoteData.Http.get url GotEvent decodeEvent
 
 
+eventSections : List String -> List String
+eventSections excludeEventSections =
+    let
+        notExcluded section =
+            not (List.member section excludeEventSections)
+    in
+    [ "Details", "Notes", "Registrations", "Spares", "Schedule", "Standings", "Teams" ]
+        |> List.filter notExcluded
+
+
 
 -- SVG
 
@@ -546,6 +577,7 @@ type Msg
     | UpdateSearch String
     | SelectEvent Int
     | GotEvent (WebData Event)
+    | UpdateEventSection String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -567,7 +599,26 @@ update msg model =
             ( model, getEvent model.flags id )
 
         GotEvent response ->
-            ( { model | event = response }, Cmd.none )
+            let
+                onEventSection =
+                    case model.onEventSection of
+                        Just eventSection ->
+                            Just eventSection
+
+                        Nothing ->
+                            -- Get the default section
+                            eventSections model.flags.excludeEventSections
+                                |> List.head
+            in
+            ( { model
+                | onEventSection = onEventSection
+                , event = response
+              }
+            , Cmd.none
+            )
+
+        UpdateEventSection eventSection ->
+            ( model, Cmd.none )
 
 
 
@@ -616,7 +667,7 @@ view model =
             Nothing ->
                 case model.event of
                     Success event ->
-                        viewEvent event
+                        viewEvent model.flags model.onEventSection event
 
                     Loading ->
                         viewNotReady "Loading..."
@@ -757,10 +808,30 @@ viewItems { flags, fullScreen, search } items =
         ]
 
 
-viewEvent : Event -> Html Msg
-viewEvent event =
+viewEvent : Flags -> Maybe String -> Event -> Html Msg
+viewEvent { registration, excludeEventSections } onEventSection event =
+    let
+        viewNavItem section =
+            let
+                isActive =
+                    Just section == onEventSection
+            in
+            li [ class "nav-item" ]
+                [ a
+                    [ classList
+                        [ ( "nav-link", True )
+                        , ( "active", isActive )
+                        ]
+                    , onClick (UpdateEventSection section)
+                    , href ("#" ++ String.fromInt event.id ++ "/" ++ String.toLower section)
+                    ]
+                    [ text section ]
+                ]
+    in
     div [ class "p-3" ]
-        [ h3 [] [ text event.name ]
+        [ h3 [ class "mb-3" ] [ text event.name ]
+        , ul [ class "nav nav-pills" ]
+            (List.map viewNavItem (eventSections excludeEventSections))
         ]
 
 
