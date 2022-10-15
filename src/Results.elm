@@ -40,6 +40,12 @@ type alias Flags =
     }
 
 
+type alias UrlState =
+    { eventId : Maybe Int
+    , eventSection : Maybe String
+    }
+
+
 type ItemsSection
     = LeaguesSection
     | CompetitionsSection
@@ -430,6 +436,36 @@ decodeSide =
 -- HELPERS
 
 
+parseHashFragments : Maybe String -> UrlState
+parseHashFragments maybeHash =
+    case maybeHash of
+        -- It's kind of annoying, but document.location.hash is always a string, and it will contain the #,
+        -- To keep our flag setting simple (eventId: document.location.hash), we replace the # and concert to an integer in elm.
+        -- I'd rather do this in the flags decoder, but I'm not sure how to yet.
+        Just hash ->
+            let
+                fragments =
+                    String.split "/" hash
+
+                eventId =
+                    case List.head fragments of
+                        Just id ->
+                            String.replace "#" "" id
+                                |> String.toInt
+
+                        Nothing ->
+                            Nothing
+
+                eventSection =
+                    List.drop 1 fragments
+                        |> List.head
+            in
+            UrlState eventId eventSection
+
+        Nothing ->
+            UrlState Nothing Nothing
+
+
 init : Decode.Value -> ( Model, Cmd Msg )
 init flags_ =
     case Decode.decodeValue decodeFlags flags_ of
@@ -440,17 +476,13 @@ init flags_ =
                     getEvent flags eventId
 
                 Nothing ->
-                    case flags.hash of
-                        -- It's kind of annoying, but document.location.hash is always a string, and it will contain the #,
-                        -- To keep our flag setting simple (eventId: document.location.hash), we replace the # and concert to an integer in elm.
-                        -- I'd rather do this in the flags decoder, but I'm not sure how to yet.
-                        Just hash ->
-                            case String.toInt (String.replace "#" "" hash) of
-                                Just eventId ->
-                                    getEvent flags eventId
-
-                                Nothing ->
-                                    getItems flags
+                    let
+                        urlState =
+                            parseHashFragments flags.hash
+                    in
+                    case urlState.eventId of
+                        Just eventId ->
+                            getEvent flags eventId
 
                         Nothing ->
                             getItems flags
@@ -538,11 +570,14 @@ getEvent flags id =
 eventSections : List String -> List String
 eventSections excludeEventSections =
     let
-        notExcluded section =
-            not (List.member section excludeEventSections)
+        -- Check if a section is included (not in the explicitly excluded sections list).
+        included section =
+            List.map String.toLower excludeEventSections
+                |> List.member (String.toLower section)
+                |> not
     in
     [ "Details", "Notes", "Registrations", "Spares", "Schedule", "Standings", "Teams" ]
-        |> List.filter notExcluded
+        |> List.filter included
 
 
 
@@ -606,9 +641,20 @@ update msg model =
                             Just eventSection
 
                         Nothing ->
-                            -- Get the default section
-                            eventSections model.flags.excludeEventSections
-                                |> List.head
+                            -- Check if there's a section from the UrlState
+                            let
+                                urlState =
+                                    parseHashFragments model.flags.hash
+                            in
+                            case urlState.eventSection of
+                                Just eventSection ->
+                                    Just eventSection
+
+                                Nothing ->
+                                    -- Get the first included section
+                                    eventSections model.flags.excludeEventSections
+                                        |> List.map String.toLower
+                                        |> List.head
             in
             ( { model
                 | onEventSection = onEventSection
@@ -618,7 +664,9 @@ update msg model =
             )
 
         UpdateEventSection eventSection ->
-            ( model, Cmd.none )
+            ( { model | onEventSection = Just (String.toLower eventSection) }
+            , Cmd.none
+            )
 
 
 
@@ -814,7 +862,7 @@ viewEvent { registration, excludeEventSections } onEventSection event =
         viewNavItem section =
             let
                 isActive =
-                    Just section == onEventSection
+                    Just (String.toLower section) == onEventSection
             in
             li [ class "nav-item" ]
                 [ a
