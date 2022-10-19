@@ -576,7 +576,7 @@ eventSections excludeEventSections =
                 |> List.member (String.toLower section)
                 |> not
     in
-    [ "Details", "Notes", "Registrations", "Spares", "Schedule", "Standings", "Teams" ]
+    [ "Details", "Notes", "Registrations", "Spares", "Schedule", "Standings", "Teams", "Reports" ]
         |> List.filter included
 
 
