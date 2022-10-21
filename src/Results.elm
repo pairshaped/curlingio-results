@@ -1,12 +1,13 @@
 module Results exposing (init)
 
 import Browser
-import Html exposing (Html, a, button, div, h3, input, label, li, p, small, table, td, text, tr, ul)
+import Html exposing (Html, a, button, div, h3, h5, input, label, li, p, small, strong, table, tbody, td, text, th, thead, tr, ul)
 import Html.Attributes exposing (class, classList, href, id, placeholder, style, target, value)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
+import List.Extra
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Svg
@@ -24,6 +25,7 @@ type alias Model =
     , search : String
     , event : WebData Event
     , onEventSection : Maybe String
+    , onGame : Maybe Game
     , errorMsg : Maybe String
     }
 
@@ -80,7 +82,6 @@ type alias Event =
     , teams : List Team
     , stages : List Stage
     , draws : List Draw
-    , games : List Game
     }
 
 
@@ -159,17 +160,15 @@ type Tiebreaker
 
 
 type alias Draw =
-    { id : Int
-    , startsAt : String
+    { startsAt : String
     , label : String
     , attendance : Maybe Int
-    , drawSheets : List String
+    , drawSheets : List (Maybe Game)
     }
 
 
 type alias Game =
-    { id : String
-    , name : String
+    { name : String
     , stageName : String
     , state : GameState
     , sides : List Side
@@ -191,11 +190,6 @@ type alias Side =
 
 
 -- DECODERS
-
-
-isLocalMode : String -> Bool
-isLocalMode url =
-    String.contains "localhost" url
 
 
 decodeFlags : Decoder Flags
@@ -264,7 +258,6 @@ decodeEvent =
         |> optional "teams" (list decodeTeam) []
         |> optional "stages" (list decodeStage) []
         |> optional "draws" (list decodeDraw) []
-        |> optional "games" (list decodeGame) []
 
 
 decodeTeam : Decoder Team
@@ -389,55 +382,57 @@ decodeStage =
 
 decodeDraw : Decoder Draw
 decodeDraw =
+    let
+        decodeGame : Decoder Game
+        decodeGame =
+            let
+                decodeGameState : Decoder GameState
+                decodeGameState =
+                    string
+                        |> Decode.andThen
+                            (\str ->
+                                case String.toLower str of
+                                    "active" ->
+                                        Decode.succeed GameActive
+
+                                    "complete" ->
+                                        Decode.succeed GameComplete
+
+                                    _ ->
+                                        Decode.succeed GamePending
+                            )
+
+                decodeSide : Decoder Side
+                decodeSide =
+                    Decode.succeed Side
+                        |> optional "team_id" (nullable int) Nothing
+                        |> optional "top_rock" bool False
+                        |> optional "first_hammer" bool False
+            in
+            Decode.succeed Game
+                |> required "name" string
+                |> required "stage_name" string
+                |> required "state" decodeGameState
+                |> required "game_positions" (list decodeSide)
+    in
     Decode.succeed Draw
-        |> required "id" int
         |> required "starts_at" string
         |> required "label" string
         |> optional "attendance" (nullable int) Nothing
-        |> required "draw_sheets" (list string)
-
-
-decodeGame : Decoder Game
-decodeGame =
-    let
-        decodeGameState : Decoder GameState
-        decodeGameState =
-            string
-                |> Decode.andThen
-                    (\str ->
-                        case String.toLower str of
-                            "active" ->
-                                Decode.succeed GameActive
-
-                            "complete" ->
-                                Decode.succeed GameComplete
-
-                            _ ->
-                                Decode.succeed GamePending
-                    )
-    in
-    Decode.succeed Game
-        |> required "id" string
-        |> required "name" string
-        |> required "stage_name" string
-        |> required "state" decodeGameState
-        |> required "game_positions" (list decodeSide)
-
-
-decodeSide : Decoder Side
-decodeSide =
-    Decode.succeed Side
-        |> optional "team_id" (nullable int) Nothing
-        |> optional "top_rock" bool False
-        |> optional "first_hammer" bool False
+        |> required "games" (list (nullable decodeGame))
 
 
 
 -- HELPERS
 
 
-parseHashFragments : Maybe String -> UrlState
-parseHashFragments maybeHash =
+isLocalMode : String -> Bool
+isLocalMode url =
+    String.contains "localhost" url
+
+
+parseUrlHashFragments : Maybe String -> UrlState
+parseUrlHashFragments maybeHash =
     case maybeHash of
         -- It's kind of annoying, but document.location.hash is always a string, and it will contain the #,
         -- To keep our flag setting simple (eventId: document.location.hash), we replace the # and concert to an integer in elm.
@@ -470,7 +465,7 @@ init : Decode.Value -> ( Model, Cmd Msg )
 init flags_ =
     case Decode.decodeValue decodeFlags flags_ of
         Ok flags ->
-            ( Model flags False NotAsked "" NotAsked Nothing Nothing
+            ( Model flags False NotAsked "" NotAsked Nothing Nothing Nothing
             , case flags.eventId of
                 Just eventId ->
                     getEvent flags eventId
@@ -478,7 +473,7 @@ init flags_ =
                 Nothing ->
                     let
                         urlState =
-                            parseHashFragments flags.hash
+                            parseUrlHashFragments flags.hash
                     in
                     case urlState.eventId of
                         Just eventId ->
@@ -489,7 +484,7 @@ init flags_ =
             )
 
         Err error ->
-            ( Model (Flags Nothing Nothing "" LeaguesSection False 10 [] Nothing) False NotAsked "" NotAsked Nothing (Just (Decode.errorToString error))
+            ( Model (Flags Nothing Nothing "" LeaguesSection False 10 [] Nothing) False NotAsked "" NotAsked Nothing Nothing (Just (Decode.errorToString error))
             , Cmd.none
             )
 
@@ -613,6 +608,7 @@ type Msg
     | SelectEvent Int
     | GotEvent (WebData Event)
     | UpdateEventSection String
+    | SelectGame Game
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -644,7 +640,7 @@ update msg model =
                             -- Check if there's a section from the UrlState
                             let
                                 urlState =
-                                    parseHashFragments model.flags.hash
+                                    parseUrlHashFragments model.flags.hash
                             in
                             case urlState.eventSection of
                                 Just eventSection ->
@@ -667,6 +663,9 @@ update msg model =
             ( { model | onEventSection = Just (String.toLower eventSection) }
             , Cmd.none
             )
+
+        SelectGame game ->
+            ( { model | onGame = Just game }, Cmd.none )
 
 
 
@@ -878,8 +877,77 @@ viewEvent { registration, excludeEventSections } onEventSection event =
     in
     div [ class "p-3" ]
         [ h3 [ class "mb-3" ] [ text event.name ]
-        , ul [ class "nav nav-pills" ]
+        , ul [ class "nav nav-pills mb-3" ]
             (List.map viewNavItem (eventSections excludeEventSections))
+        , case String.toLower (Maybe.withDefault "details" onEventSection) of
+            "schedule" ->
+                viewDrawSchedule event
+
+            _ ->
+                p [] [ text "Missing section view" ]
+        ]
+
+
+viewDrawSchedule : Event -> Html Msg
+viewDrawSchedule { id, sheetNames, draws } =
+    let
+        gameLabel drawIndex sheetIndex game =
+            case game of
+                Just game_ ->
+                    let
+                        gameId =
+                            String.fromInt drawIndex ++ "-" ++ String.fromInt sheetIndex
+                    in
+                    a [ href ("#" ++ String.fromInt id ++ "/schedule/" ++ gameId) ] [ text game_.name ]
+
+                Nothing ->
+                    text ""
+
+        viewTableSchedule =
+            let
+                viewDraw drawIndex draw =
+                    let
+                        viewDrawSheet sheetIndex game =
+                            td [ class "text-center" ]
+                                [ gameLabel drawIndex sheetIndex game ]
+                    in
+                    tr []
+                        ([ td [] [ text draw.label ] ]
+                            ++ [ td [] [ text draw.startsAt ] ]
+                            ++ List.indexedMap viewDrawSheet draw.drawSheets
+                        )
+            in
+            table [ class "table" ]
+                [ thead []
+                    [ tr []
+                        ([ th [ style "min-width" "65px" ] [ text "Draw" ] ]
+                            ++ [ th [ style "min-width" "220px" ] [ text "Starts at" ] ]
+                            ++ List.map (\sheetName -> th [ class "text-center", style "min-width" "198px" ] [ text sheetName ]) sheetNames
+                        )
+                    ]
+                , tbody []
+                    (List.indexedMap viewDraw draws)
+                ]
+
+        viewListSchedule =
+            let
+                viewDraw drawIndex draw =
+                    let
+                        viewDrawSheet sheetIndex game =
+                            li []
+                                [ gameLabel drawIndex sheetIndex game ]
+                    in
+                    div []
+                        [ h5 [ class "mb-0" ] [ text ("Draw " ++ draw.label) ]
+                        , small [] [ text draw.startsAt ]
+                        , ul [ class "mt-2" ] (List.indexedMap viewDrawSheet draw.drawSheets)
+                        ]
+            in
+            div [] (List.indexedMap viewDraw draws)
+    in
+    div []
+        [ div [ class "table-responsive d-none d-md-block" ] [ viewTableSchedule ]
+        , div [ class "d-md-none" ] [ viewListSchedule ]
         ]
 
 
