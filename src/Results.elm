@@ -25,9 +25,17 @@ type alias Model =
     , search : String
     , event : WebData Event
     , onEventSection : Maybe String
-    , onGame : Maybe Game
+
+    -- I don't love the name: SelectedChild...
+    , selectedChild : Maybe SelectedChild
     , errorMsg : Maybe String
     }
+
+
+type SelectedChild
+    = SelectedChildDraw Draw
+    | SelectedChildGame Game
+    | SelectedChildTeam Team
 
 
 type alias Flags =
@@ -83,17 +91,6 @@ type alias Event =
     , stages : List Stage
     , draws : List Draw
     }
-
-
-type EventSection
-    = EventSectionDetails
-    | EventSectionNotes
-    | EventSectionRegistrations
-    | EventSectionSpares
-    | EventSectionTeams
-    | EventSectionSchedule
-    | EventSectionStandings
-    | EventSectionReports
 
 
 type alias Team =
@@ -608,7 +605,9 @@ type Msg
     | SelectEvent Int
     | GotEvent (WebData Event)
     | UpdateEventSection String
+    | SelectDraw Draw
     | SelectGame Game
+    | SelectTeam Team
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -660,12 +659,27 @@ update msg model =
             )
 
         UpdateEventSection eventSection ->
-            ( { model | onEventSection = Just (String.toLower eventSection) }
+            ( { model
+                | onEventSection = Just (String.toLower eventSection)
+                , selectedChild = Nothing
+              }
+            , Cmd.none
+            )
+
+        SelectDraw draw ->
+            ( { model | selectedChild = Just (SelectedChildDraw draw) }
             , Cmd.none
             )
 
         SelectGame game ->
-            ( { model | onGame = Just game }, Cmd.none )
+            ( { model | selectedChild = Just (SelectedChildGame game) }
+            , Cmd.none
+            )
+
+        SelectTeam team ->
+            ( { model | selectedChild = Just (SelectedChildTeam team) }
+            , Cmd.none
+            )
 
 
 
@@ -714,7 +728,7 @@ view model =
             Nothing ->
                 case model.event of
                     Success event ->
-                        viewEvent model.flags model.onEventSection event
+                        viewEvent model event
 
                     Loading ->
                         viewNotReady "Loading..."
@@ -855,8 +869,8 @@ viewItems { flags, fullScreen, search } items =
         ]
 
 
-viewEvent : Flags -> Maybe String -> Event -> Html Msg
-viewEvent { registration, excludeEventSections } onEventSection event =
+viewEvent : Model -> Event -> Html Msg
+viewEvent { flags, onEventSection, selectedChild } event =
     let
         viewNavItem section =
             let
@@ -878,42 +892,90 @@ viewEvent { registration, excludeEventSections } onEventSection event =
     div [ class "p-3" ]
         [ h3 [ class "mb-3" ] [ text event.name ]
         , ul [ class "nav nav-pills mb-3" ]
-            (List.map viewNavItem (eventSections excludeEventSections))
-        , case String.toLower (Maybe.withDefault "details" onEventSection) of
-            "schedule" ->
-                viewDrawSchedule event
+            (List.map viewNavItem (eventSections flags.excludeEventSections))
+        , case selectedChild of
+            Just (SelectedChildDraw draw) ->
+                viewDraw draw
 
-            _ ->
-                p [] [ text "Missing section view" ]
+            Just (SelectedChildGame game) ->
+                viewGame game
+
+            Just (SelectedChildTeam team) ->
+                viewTeam team
+
+            Nothing ->
+                case String.toLower (Maybe.withDefault "details" onEventSection) of
+                    "schedule" ->
+                        viewDrawSchedule event
+
+                    _ ->
+                        p [] [ text "Missing section view" ]
         ]
 
 
 viewDrawSchedule : Event -> Html Msg
 viewDrawSchedule { id, sheetNames, draws } =
     let
-        gameLabel drawIndex sheetIndex game =
+        isDrawActive draw =
+            List.any
+                (\g ->
+                    case g of
+                        Just g_ ->
+                            g_.state == GameActive
+
+                        Nothing ->
+                            False
+                )
+                draw.drawSheets
+
+        drawLink drawIndex draw label =
+            a
+                [ href ("#" ++ String.fromInt id ++ "/schedule/draws/" ++ String.fromInt (drawIndex + 1))
+                , onClick (SelectDraw draw)
+                ]
+                [ text label ]
+
+        gameLink drawIndex sheetIndex game =
             case game of
                 Just game_ ->
                     let
-                        gameId =
-                            String.fromInt drawIndex ++ "-" ++ String.fromInt sheetIndex
+                        stateClass =
+                            case game_.state of
+                                GamePending ->
+                                    "text-primary"
+
+                                GameComplete ->
+                                    "text-secondary"
+
+                                GameActive ->
+                                    "text-primary font-weight-bold"
                     in
-                    a [ href ("#" ++ String.fromInt id ++ "/schedule/" ++ gameId) ] [ text game_.name ]
+                    a
+                        [ href ("#" ++ String.fromInt id ++ "/schedule/draws/" ++ String.fromInt (drawIndex + 1) ++ "/sheets/" ++ String.fromInt (sheetIndex + 1))
+                        , onClick (SelectGame game_)
+                        , class stateClass
+                        ]
+                        [ text game_.name ]
 
                 Nothing ->
                     text ""
 
         viewTableSchedule =
             let
-                viewDraw drawIndex draw =
+                viewDrawRow drawIndex draw =
                     let
                         viewDrawSheet sheetIndex game =
                             td [ class "text-center" ]
-                                [ gameLabel drawIndex sheetIndex game ]
+                                [ gameLink drawIndex sheetIndex game ]
                     in
-                    tr []
-                        ([ td [] [ text draw.label ] ]
-                            ++ [ td [] [ text draw.startsAt ] ]
+                    tr
+                        [ classList
+                            [ ( "bg-light", isDrawActive draw )
+                            ]
+                        ]
+                        ([ td [] [ drawLink drawIndex draw draw.label ] ]
+                            ++ [ td [] [ drawLink drawIndex draw draw.startsAt ]
+                               ]
                             ++ List.indexedMap viewDrawSheet draw.drawSheets
                         )
             in
@@ -926,29 +988,44 @@ viewDrawSchedule { id, sheetNames, draws } =
                         )
                     ]
                 , tbody []
-                    (List.indexedMap viewDraw draws)
+                    (List.indexedMap viewDrawRow draws)
                 ]
 
         viewListSchedule =
             let
-                viewDraw drawIndex draw =
+                viewDrawListItem drawIndex draw =
                     let
                         viewDrawSheet sheetIndex game =
                             li []
-                                [ gameLabel drawIndex sheetIndex game ]
+                                [ gameLink drawIndex sheetIndex game ]
                     in
                     div []
-                        [ h5 [ class "mb-0" ] [ text ("Draw " ++ draw.label) ]
-                        , small [] [ text draw.startsAt ]
+                        [ h5 [ class "mb-0" ] [ drawLink drawIndex draw ("Draw " ++ draw.label) ]
+                        , small [] [ drawLink drawIndex draw draw.startsAt ]
                         , ul [ class "mt-2" ] (List.indexedMap viewDrawSheet draw.drawSheets)
                         ]
             in
-            div [] (List.indexedMap viewDraw draws)
+            div [] (List.indexedMap viewDrawListItem draws)
     in
     div []
         [ div [ class "table-responsive d-none d-md-block" ] [ viewTableSchedule ]
         , div [ class "d-md-none" ] [ viewListSchedule ]
         ]
+
+
+viewDraw : Draw -> Html Msg
+viewDraw draw =
+    div [] [ text ("Draw " ++ draw.label) ]
+
+
+viewGame : Game -> Html Msg
+viewGame game =
+    div [] [ text ("Game " ++ game.name) ]
+
+
+viewTeam : Team -> Html Msg
+viewTeam team =
+    div [] [ text ("Team " ++ team.name) ]
 
 
 
