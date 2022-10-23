@@ -166,7 +166,7 @@ type alias Draw =
 
 type alias Game =
     { name : String
-    , stageName : String
+    , nameWithResult : String
     , state : GameState
     , sides : List Side
     }
@@ -408,7 +408,7 @@ decodeDraw =
             in
             Decode.succeed Game
                 |> required "name" string
-                |> required "stage_name" string
+                |> required "name_with_result" string
                 |> required "state" decodeGameState
                 |> required "game_positions" (list decodeSide)
     in
@@ -955,7 +955,7 @@ viewDrawSchedule { id, sheetNames, draws } =
                         , onClick (SelectGame game_)
                         , class stateClass
                         ]
-                        [ text game_.name ]
+                        [ text game_.nameWithResult ]
 
                 Nothing ->
                     text ""
