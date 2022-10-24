@@ -21,6 +21,7 @@ import Svg.Attributes
 type alias Model =
     { flags : Flags
     , fullScreen : Bool
+    , translations : WebData (List Translation)
     , items : WebData (List Item)
     , search : String
     , event : WebData Event
@@ -29,6 +30,12 @@ type alias Model =
     -- I don't love the name: SelectedChild...
     , selectedChild : Maybe SelectedChild
     , errorMsg : Maybe String
+    }
+
+
+type alias Translation =
+    { key : String
+    , label : String
     }
 
 
@@ -41,6 +48,7 @@ type SelectedChild
 type alias Flags =
     { host : Maybe String
     , hash : Maybe String
+    , lang : Maybe String
     , apiKey : String
     , section : ItemsSection
     , registration : Bool
@@ -232,12 +240,25 @@ decodeFlags =
     Decode.succeed Flags
         |> optional "host" (nullable string) Nothing
         |> optional "hash" (nullable string) Nothing
+        |> optional "lang" (nullable string) Nothing
         |> required "apiKey" string
         |> optional "section" decodeSection LeaguesSection
         |> optional "registration" bool False
         |> optional "pageSize" int 10
         |> optional "excludeEventSections" (list string) []
         |> optional "eventId" (nullable int) Nothing
+
+
+decodeTranslations : Decoder (List Translation)
+decodeTranslations =
+    list decodeTranslation
+
+
+decodeTranslation : Decoder Translation
+decodeTranslation =
+    Decode.succeed Translation
+        |> required "key" string
+        |> required "label" string
 
 
 decodeItems : Decoder (List Item)
@@ -488,6 +509,22 @@ decodeDraw =
 -- HELPERS
 
 
+translate : WebData (List Translation) -> String -> String
+translate translationsData key =
+    -- Translates the passed key to the current labels (server determines locale by url).
+    case translationsData of
+        Success translations ->
+            case List.Extra.find (\translation -> String.toLower translation.key == String.toLower key) translations of
+                Just translation ->
+                    translation.label
+
+                Nothing ->
+                    key
+
+        _ ->
+            key
+
+
 isLocalMode : String -> Bool
 isLocalMode url =
     String.contains "localhost" url
@@ -527,26 +564,29 @@ init : Decode.Value -> ( Model, Cmd Msg )
 init flags_ =
     case Decode.decodeValue decodeFlags flags_ of
         Ok flags ->
-            ( Model flags False NotAsked "" NotAsked Nothing Nothing Nothing
-            , case flags.eventId of
-                Just eventId ->
-                    getEvent flags eventId
+            ( Model flags False NotAsked NotAsked "" NotAsked Nothing Nothing Nothing
+            , Cmd.batch
+                [ getTranslations flags
+                , case flags.eventId of
+                    Just eventId ->
+                        getEvent flags eventId
 
-                Nothing ->
-                    let
-                        urlState =
-                            parseUrlHashFragments flags.hash
-                    in
-                    case urlState.eventId of
-                        Just eventId ->
-                            getEvent flags eventId
+                    Nothing ->
+                        let
+                            urlState =
+                                parseUrlHashFragments flags.hash
+                        in
+                        case urlState.eventId of
+                            Just eventId ->
+                                getEvent flags eventId
 
-                        Nothing ->
-                            getItems flags
+                            Nothing ->
+                                getItems flags
+                ]
             )
 
         Err error ->
-            ( Model (Flags Nothing Nothing "" LeaguesSection False 10 [] Nothing) False NotAsked "" NotAsked Nothing Nothing (Just (Decode.errorToString error))
+            ( Model (Flags Nothing Nothing Nothing "" LeaguesSection False 10 [] Nothing) False NotAsked NotAsked "" NotAsked Nothing Nothing (Just (Decode.errorToString error))
             , Cmd.none
             )
 
@@ -570,28 +610,39 @@ errorMessage error =
             "Bad body response from server. Please contact Curling I/O support if the issue persists for more than a few minutes. Details: \"" ++ string ++ "\""
 
 
-baseClubUrl : Flags -> String
-baseClubUrl { host, apiKey } =
+baseUrl : Flags -> String
+baseUrl { host, lang } =
     let
         devUrl =
-            "http://api.curling.test:3000"
+            "http://api.curling.test:3000/" ++ Maybe.withDefault "en" lang
 
         productionUrl =
-            "https://api-curlingio.global.ssl.fastly.net"
-
-        baseUrl =
-            case host of
-                Just h ->
-                    if String.contains "localhost" h || String.contains ".curling.test" h then
-                        devUrl
-
-                    else
-                        productionUrl
-
-                Nothing ->
-                    productionUrl
+            "https://api-curlingio.global.ssl.fastly.net/" ++ Maybe.withDefault "en" lang
     in
-    baseUrl ++ "/clubs/" ++ apiKey ++ "/"
+    case host of
+        Just h ->
+            if String.contains "localhost" h || String.contains ".curling.test" h then
+                devUrl
+
+            else
+                productionUrl
+
+        Nothing ->
+            productionUrl
+
+
+baseClubUrl : Flags -> String
+baseClubUrl flags =
+    baseUrl flags ++ "/clubs/" ++ flags.apiKey ++ "/"
+
+
+getTranslations : Flags -> Cmd Msg
+getTranslations flags =
+    let
+        url =
+            baseUrl flags ++ "/translations"
+    in
+    RemoteData.Http.get url GotTranslations decodeTranslations
 
 
 getItems : Flags -> Cmd Msg
@@ -633,7 +684,7 @@ eventSections excludeEventSections =
                 |> List.member (String.toLower section)
                 |> not
     in
-    [ "Details", "Notes", "Registrations", "Spares", "Schedule", "Standings", "Teams", "Reports" ]
+    [ "details", "notes", "registrations", "spares", "schedule", "standings", "teams", "reports" ]
         |> List.filter included
 
 
@@ -756,6 +807,7 @@ svgFullScreen =
 
 type Msg
     = ToggleFullScreen
+    | GotTranslations (WebData (List Translation))
     | GotItems (WebData (List Item))
     | ReloadItems
     | UpdateSearch String
@@ -772,6 +824,9 @@ update msg model =
     case msg of
         ToggleFullScreen ->
             ( { model | fullScreen = not model.fullScreen }, Cmd.none )
+
+        GotTranslations response ->
+            ( { model | translations = response, errorMsg = Nothing }, Cmd.none )
 
         GotItems response ->
             ( { model | items = response, errorMsg = Nothing }, Cmd.none )
@@ -924,7 +979,7 @@ viewFetchError message =
 
 
 viewItems : Model -> List Item -> Html Msg
-viewItems { flags, fullScreen, search } items =
+viewItems { flags, fullScreen, translations, search } items =
     let
         filteredItems =
             case String.trim search of
@@ -944,17 +999,6 @@ viewItems { flags, fullScreen, search } items =
                                    )
                     in
                     List.filter matches items
-
-        sectionTitle =
-            case flags.section of
-                LeaguesSection ->
-                    "Leagues"
-
-                CompetitionsSection ->
-                    "Competitions"
-
-                ProductsSection ->
-                    "Products"
 
         viewItem item =
             tr []
@@ -983,7 +1027,7 @@ viewItems { flags, fullScreen, search } items =
                                         case ( item.price, item.purchaseUrl ) of
                                             ( Just price, Just url ) ->
                                                 div []
-                                                    [ a [ href url, target "_blank" ] [ text "Register →" ]
+                                                    [ a [ href url, target "_blank" ] [ text (translate translations "register" ++ " →") ]
                                                     , small [ class "d-block" ] [ text price ]
                                                     ]
 
@@ -1005,7 +1049,7 @@ viewItems { flags, fullScreen, search } items =
             [ div [ class "form-group" ]
                 [ input
                     [ class "form-control"
-                    , placeholder "Search"
+                    , placeholder (translate translations "search")
                     , value search
                     , onInput UpdateSearch
                     ]
@@ -1027,7 +1071,7 @@ viewItems { flags, fullScreen, search } items =
 
 
 viewEvent : Model -> Event -> Html Msg
-viewEvent { flags, onEventSection, selectedChild } event =
+viewEvent { flags, translations, onEventSection, selectedChild } event =
     let
         viewNavItem section =
             let
@@ -1043,7 +1087,7 @@ viewEvent { flags, onEventSection, selectedChild } event =
                     , onClick (UpdateEventSection section)
                     , href ("#" ++ String.fromInt event.id ++ "/" ++ String.toLower section)
                     ]
-                    [ text section ]
+                    [ text (translate translations section) ]
                 ]
     in
     div [ class "p-3" ]
@@ -1063,7 +1107,7 @@ viewEvent { flags, onEventSection, selectedChild } event =
             Nothing ->
                 case String.toLower (Maybe.withDefault "details" onEventSection) of
                     "schedule" ->
-                        viewDrawSchedule event
+                        viewDrawSchedule translations event
 
                     "teams" ->
                         viewTeams event
@@ -1071,7 +1115,7 @@ viewEvent { flags, onEventSection, selectedChild } event =
                     "standings" ->
                         case List.head event.stages of
                             Just stage ->
-                                viewStandings event stage
+                                viewStandings translations event stage
 
                             Nothing ->
                                 p [] [ text "No stages" ]
@@ -1081,8 +1125,8 @@ viewEvent { flags, onEventSection, selectedChild } event =
         ]
 
 
-viewDrawSchedule : Event -> Html Msg
-viewDrawSchedule { id, sheetNames, draws } =
+viewDrawSchedule : WebData (List Translation) -> Event -> Html Msg
+viewDrawSchedule translations { id, sheetNames, draws } =
     let
         isDrawActive draw =
             List.any
@@ -1150,8 +1194,8 @@ viewDrawSchedule { id, sheetNames, draws } =
             table [ class "table" ]
                 [ thead []
                     [ tr []
-                        ([ th [ style "min-width" "65px" ] [ text "Draw" ] ]
-                            ++ [ th [ style "min-width" "220px" ] [ text "Starts at" ] ]
+                        ([ th [ style "min-width" "65px" ] [ text (translate translations "draw") ] ]
+                            ++ [ th [ style "min-width" "220px" ] [ text (translate translations "starts_at") ] ]
                             ++ List.map (\sheetName -> th [ class "text-center", style "min-width" "198px" ] [ text sheetName ]) sheetNames
                         )
                     ]
@@ -1188,13 +1232,12 @@ viewTeams { teams } =
             li [] [ text team.name ]
     in
     div []
-        [ h5 [] [ text "Teams" ]
-        , ul [] (List.map viewTeamRow teams)
+        [ ul [] (List.map viewTeamRow teams)
         ]
 
 
-viewStandings : Event -> Stage -> Html Msg
-viewStandings { draws, teams } stage =
+viewStandings : WebData (List Translation) -> Event -> Stage -> Html Msg
+viewStandings translations { draws, teams } stage =
     let
         viewRow teamResult =
             tr []
@@ -1214,15 +1257,15 @@ viewStandings { draws, teams } stage =
             List.any (\teamResult -> teamResult.ties > 0) teamResults
     in
     div []
-        [ h5 [] [ text "Standings" ]
+        [ h5 [] [ text stage.name ]
         , table [ class "table" ]
             [ thead []
                 [ tr []
-                    [ th [] [ text "Team" ]
-                    , th [] [ text "Wins" ]
-                    , th [] [ text "Losses" ]
-                    , th [] [ text "Ties" ]
-                    , th [] [ text "Points" ]
+                    [ th [] [ text (translate translations "team") ]
+                    , th [] [ text (translate translations "wins") ]
+                    , th [] [ text (translate translations "losses") ]
+                    , th [] [ text (translate translations "ties") ]
+                    , th [] [ text (translate translations "points") ]
                     ]
                 ]
             , tbody [] (List.map viewRow teamResults)
