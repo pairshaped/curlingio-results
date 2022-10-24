@@ -129,11 +129,11 @@ type alias Stage =
     { id : Int
     , stageType : StageType
     , name : String
-    , rankingMethod : Maybe RankingMethod
+    , rankingMethod : RankingMethod
     , pointsPerWin : Float
     , pointsPerTie : Float
     , pointsPerLoss : Float
-    , pointsPerEnd : Float
+    , pointsPerEnd : List Float
     , tiebreaker : Tiebreaker
     }
 
@@ -159,13 +159,14 @@ type Tiebreaker
 type alias Draw =
     { startsAt : String
     , label : String
-    , attendance : Maybe Int
+    , attendance : Int
     , drawSheets : List (Maybe Game)
     }
 
 
 type alias Game =
     { name : String
+    , stageId : Int
     , nameWithResult : String
     , state : GameState
     , sides : List Side
@@ -182,6 +183,26 @@ type alias Side =
     { teamId : Maybe Int
     , topRock : Bool
     , firstHammer : Bool
+    , result : Maybe SideResult
+    , endScores : List Int
+    }
+
+
+type SideResult
+    = SideResultWon
+    | SideResultLost
+    | SideResultTied
+    | SideResultConceded
+    | SideResultForfeited
+    | SideResultTimePenalized
+
+
+type alias TeamResult =
+    { team : Team
+    , wins : Int
+    , losses : Int
+    , ties : Int
+    , points : Float
     }
 
 
@@ -346,6 +367,18 @@ decodeStage =
                                 Decode.succeed PointsRanking
                     )
 
+        decodePointsPerEnd : Decoder (List Float)
+        decodePointsPerEnd =
+            string
+                |> Decode.andThen
+                    (\str ->
+                        String.replace " " "" str
+                            |> String.split ","
+                            |> List.map (\s -> String.toFloat s)
+                            |> List.filterMap identity
+                            |> Decode.succeed
+                    )
+
         decodeTiebreaker : Decoder Tiebreaker
         decodeTiebreaker =
             string
@@ -369,11 +402,11 @@ decodeStage =
         |> required "id" int
         |> required "type" decodeStageType
         |> required "name" string
-        |> optional "ranking_method" (nullable decodeRankingMethod) Nothing
+        |> optional "ranking_method" decodeRankingMethod PointsRanking
         |> optional "points_per_win" float 0
         |> optional "points_per_tie" float 0
         |> optional "points_per_loss" float 0
-        |> optional "points_per_end" float 0
+        |> optional "points_per_end" decodePointsPerEnd []
         |> optional "tiebreaker" decodeTiebreaker TiebreakerNone
 
 
@@ -401,13 +434,45 @@ decodeDraw =
 
                 decodeSide : Decoder Side
                 decodeSide =
+                    let
+                        decodeSideResult : Decoder (Maybe SideResult)
+                        decodeSideResult =
+                            string
+                                |> Decode.andThen
+                                    (\str ->
+                                        case str of
+                                            "won" ->
+                                                Decode.succeed (Just SideResultWon)
+
+                                            "lost" ->
+                                                Decode.succeed (Just SideResultLost)
+
+                                            "tied" ->
+                                                Decode.succeed (Just SideResultTied)
+
+                                            "conceded" ->
+                                                Decode.succeed (Just SideResultConceded)
+
+                                            "forfeited" ->
+                                                Decode.succeed (Just SideResultForfeited)
+
+                                            "time_penalized" ->
+                                                Decode.succeed (Just SideResultTimePenalized)
+
+                                            _ ->
+                                                Decode.succeed Nothing
+                                    )
+                    in
                     Decode.succeed Side
                         |> optional "team_id" (nullable int) Nothing
                         |> optional "top_rock" bool False
                         |> optional "first_hammer" bool False
+                        |> optional "result" decodeSideResult Nothing
+                        |> optional "end_scores" (list int) []
             in
             Decode.succeed Game
                 |> required "name" string
+                |> required "stage_id" int
                 |> required "name_with_result" string
                 |> required "state" decodeGameState
                 |> required "game_positions" (list decodeSide)
@@ -415,7 +480,7 @@ decodeDraw =
     Decode.succeed Draw
         |> required "starts_at" string
         |> required "label" string
-        |> optional "attendance" (nullable int) Nothing
+        |> optional "attendance" int 0
         |> required "games" (list (nullable decodeGame))
 
 
@@ -570,6 +635,98 @@ eventSections excludeEventSections =
     in
     [ "Details", "Notes", "Registrations", "Spares", "Schedule", "Standings", "Teams", "Reports" ]
         |> List.filter included
+
+
+gamesByStage : Stage -> List Draw -> List Game
+gamesByStage stage draws =
+    -- Get the draw sheets (games) from each draw,
+    -- concat (flatten) to a list of games
+    -- keep the games that aren't Nothing
+    -- keep the games that are complete
+    List.map .drawSheets draws
+        |> List.concat
+        |> List.filterMap identity
+        |> List.filter (\g -> g.stageId == stage.id)
+
+
+teamResultsForGames : Stage -> List Team -> List Game -> List TeamResult
+teamResultsForGames stage teams games =
+    let
+        sides team =
+            List.filter (\g -> g.state == GameComplete) games
+                |> List.map .sides
+                |> List.concat
+                |> List.filter (\side -> side.teamId == Just team.id)
+
+        results team =
+            sides team
+                |> List.map (\side -> side.result)
+                |> List.filterMap identity
+
+        wins team =
+            results team
+                |> List.filter (\result -> result == SideResultWon)
+                |> List.length
+
+        losses team =
+            let
+                isLoss result =
+                    (result == SideResultLost)
+                        || (result == SideResultConceded)
+                        || (result == SideResultForfeited)
+                        || (result == SideResultTimePenalized)
+            in
+            results team
+                |> List.filter isLoss
+                |> List.length
+
+        ties team =
+            results team
+                |> List.filter (\result -> result == SideResultTied)
+                |> List.length
+
+        assignPoints teamResult =
+            { teamResult
+                | points =
+                    case stage.rankingMethod of
+                        PointsRanking ->
+                            (toFloat (wins teamResult.team) * stage.pointsPerWin)
+                                + (toFloat (ties teamResult.team) * stage.pointsPerTie)
+                                + (toFloat (losses teamResult.team) * stage.pointsPerLoss)
+
+                        SkinsRanking ->
+                            let
+                                pointsPerEnd index score =
+                                    if score > 0 then
+                                        List.Extra.getAt index stage.pointsPerEnd
+                                            |> Maybe.withDefault 0.0
+
+                                    else
+                                        0.0
+                            in
+                            List.map (\side -> side.endScores) (sides teamResult.team)
+                                |> List.map (\endScores -> List.indexedMap pointsPerEnd endScores)
+                                |> List.concat
+                                |> List.sum
+
+                        ScoresRanking ->
+                            List.map (\side -> side.endScores) (sides teamResult.team)
+                                |> List.concat
+                                |> List.sum
+                                |> toFloat
+            }
+    in
+    List.map (\team -> TeamResult team 0 0 0 0) teams
+        |> List.map (\teamResult -> { teamResult | wins = wins teamResult.team })
+        |> List.map (\teamResult -> { teamResult | losses = losses teamResult.team })
+        |> List.map (\teamResult -> { teamResult | ties = ties teamResult.team })
+        |> List.map assignPoints
+
+
+teamResultsRankedByPoints : List TeamResult -> List TeamResult
+teamResultsRankedByPoints teamResults =
+    List.sortBy .points teamResults
+        |> List.reverse
 
 
 
@@ -908,6 +1065,17 @@ viewEvent { flags, onEventSection, selectedChild } event =
                     "schedule" ->
                         viewDrawSchedule event
 
+                    "teams" ->
+                        viewTeams event
+
+                    "standings" ->
+                        case List.head event.stages of
+                            Just stage ->
+                                viewStandings event stage
+
+                            Nothing ->
+                                p [] [ text "No stages" ]
+
                     _ ->
                         p [] [ text "Missing section view" ]
         ]
@@ -1010,6 +1178,55 @@ viewDrawSchedule { id, sheetNames, draws } =
     div []
         [ div [ class "table-responsive d-none d-md-block" ] [ viewTableSchedule ]
         , div [ class "d-md-none" ] [ viewListSchedule ]
+        ]
+
+
+viewTeams : Event -> Html Msg
+viewTeams { teams } =
+    let
+        viewTeamRow team =
+            li [] [ text team.name ]
+    in
+    div []
+        [ h5 [] [ text "Teams" ]
+        , ul [] (List.map viewTeamRow teams)
+        ]
+
+
+viewStandings : Event -> Stage -> Html Msg
+viewStandings { draws, teams } stage =
+    let
+        viewRow teamResult =
+            tr []
+                [ td [] [ text teamResult.team.name ]
+                , td [] [ text (String.fromInt teamResult.wins) ]
+                , td [] [ text (String.fromInt teamResult.losses) ]
+                , td [] [ text (String.fromInt teamResult.ties) ]
+                , td [] [ text (String.fromFloat teamResult.points) ]
+                ]
+
+        teamResults =
+            gamesByStage stage draws
+                |> teamResultsForGames stage teams
+                |> teamResultsRankedByPoints
+
+        hasTies =
+            List.any (\teamResult -> teamResult.ties > 0) teamResults
+    in
+    div []
+        [ h5 [] [ text "Standings" ]
+        , table [ class "table" ]
+            [ thead []
+                [ tr []
+                    [ th [] [ text "Team" ]
+                    , th [] [ text "Wins" ]
+                    , th [] [ text "Losses" ]
+                    , th [] [ text "Ties" ]
+                    , th [] [ text "Points" ]
+                    ]
+                ]
+            , tbody [] (List.map viewRow teamResults)
+            ]
         ]
 
 
