@@ -2,7 +2,7 @@ module Results exposing (init)
 
 import Browser
 import Html exposing (Html, a, button, div, h3, h5, input, label, li, p, small, strong, table, tbody, td, text, th, thead, tr, ul)
-import Html.Attributes exposing (class, classList, href, id, placeholder, style, target, value)
+import Html.Attributes exposing (class, classList, href, id, placeholder, style, target, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
@@ -25,10 +25,7 @@ type alias Model =
     , items : WebData (List Item)
     , search : String
     , event : WebData Event
-    , onEventSection : Maybe String
-
-    -- I don't love the name: SelectedChild...
-    , selectedChild : Maybe SelectedChild
+    , onEventSection : EventSection
     , errorMsg : Maybe String
     }
 
@@ -39,10 +36,11 @@ type alias Translation =
     }
 
 
-type SelectedChild
-    = SelectedChildDraw Draw
-    | SelectedChildGame Game
-    | SelectedChildTeam Team
+type EventSection
+    = EventSectionDraws (Maybe Draw) (Maybe Game)
+    | EventSectionStages (Maybe Stage)
+    | EventSectionTeams (Maybe Team)
+    | EventSectionReports (Maybe String)
 
 
 type alias Flags =
@@ -60,7 +58,7 @@ type alias Flags =
 
 type alias UrlState =
     { eventId : Maybe Int
-    , eventSection : Maybe String
+    , eventSection : Maybe EventSection
     }
 
 
@@ -105,6 +103,10 @@ type alias Team =
     { id : Int
     , name : String
     , shortName : String
+    , coach : Maybe String
+    , affiliation : Maybe String
+    , location : Maybe String
+    , imageUrl : Maybe String
     , lineup : List TeamCurler
     }
 
@@ -117,6 +119,7 @@ type alias TeamCurler =
     , delivery : Maybe RockDelivery
     , clubName : Maybe String
     , clubCity : Maybe String
+    , photoUrl : Maybe String
     }
 
 
@@ -305,6 +308,10 @@ decodeTeam =
         |> required "id" int
         |> required "name" string
         |> required "short_name" string
+        |> optional "coach" (nullable string) Nothing
+        |> optional "affiliation" (nullable string) Nothing
+        |> optional "location" (nullable string) Nothing
+        |> optional "image_url" (nullable string) Nothing
         |> optional "lineup" (list decodeTeamCurler) []
 
 
@@ -354,6 +361,7 @@ decodeTeamCurler =
         |> optional "delivery" (nullable decodeDelivery) Nothing
         |> optional "club_name" (nullable string) Nothing
         |> optional "club_city" (nullable string) Nothing
+        |> optional "photo_url" (nullable string) Nothing
 
 
 decodeStage : Decoder Stage
@@ -530,6 +538,46 @@ isLocalMode url =
     String.contains "localhost" url
 
 
+defaultEventSection : EventSection
+defaultEventSection =
+    EventSectionDraws Nothing Nothing
+
+
+stringToEventSection : String -> EventSection
+stringToEventSection str =
+    case str of
+        "schedule" ->
+            EventSectionDraws Nothing Nothing
+
+        "standings" ->
+            EventSectionStages Nothing
+
+        "teams" ->
+            EventSectionTeams Nothing
+
+        "reports" ->
+            EventSectionReports Nothing
+
+        _ ->
+            EventSectionDraws Nothing Nothing
+
+
+eventSectionToString : EventSection -> String
+eventSectionToString eventSection =
+    case eventSection of
+        EventSectionDraws _ _ ->
+            "schedule"
+
+        EventSectionStages _ ->
+            "standings"
+
+        EventSectionTeams _ ->
+            "teams"
+
+        EventSectionReports _ ->
+            "reports"
+
+
 parseUrlHashFragments : Maybe String -> UrlState
 parseUrlHashFragments maybeHash =
     case maybeHash of
@@ -551,8 +599,30 @@ parseUrlHashFragments maybeHash =
                             Nothing
 
                 eventSection =
-                    List.drop 1 fragments
-                        |> List.head
+                    case List.head (List.drop 1 fragments) of
+                        Just str ->
+                            case str of
+                                "schedule" ->
+                                    -- Check for draw id and game id
+                                    Just (EventSectionDraws Nothing Nothing)
+
+                                "standings" ->
+                                    -- Check for stage id
+                                    Just (EventSectionStages Nothing)
+
+                                "teams" ->
+                                    -- Check for team id
+                                    Just (EventSectionTeams Nothing)
+
+                                "reports" ->
+                                    -- Check for report
+                                    Just (EventSectionReports Nothing)
+
+                                _ ->
+                                    Nothing
+
+                        Nothing ->
+                            Nothing
             in
             UrlState eventId eventSection
 
@@ -564,19 +634,19 @@ init : Decode.Value -> ( Model, Cmd Msg )
 init flags_ =
     case Decode.decodeValue decodeFlags flags_ of
         Ok flags ->
-            ( Model flags False NotAsked NotAsked "" NotAsked Nothing Nothing Nothing
+            let
+                urlState =
+                    parseUrlHashFragments flags.hash
+            in
+            ( Model flags False NotAsked NotAsked "" NotAsked (Maybe.withDefault defaultEventSection urlState.eventSection) Nothing
             , Cmd.batch
                 [ getTranslations flags
-                , case flags.eventId of
+                , case urlState.eventId of
                     Just eventId ->
                         getEvent flags eventId
 
                     Nothing ->
-                        let
-                            urlState =
-                                parseUrlHashFragments flags.hash
-                        in
-                        case urlState.eventId of
+                        case flags.eventId of
                             Just eventId ->
                                 getEvent flags eventId
 
@@ -586,7 +656,7 @@ init flags_ =
             )
 
         Err error ->
-            ( Model (Flags Nothing Nothing Nothing "" LeaguesSection False 10 [] Nothing) False NotAsked NotAsked "" NotAsked Nothing Nothing (Just (Decode.errorToString error))
+            ( Model (Flags Nothing Nothing Nothing "" LeaguesSection False 10 [] Nothing) False NotAsked NotAsked "" NotAsked defaultEventSection (Just (Decode.errorToString error))
             , Cmd.none
             )
 
@@ -675,7 +745,7 @@ getEvent flags id =
     RemoteData.Http.get url GotEvent decodeEvent
 
 
-eventSections : List String -> List String
+eventSections : List String -> List EventSection
 eventSections excludeEventSections =
     let
         -- Check if a section is included (not in the explicitly excluded sections list).
@@ -686,6 +756,7 @@ eventSections excludeEventSections =
     in
     [ "details", "notes", "registrations", "spares", "schedule", "standings", "teams", "reports" ]
         |> List.filter included
+        |> List.map stringToEventSection
 
 
 gamesByStage : Stage -> List Draw -> List Game
@@ -813,10 +884,7 @@ type Msg
     | UpdateSearch String
     | SelectEvent Int
     | GotEvent (WebData Event)
-    | UpdateEventSection String
-    | SelectDraw Draw
-    | SelectGame Game
-    | SelectTeam Team
+    | UpdateEventSection EventSection
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -841,55 +909,12 @@ update msg model =
             ( model, getEvent model.flags id )
 
         GotEvent response ->
-            let
-                onEventSection =
-                    case model.onEventSection of
-                        Just eventSection ->
-                            Just eventSection
-
-                        Nothing ->
-                            -- Check if there's a section from the UrlState
-                            let
-                                urlState =
-                                    parseUrlHashFragments model.flags.hash
-                            in
-                            case urlState.eventSection of
-                                Just eventSection ->
-                                    Just eventSection
-
-                                Nothing ->
-                                    -- Get the first included section
-                                    eventSections model.flags.excludeEventSections
-                                        |> List.map String.toLower
-                                        |> List.head
-            in
-            ( { model
-                | onEventSection = onEventSection
-                , event = response
-              }
+            ( { model | event = response }
             , Cmd.none
             )
 
         UpdateEventSection eventSection ->
-            ( { model
-                | onEventSection = Just (String.toLower eventSection)
-                , selectedChild = Nothing
-              }
-            , Cmd.none
-            )
-
-        SelectDraw draw ->
-            ( { model | selectedChild = Just (SelectedChildDraw draw) }
-            , Cmd.none
-            )
-
-        SelectGame game ->
-            ( { model | selectedChild = Just (SelectedChildGame game) }
-            , Cmd.none
-            )
-
-        SelectTeam team ->
-            ( { model | selectedChild = Just (SelectedChildTeam team) }
+            ( { model | onEventSection = eventSection }
             , Cmd.none
             )
 
@@ -1071,57 +1096,64 @@ viewItems { flags, fullScreen, translations, search } items =
 
 
 viewEvent : Model -> Event -> Html Msg
-viewEvent { flags, translations, onEventSection, selectedChild } event =
+viewEvent { flags, translations, onEventSection } event =
     let
-        viewNavItem section =
+        viewNavItem eventSection =
             let
-                isActive =
-                    Just (String.toLower section) == onEventSection
+                isActiveEventSection =
+                    eventSectionToString eventSection == eventSectionToString onEventSection
             in
             li [ class "nav-item" ]
                 [ a
                     [ classList
                         [ ( "nav-link", True )
-                        , ( "active", isActive )
+                        , ( "active", isActiveEventSection )
                         ]
-                    , onClick (UpdateEventSection section)
-                    , href ("#" ++ String.fromInt event.id ++ "/" ++ String.toLower section)
+                    , onClick (UpdateEventSection eventSection)
+                    , href ("#" ++ String.fromInt event.id ++ "/" ++ String.toLower (eventSectionToString eventSection))
                     ]
-                    [ text (translate translations section) ]
+                    [ text (translate translations (eventSectionToString eventSection)) ]
                 ]
     in
     div [ class "p-3" ]
         [ h3 [ class "mb-3" ] [ text event.name ]
-        , ul [ class "nav nav-pills mb-3" ]
+        , ul [ class "nav nav-tabs mb-3" ]
             (List.map viewNavItem (eventSections flags.excludeEventSections))
-        , case selectedChild of
-            Just (SelectedChildDraw draw) ->
-                viewDraw draw
+        , case onEventSection of
+            EventSectionDraws draw game ->
+                case ( draw, game ) of
+                    ( _, Just game_ ) ->
+                        viewGame translations event game_
 
-            Just (SelectedChildGame game) ->
-                viewGame game
+                    ( Just draw_, _ ) ->
+                        viewDraw translations event draw_
 
-            Just (SelectedChildTeam team) ->
-                viewTeam team
-
-            Nothing ->
-                case String.toLower (Maybe.withDefault "details" onEventSection) of
-                    "schedule" ->
+                    ( Nothing, Nothing ) ->
                         viewDrawSchedule translations event
 
-                    "teams" ->
-                        viewTeams event
+            EventSectionStages stage ->
+                case stage of
+                    Just stage_ ->
+                        viewStandings translations event stage_
 
-                    "standings" ->
+                    Nothing ->
                         case List.head event.stages of
-                            Just stage ->
-                                viewStandings translations event stage
+                            Just stage_ ->
+                                viewStandings translations event stage_
 
                             Nothing ->
                                 p [] [ text "No stages" ]
 
-                    _ ->
-                        p [] [ text "Missing section view" ]
+            EventSectionTeams team ->
+                case team of
+                    Just team_ ->
+                        viewTeam translations team_
+
+                    Nothing ->
+                        viewTeams translations event
+
+            EventSectionReports report ->
+                viewReports translations event
         ]
 
 
@@ -1142,8 +1174,8 @@ viewDrawSchedule translations { id, sheetNames, draws } =
 
         drawLink drawIndex draw label =
             a
-                [ href ("#" ++ String.fromInt id ++ "/schedule/draws/" ++ String.fromInt (drawIndex + 1))
-                , onClick (SelectDraw draw)
+                [ href ("#" ++ String.fromInt id ++ "/schedule/" ++ String.fromInt (drawIndex + 1))
+                , onClick (UpdateEventSection (EventSectionDraws (Just draw) Nothing))
                 ]
                 [ text label ]
 
@@ -1163,8 +1195,8 @@ viewDrawSchedule translations { id, sheetNames, draws } =
                                     "text-primary font-weight-bold"
                     in
                     a
-                        [ href ("#" ++ String.fromInt id ++ "/schedule/draws/" ++ String.fromInt (drawIndex + 1) ++ "/sheets/" ++ String.fromInt (sheetIndex + 1))
-                        , onClick (SelectGame game_)
+                        [ href ("#" ++ String.fromInt id ++ "/schedule/" ++ String.fromInt (drawIndex + 1) ++ "/sheets/" ++ String.fromInt (sheetIndex + 1))
+                        , onClick (UpdateEventSection (EventSectionDraws Nothing (Just game_)))
                         , class stateClass
                         ]
                         [ text game_.nameWithResult ]
@@ -1194,9 +1226,9 @@ viewDrawSchedule translations { id, sheetNames, draws } =
             table [ class "table" ]
                 [ thead []
                     [ tr []
-                        ([ th [ style "min-width" "65px" ] [ text (translate translations "draw") ] ]
-                            ++ [ th [ style "min-width" "220px" ] [ text (translate translations "starts_at") ] ]
-                            ++ List.map (\sheetName -> th [ class "text-center", style "min-width" "198px" ] [ text sheetName ]) sheetNames
+                        ([ th [ style "border-top" "none", style "min-width" "65px" ] [ text (translate translations "draw") ] ]
+                            ++ [ th [ style "border-top" "none", style "min-width" "220px" ] [ text (translate translations "starts_at") ] ]
+                            ++ List.map (\sheetName -> th [ class "text-center", style "border-top" "none", style "min-width" "198px" ] [ text sheetName ]) sheetNames
                         )
                     ]
                 , tbody []
@@ -1225,67 +1257,196 @@ viewDrawSchedule translations { id, sheetNames, draws } =
         ]
 
 
-viewTeams : Event -> Html Msg
-viewTeams { teams } =
+viewTeams : WebData (List Translation) -> Event -> Html Msg
+viewTeams translations { id, teams } =
     let
         viewTeamRow team =
-            li [] [ text team.name ]
+            tr []
+                [ td []
+                    [ a
+                        [ href ("#" ++ String.fromInt id ++ "/teams/" ++ String.fromInt team.id)
+                        , onClick (UpdateEventSection (EventSectionTeams (Just team)))
+                        ]
+                        [ text team.name ]
+                    ]
+                , td [] []
+                , td [] []
+                , td [] []
+                ]
     in
-    div []
-        [ ul [] (List.map viewTeamRow teams)
+    table [ class "table table-striped" ]
+        [ thead []
+            [ tr []
+                [ th [ style "border-top" "none" ] [ text (translate translations "team") ]
+                , th [ style "border-top" "none" ] [ text (translate translations "coach") ]
+                , th [ style "border-top" "none" ] [ text (translate translations "affiliation") ]
+                , th [ style "border-top" "none" ] [ text (translate translations "location") ]
+                ]
+            ]
+        , tbody [] (List.map viewTeamRow teams)
         ]
 
 
 viewStandings : WebData (List Translation) -> Event -> Stage -> Html Msg
-viewStandings translations { draws, teams } stage =
+viewStandings translations { id, draws, teams, stages } onStage =
     let
-        viewRow teamResult =
-            tr []
-                [ td [] [ text teamResult.team.name ]
-                , td [] [ text (String.fromInt teamResult.wins) ]
-                , td [] [ text (String.fromInt teamResult.losses) ]
-                , td [] [ text (String.fromInt teamResult.ties) ]
-                , td [] [ text (String.fromFloat teamResult.points) ]
+        viewStageLink stage =
+            li [ class "nav-item" ]
+                [ a
+                    [ href ("#" ++ String.fromInt id ++ "/standings/" ++ String.fromInt stage.id)
+                    , onClick (UpdateEventSection (EventSectionStages (Just stage)))
+                    , classList
+                        [ ( "nav-link", True )
+                        , ( "active", stage.id == onStage.id )
+                        ]
+                    ]
+                    [ text stage.name ]
                 ]
 
-        teamResults =
-            gamesByStage stage draws
-                |> teamResultsForGames stage teams
-                |> teamResultsRankedByPoints
+        viewRoundRobin =
+            let
+                viewRow teamResult =
+                    tr []
+                        [ td []
+                            [ a
+                                [ href ("#" ++ String.fromInt id ++ "/teams/" ++ String.fromInt teamResult.team.id)
+                                , onClick (UpdateEventSection (EventSectionTeams (Just teamResult.team)))
+                                ]
+                                [ text teamResult.team.name ]
+                            ]
+                        , td [] [ text (String.fromInt teamResult.wins) ]
+                        , td [] [ text (String.fromInt teamResult.losses) ]
+                        , td [] [ text (String.fromInt teamResult.ties) ]
+                        , td [] [ text (String.fromFloat teamResult.points) ]
+                        ]
 
-        hasTies =
-            List.any (\teamResult -> teamResult.ties > 0) teamResults
+                teamResults =
+                    gamesByStage onStage draws
+                        |> teamResultsForGames onStage teams
+                        |> teamResultsRankedByPoints
+
+                hasTies =
+                    List.any (\teamResult -> teamResult.ties > 0) teamResults
+            in
+            table [ class "table table-striped" ]
+                [ thead []
+                    [ tr []
+                        [ th [ style "border-top" "none" ] [ text (translate translations "team") ]
+                        , th [ style "border-top" "none" ] [ text (translate translations "wins") ]
+                        , th [ style "border-top" "none" ] [ text (translate translations "losses") ]
+                        , th [ style "border-top" "none" ] [ text (translate translations "ties") ]
+                        , th [ style "border-top" "none" ] [ text (translate translations "points") ]
+                        ]
+                    ]
+                , tbody [] (List.map viewRow teamResults)
+                ]
+
+        viewBracket =
+            div [] [ text "TODO" ]
     in
     div []
-        [ h5 [] [ text stage.name ]
-        , table [ class "table" ]
+        [ div [ class "nav nav-pills mb-3" ] (List.map viewStageLink stages)
+        , case onStage.stageType of
+            RoundRobin ->
+                viewRoundRobin
+
+            Bracket ->
+                viewBracket
+        ]
+
+
+viewReports : WebData (List Translation) -> Event -> Html Msg
+viewReports translations { id } =
+    div [] [ text "Reports: TODO" ]
+
+
+viewDraw : WebData (List Translation) -> Event -> Draw -> Html Msg
+viewDraw translations event draw =
+    let
+        viewGameRow game =
+            div [ class "mt-4" ] [ viewGame translations event game ]
+    in
+    div []
+        ([ h5 [] [ text ("Draw " ++ draw.label ++ " - " ++ draw.startsAt) ]
+         ]
+            ++ List.map viewGameRow (List.filterMap identity draw.drawSheets)
+        )
+
+
+viewGame : WebData (List Translation) -> Event -> Game -> Html Msg
+viewGame translations event game =
+    let
+        numberOfEnds =
+            List.map (\s -> List.length s.endScores) game.sides
+                |> List.maximum
+                |> Maybe.withDefault 0
+                |> max event.numberOfEnds
+
+        viewEndHeader endNumber =
+            th [ style "border-top" "none" ] [ text (String.fromInt endNumber) ]
+
+        viewSide side =
+            let
+                viewEndScore endNumber =
+                    let
+                        endScore =
+                            case List.Extra.getAt (endNumber - 1) side.endScores of
+                                Just es ->
+                                    String.fromInt es
+
+                                Nothing ->
+                                    "-"
+                    in
+                    td [] [ text endScore ]
+
+                teamName =
+                    case side.teamId of
+                        Just id ->
+                            case List.Extra.find (\team -> team.id == id) event.teams of
+                                Just team ->
+                                    team.name
+
+                                Nothing ->
+                                    "TBD"
+
+                        Nothing ->
+                            "TBD"
+            in
+            tr []
+                ([ td [] [ text teamName ]
+                 , td []
+                    [ text
+                        (if side.firstHammer then
+                            "*"
+
+                         else
+                            ""
+                        )
+                    ]
+                 ]
+                    ++ List.map viewEndScore (List.range 1 numberOfEnds)
+                    ++ [ td [] [ text (String.fromInt (List.sum side.endScores)) ] ]
+                )
+    in
+    div []
+        [ table [ class "table" ]
             [ thead []
                 [ tr []
-                    [ th [] [ text (translate translations "team") ]
-                    , th [] [ text (translate translations "wins") ]
-                    , th [] [ text (translate translations "losses") ]
-                    , th [] [ text (translate translations "ties") ]
-                    , th [] [ text (translate translations "points") ]
-                    ]
+                    ([ th [ style "border-top" "none" ] [ text game.name ]
+                     , th [ style "border-top" "none" ] [ text "LSFE" ]
+                     ]
+                        ++ List.map viewEndHeader (List.range 1 numberOfEnds)
+                        ++ [ th [ style "border-top" "none" ] [ text "Tot" ] ]
+                    )
                 ]
-            , tbody [] (List.map viewRow teamResults)
+            , tbody [] (List.map viewSide game.sides)
             ]
         ]
 
 
-viewDraw : Draw -> Html Msg
-viewDraw draw =
-    div [] [ text ("Draw " ++ draw.label) ]
-
-
-viewGame : Game -> Html Msg
-viewGame game =
-    div [] [ text ("Game " ++ game.name) ]
-
-
-viewTeam : Team -> Html Msg
-viewTeam team =
-    div [] [ text ("Team " ++ team.name) ]
+viewTeam : WebData (List Translation) -> Team -> Html Msg
+viewTeam translations team =
+    div [] [ text team.name ]
 
 
 
