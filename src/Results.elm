@@ -12,6 +12,8 @@ import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Svg
 import Svg.Attributes
+import Url
+import Url.Parser exposing ((</>), Parser)
 
 
 
@@ -20,27 +22,39 @@ import Svg.Attributes
 
 type alias Model =
     { flags : Flags
+    , path : Maybe String
     , fullScreen : Bool
     , translations : WebData (List Translation)
     , items : WebData (List Item)
     , search : String
+    , product : WebData Product
     , event : WebData Event
-    , onEventSection : EventSection
     , errorMsg : Maybe String
     }
+
+
+type Route
+    = ItemsRoute
+    | ProductRoute Int
+    | EventRoute Int NestedEventRoute
+
+
+type NestedEventRoute
+    = DrawsRoute
+    | DrawRoute Int
+    | GameRoute Int Int
+    | StagesRoute
+    | StageRoute Int
+    | TeamsRoute
+    | TeamRoute Int
+    | ReportsRoute
+    | ReportRoute String
 
 
 type alias Translation =
     { key : String
     , label : String
     }
-
-
-type EventSection
-    = EventSectionDraws (Maybe Draw) (Maybe Game)
-    | EventSectionStages (Maybe Stage)
-    | EventSectionTeams (Maybe Team)
-    | EventSectionReports (Maybe String)
 
 
 type alias Flags =
@@ -53,12 +67,6 @@ type alias Flags =
     , pageSize : Int
     , excludeEventSections : List String
     , eventId : Maybe Int
-    }
-
-
-type alias UrlState =
-    { eventId : Maybe Int
-    , eventSection : Maybe EventSection
     }
 
 
@@ -78,6 +86,13 @@ type alias Item =
     , price : Maybe String
     , purchaseUrl : Maybe String
     , publishResults : Bool
+    }
+
+
+type alias Product =
+    { id : Int
+    , name : String
+    , summary : Maybe String
     }
 
 
@@ -106,6 +121,9 @@ type alias Team =
     , coach : Maybe String
     , affiliation : Maybe String
     , location : Maybe String
+    , contactName : Maybe String
+    , contactEmail : Maybe String
+    , contactPhone : Maybe String
     , imageUrl : Maybe String
     , lineup : List TeamCurler
     }
@@ -210,6 +228,7 @@ type SideResult
 
 type alias TeamResult =
     { team : Team
+    , gamesPlayed : Int
     , wins : Int
     , losses : Int
     , ties : Int
@@ -283,6 +302,14 @@ decodeItem =
         |> optional "publish_results" bool False
 
 
+decodeProduct : Decoder Product
+decodeProduct =
+    Decode.succeed Product
+        |> required "id" int
+        |> required "name" string
+        |> optional "summary" (nullable string) Nothing
+
+
 decodeEvent : Decoder Event
 decodeEvent =
     Decode.succeed Event
@@ -311,6 +338,9 @@ decodeTeam =
         |> optional "coach" (nullable string) Nothing
         |> optional "affiliation" (nullable string) Nothing
         |> optional "location" (nullable string) Nothing
+        |> optional "contact_name" (nullable string) Nothing
+        |> optional "contact_email" (nullable string) Nothing
+        |> optional "contact_phone" (nullable string) Nothing
         |> optional "image_url" (nullable string) Nothing
         |> optional "lineup" (list decodeTeamCurler) []
 
@@ -517,6 +547,54 @@ decodeDraw =
 -- HELPERS
 
 
+matchRoute : Parser (Route -> a) a
+matchRoute =
+    Url.Parser.oneOf
+        [ Url.Parser.map ItemsRoute Url.Parser.top
+        , Url.Parser.map ProductRoute (Url.Parser.s "products" </> Url.Parser.int)
+        , Url.Parser.map EventRoute (Url.Parser.s "events" </> Url.Parser.int </> matchNestedEventRoute)
+        ]
+
+
+matchNestedEventRoute : Parser (NestedEventRoute -> a) a
+matchNestedEventRoute =
+    Url.Parser.oneOf
+        [ Url.Parser.map DrawsRoute (Url.Parser.s "draws")
+        , Url.Parser.map StagesRoute (Url.Parser.s "stages")
+        , Url.Parser.map TeamsRoute (Url.Parser.s "teams")
+        , Url.Parser.map ReportsRoute (Url.Parser.s "reports")
+        , Url.Parser.map DrawRoute (Url.Parser.s "draws" </> Url.Parser.int)
+        , Url.Parser.map GameRoute (Url.Parser.s "draws" </> Url.Parser.int </> Url.Parser.s "sheets" </> Url.Parser.int)
+        , Url.Parser.map StageRoute (Url.Parser.s "stages" </> Url.Parser.int)
+        , Url.Parser.map TeamRoute (Url.Parser.s "teams" </> Url.Parser.int)
+        , Url.Parser.map ReportRoute (Url.Parser.s "reports" </> Url.Parser.string)
+        ]
+
+
+toRoute : Maybe String -> Route
+toRoute path =
+    let
+        url =
+            let
+                fixedPath =
+                    path
+                        |> Maybe.withDefault ""
+                        |> String.replace "#" ""
+            in
+            { host = "api.curling.io"
+            , port_ = Nothing
+            , protocol = Url.Https
+            , query = Nothing
+            , fragment = Nothing
+            , path = fixedPath
+            }
+
+        _ =
+            Debug.log (Url.toString url) (Url.Parser.parse matchRoute url)
+    in
+    Maybe.withDefault ItemsRoute (Url.Parser.parse matchRoute url)
+
+
 translate : WebData (List Translation) -> String -> String
 translate translationsData key =
     -- Translates the passed key to the current labels (server determines locale by url).
@@ -538,125 +616,51 @@ isLocalMode url =
     String.contains "localhost" url
 
 
-defaultEventSection : EventSection
-defaultEventSection =
-    EventSectionDraws Nothing Nothing
+pathToSectionName : Maybe String -> String
+pathToSectionName path =
+    case path of
+        Just h ->
+            if String.contains "/reports" h then
+                "reports"
 
+            else if String.contains "/teams" h then
+                "teams"
 
-stringToEventSection : String -> EventSection
-stringToEventSection str =
-    case str of
-        "schedule" ->
-            EventSectionDraws Nothing Nothing
+            else if String.contains "/stages" h then
+                "stages"
 
-        "standings" ->
-            EventSectionStages Nothing
-
-        "teams" ->
-            EventSectionTeams Nothing
-
-        "reports" ->
-            EventSectionReports Nothing
-
-        _ ->
-            EventSectionDraws Nothing Nothing
-
-
-eventSectionToString : EventSection -> String
-eventSectionToString eventSection =
-    case eventSection of
-        EventSectionDraws _ _ ->
-            "schedule"
-
-        EventSectionStages _ ->
-            "standings"
-
-        EventSectionTeams _ ->
-            "teams"
-
-        EventSectionReports _ ->
-            "reports"
-
-
-parseUrlHashFragments : Maybe String -> UrlState
-parseUrlHashFragments maybeHash =
-    case maybeHash of
-        -- It's kind of annoying, but document.location.hash is always a string, and it will contain the #,
-        -- To keep our flag setting simple (eventId: document.location.hash), we replace the # and concert to an integer in elm.
-        -- I'd rather do this in the flags decoder, but I'm not sure how to yet.
-        Just hash ->
-            let
-                fragments =
-                    String.split "/" hash
-
-                eventId =
-                    case List.head fragments of
-                        Just id ->
-                            String.replace "#" "" id
-                                |> String.toInt
-
-                        Nothing ->
-                            Nothing
-
-                eventSection =
-                    case List.head (List.drop 1 fragments) of
-                        Just str ->
-                            case str of
-                                "schedule" ->
-                                    -- Check for draw id and game id
-                                    Just (EventSectionDraws Nothing Nothing)
-
-                                "standings" ->
-                                    -- Check for stage id
-                                    Just (EventSectionStages Nothing)
-
-                                "teams" ->
-                                    -- Check for team id
-                                    Just (EventSectionTeams Nothing)
-
-                                "reports" ->
-                                    -- Check for report
-                                    Just (EventSectionReports Nothing)
-
-                                _ ->
-                                    Nothing
-
-                        Nothing ->
-                            Nothing
-            in
-            UrlState eventId eventSection
+            else
+                "draws"
 
         Nothing ->
-            UrlState Nothing Nothing
+            "draws"
 
 
 init : Decode.Value -> ( Model, Cmd Msg )
 init flags_ =
     case Decode.decodeValue decodeFlags flags_ of
         Ok flags ->
-            let
-                urlState =
-                    parseUrlHashFragments flags.hash
-            in
-            ( Model flags False NotAsked NotAsked "" NotAsked (Maybe.withDefault defaultEventSection urlState.eventSection) Nothing
+            ( Model flags flags.hash False NotAsked NotAsked "" NotAsked NotAsked Nothing
             , Cmd.batch
                 [ getTranslations flags
-                , case urlState.eventId of
-                    Just eventId ->
-                        getEvent flags eventId
+                , case toRoute flags.hash of
+                    ItemsRoute ->
+                        getItems flags
 
-                    Nothing ->
-                        case flags.eventId of
-                            Just eventId ->
-                                getEvent flags eventId
+                    ProductRoute id ->
+                        getProduct flags id
 
-                            Nothing ->
-                                getItems flags
+                    EventRoute id _ ->
+                        getEvent flags id
                 ]
             )
 
         Err error ->
-            ( Model (Flags Nothing Nothing Nothing "" LeaguesSection False 10 [] Nothing) False NotAsked NotAsked "" NotAsked defaultEventSection (Just (Decode.errorToString error))
+            let
+                flags =
+                    Flags Nothing Nothing Nothing "" LeaguesSection False 10 [] Nothing
+            in
+            ( Model flags Nothing False NotAsked NotAsked "" NotAsked NotAsked (Just (Decode.errorToString error))
             , Cmd.none
             )
 
@@ -745,7 +749,18 @@ getEvent flags id =
     RemoteData.Http.get url GotEvent decodeEvent
 
 
-eventSections : List String -> List EventSection
+getProduct : Flags -> Int -> Cmd Msg
+getProduct flags id =
+    let
+        url =
+            baseClubUrl flags
+                ++ "products/"
+                ++ String.fromInt id
+    in
+    RemoteData.Http.get url GotProduct decodeProduct
+
+
+eventSections : List String -> List String
 eventSections excludeEventSections =
     let
         -- Check if a section is included (not in the explicitly excluded sections list).
@@ -754,9 +769,8 @@ eventSections excludeEventSections =
                 |> List.member (String.toLower section)
                 |> not
     in
-    [ "details", "notes", "registrations", "spares", "schedule", "standings", "teams", "reports" ]
+    [ "details", "notes", "registrations", "spares", "draws", "stages", "teams", "reports" ]
         |> List.filter included
-        |> List.map stringToEventSection
 
 
 gamesByStage : Stage -> List Draw -> List Game
@@ -779,6 +793,9 @@ teamResultsForGames stage teams games =
                 |> List.map .sides
                 |> List.concat
                 |> List.filter (\side -> side.teamId == Just team.id)
+
+        gamesPlayed team =
+            List.length (sides team)
 
         results team =
             sides team
@@ -838,7 +855,8 @@ teamResultsForGames stage teams games =
                                 |> toFloat
             }
     in
-    List.map (\team -> TeamResult team 0 0 0 0) teams
+    List.map (\team -> TeamResult team 0 0 0 0 0) teams
+        |> List.map (\teamResult -> { teamResult | gamesPlayed = gamesPlayed teamResult.team })
         |> List.map (\teamResult -> { teamResult | wins = wins teamResult.team })
         |> List.map (\teamResult -> { teamResult | losses = losses teamResult.team })
         |> List.map (\teamResult -> { teamResult | ties = ties teamResult.team })
@@ -884,7 +902,8 @@ type Msg
     | UpdateSearch String
     | SelectEvent Int
     | GotEvent (WebData Event)
-    | UpdateEventSection EventSection
+    | GotProduct (WebData Product)
+    | UpdateRoute String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -913,8 +932,13 @@ update msg model =
             , Cmd.none
             )
 
-        UpdateEventSection eventSection ->
-            ( { model | onEventSection = eventSection }
+        GotProduct response ->
+            ( { model | product = response }
+            , Cmd.none
+            )
+
+        UpdateRoute path ->
+            ( { model | path = Just path }
             , Cmd.none
             )
 
@@ -1029,7 +1053,7 @@ viewItems { flags, fullScreen, translations, search } items =
             tr []
                 ([ td []
                     [ if item.publishResults then
-                        a [ href ("#" ++ String.fromInt item.id), onClick (SelectEvent item.id) ] [ text item.name ]
+                        a [ href ("#/events/" ++ String.fromInt item.id), onClick (SelectEvent item.id) ] [ text item.name ]
 
                       else
                         text item.name
@@ -1096,69 +1120,107 @@ viewItems { flags, fullScreen, translations, search } items =
 
 
 viewEvent : Model -> Event -> Html Msg
-viewEvent { flags, translations, onEventSection } event =
+viewEvent { flags, path, translations } event =
     let
         viewNavItem eventSection =
             let
-                isActiveEventSection =
-                    eventSectionToString eventSection == eventSectionToString onEventSection
+                isActiveRoute =
+                    -- TODO
+                    False
+
+                newPath =
+                    "#/events/" ++ String.fromInt event.id ++ "/" ++ eventSection
             in
             li [ class "nav-item" ]
                 [ a
                     [ classList
                         [ ( "nav-link", True )
-                        , ( "active", isActiveEventSection )
+                        , ( "active", isActiveRoute )
                         ]
-                    , onClick (UpdateEventSection eventSection)
-                    , href ("#" ++ String.fromInt event.id ++ "/" ++ String.toLower (eventSectionToString eventSection))
+                    , onClick (UpdateRoute newPath)
+                    , href newPath
                     ]
-                    [ text (translate translations (eventSectionToString eventSection)) ]
+                    [ text (translate translations eventSection) ]
                 ]
     in
     div [ class "p-3" ]
         [ h3 [ class "mb-3" ] [ text event.name ]
         , ul [ class "nav nav-tabs mb-3" ]
             (List.map viewNavItem (eventSections flags.excludeEventSections))
-        , case onEventSection of
-            EventSectionDraws draw game ->
-                case ( draw, game ) of
-                    ( _, Just game_ ) ->
-                        viewGame translations event game_
-
-                    ( Just draw_, _ ) ->
-                        viewDraw translations event draw_
-
-                    ( Nothing, Nothing ) ->
+        , case toRoute path of
+            EventRoute _ nestedRoute ->
+                case nestedRoute of
+                    DrawsRoute ->
                         viewDrawSchedule translations event
 
-            EventSectionStages stage ->
-                case stage of
-                    Just stage_ ->
-                        viewStandings translations event stage_
-
-                    Nothing ->
-                        case List.head event.stages of
-                            Just stage_ ->
-                                viewStandings translations event stage_
+                    DrawRoute idx ->
+                        case List.Extra.getAt idx event.draws of
+                            Just draw ->
+                                viewDraw translations event draw
 
                             Nothing ->
-                                p [] [ text "No stages" ]
+                                -- TODO Maybe an error instead since we didn't find the corresponding draw?
+                                viewDrawSchedule translations event
 
-            EventSectionTeams team ->
-                case team of
-                    Just team_ ->
-                        viewTeam translations team_
+                    GameRoute drawIndex sheetIndex ->
+                        case List.Extra.getAt drawIndex event.draws of
+                            Just draw ->
+                                case List.Extra.getAt sheetIndex draw.drawSheets of
+                                    Just (Just game) ->
+                                        let
+                                            sheetLabel =
+                                                List.Extra.getAt sheetIndex event.sheetNames
+                                        in
+                                        viewGame translations event sheetLabel game
 
-                    Nothing ->
+                                    _ ->
+                                        -- TODO Maybe an error instead since we didn't find the corresponding game?
+                                        viewDraw translations event draw
+
+                            Nothing ->
+                                -- TODO Maybe an error instead since we didn't find the corresponding draw?
+                                viewDrawSchedule translations event
+
+                    StagesRoute ->
+                        case List.head event.stages of
+                            Just stage ->
+                                viewStandings translations event stage
+
+                            Nothing ->
+                                p [] [ text "No stages found" ]
+
+                    StageRoute id ->
+                        case List.Extra.find (\s -> s.id == id) event.stages of
+                            Just stage ->
+                                viewStandings translations event stage
+
+                            Nothing ->
+                                p [] [ text "Stage not found." ]
+
+                    TeamsRoute ->
                         viewTeams translations event
 
-            EventSectionReports report ->
-                viewReports translations event
+                    TeamRoute id ->
+                        case List.Extra.find (\t -> t.id == id) event.teams of
+                            Just team ->
+                                viewTeam translations team
+
+                            Nothing ->
+                                p [] [ text "Team not found." ]
+
+                    ReportsRoute ->
+                        viewReports translations event
+
+                    ReportRoute report ->
+                        viewReport translations event report
+
+            _ ->
+                viewDrawSchedule translations event
         ]
 
 
 viewDrawSchedule : WebData (List Translation) -> Event -> Html Msg
-viewDrawSchedule translations { id, sheetNames, draws } =
+viewDrawSchedule translations { id, endScoresEnabled, sheetNames, draws } =
     let
         isDrawActive draw =
             List.any
@@ -1173,11 +1235,15 @@ viewDrawSchedule translations { id, sheetNames, draws } =
                 draw.drawSheets
 
         drawLink drawIndex draw label =
-            a
-                [ href ("#" ++ String.fromInt id ++ "/schedule/" ++ String.fromInt (drawIndex + 1))
-                , onClick (UpdateEventSection (EventSectionDraws (Just draw) Nothing))
-                ]
-                [ text label ]
+            if endScoresEnabled then
+                let
+                    newPath =
+                        "#/events/" ++ String.fromInt id ++ "/draws/" ++ String.fromInt (drawIndex + 1)
+                in
+                a [ href newPath, onClick (UpdateRoute newPath) ] [ text label ]
+
+            else
+                text label
 
         gameLink drawIndex sheetIndex game =
             case game of
@@ -1194,12 +1260,20 @@ viewDrawSchedule translations { id, sheetNames, draws } =
                                 GameActive ->
                                     "text-primary font-weight-bold"
                     in
-                    a
-                        [ href ("#" ++ String.fromInt id ++ "/schedule/" ++ String.fromInt (drawIndex + 1) ++ "/sheets/" ++ String.fromInt (sheetIndex + 1))
-                        , onClick (UpdateEventSection (EventSectionDraws Nothing (Just game_)))
-                        , class stateClass
-                        ]
-                        [ text game_.nameWithResult ]
+                    if endScoresEnabled then
+                        let
+                            newPath =
+                                "#/events/" ++ String.fromInt id ++ "/draws/" ++ String.fromInt (drawIndex + 1) ++ "/sheets/" ++ String.fromInt (sheetIndex + 1)
+                        in
+                        a
+                            [ href newPath
+                            , onClick (UpdateRoute newPath)
+                            , class stateClass
+                            ]
+                            [ text game_.nameWithResult ]
+
+                    else
+                        text game_.nameWithResult
 
                 Nothing ->
                     text ""
@@ -1261,13 +1335,26 @@ viewTeams : WebData (List Translation) -> Event -> Html Msg
 viewTeams translations { id, teams } =
     let
         viewTeamRow team =
+            let
+                noDetails =
+                    -- Check if there are any team details to show.
+                    List.isEmpty team.lineup
+                        && (team.contactName == Nothing)
+                        && (team.contactEmail == Nothing)
+                        && (team.contactPhone == Nothing)
+            in
             tr []
                 [ td []
-                    [ a
-                        [ href ("#" ++ String.fromInt id ++ "/teams/" ++ String.fromInt team.id)
-                        , onClick (UpdateEventSection (EventSectionTeams (Just team)))
-                        ]
-                        [ text team.name ]
+                    [ if noDetails then
+                        -- No point in linking to team details if there are no more details.
+                        text team.name
+
+                      else
+                        let
+                            newPath =
+                                "#/events/" ++ String.fromInt id ++ "/teams/" ++ String.fromInt team.id
+                        in
+                        a [ href newPath, onClick (UpdateRoute newPath) ] [ text team.name ]
                     ]
                 , td [] []
                 , td [] []
@@ -1291,10 +1378,14 @@ viewStandings : WebData (List Translation) -> Event -> Stage -> Html Msg
 viewStandings translations { id, draws, teams, stages } onStage =
     let
         viewStageLink stage =
+            let
+                newPath =
+                    "#/events/" ++ String.fromInt id ++ "/standings/" ++ String.fromInt stage.id
+            in
             li [ class "nav-item" ]
                 [ a
-                    [ href ("#" ++ String.fromInt id ++ "/standings/" ++ String.fromInt stage.id)
-                    , onClick (UpdateEventSection (EventSectionStages (Just stage)))
+                    [ href newPath
+                    , onClick (UpdateRoute newPath)
                     , classList
                         [ ( "nav-link", True )
                         , ( "active", stage.id == onStage.id )
@@ -1305,21 +1396,6 @@ viewStandings translations { id, draws, teams, stages } onStage =
 
         viewRoundRobin =
             let
-                viewRow teamResult =
-                    tr []
-                        [ td []
-                            [ a
-                                [ href ("#" ++ String.fromInt id ++ "/teams/" ++ String.fromInt teamResult.team.id)
-                                , onClick (UpdateEventSection (EventSectionTeams (Just teamResult.team)))
-                                ]
-                                [ text teamResult.team.name ]
-                            ]
-                        , td [] [ text (String.fromInt teamResult.wins) ]
-                        , td [] [ text (String.fromInt teamResult.losses) ]
-                        , td [] [ text (String.fromInt teamResult.ties) ]
-                        , td [] [ text (String.fromFloat teamResult.points) ]
-                        ]
-
                 teamResults =
                     gamesByStage onStage draws
                         |> teamResultsForGames onStage teams
@@ -1327,22 +1403,51 @@ viewStandings translations { id, draws, teams, stages } onStage =
 
                 hasTies =
                     List.any (\teamResult -> teamResult.ties > 0) teamResults
+
+                viewRow teamResult =
+                    let
+                        newPath =
+                            "#/events/" ++ String.fromInt id ++ "/teams/" ++ String.fromInt teamResult.team.id
+                    in
+                    tr []
+                        [ td []
+                            [ a
+                                [ href newPath
+                                , onClick (UpdateRoute newPath)
+                                ]
+                                [ text teamResult.team.name ]
+                            ]
+                        , td [ class "text-right" ] [ text (String.fromInt teamResult.gamesPlayed) ]
+                        , td [ class "text-right" ] [ text (String.fromInt teamResult.wins) ]
+                        , td [ class "text-right" ] [ text (String.fromInt teamResult.losses) ]
+                        , if hasTies then
+                            td [ class "text-right" ] [ text (String.fromInt teamResult.ties) ]
+
+                          else
+                            text ""
+                        , td [ class "text-right" ] [ text (String.fromFloat teamResult.points) ]
+                        ]
             in
             table [ class "table table-striped" ]
                 [ thead []
                     [ tr []
                         [ th [ style "border-top" "none" ] [ text (translate translations "team") ]
-                        , th [ style "border-top" "none" ] [ text (translate translations "wins") ]
-                        , th [ style "border-top" "none" ] [ text (translate translations "losses") ]
-                        , th [ style "border-top" "none" ] [ text (translate translations "ties") ]
-                        , th [ style "border-top" "none" ] [ text (translate translations "points") ]
+                        , th [ class "text-right", style "border-top" "none" ] [ text (translate translations "games") ]
+                        , th [ class "text-right", style "border-top" "none" ] [ text (translate translations "wins") ]
+                        , th [ class "text-right", style "border-top" "none" ] [ text (translate translations "losses") ]
+                        , if hasTies then
+                            th [ class "text-right", style "border-top" "none" ] [ text (translate translations "ties") ]
+
+                          else
+                            text ""
+                        , th [ class "text-right", style "border-top" "none" ] [ text (translate translations "points") ]
                         ]
                     ]
                 , tbody [] (List.map viewRow teamResults)
                 ]
 
         viewBracket =
-            div [] [ text "TODO" ]
+            div [] [ text "Coming Soon." ]
     in
     div []
         [ div [ class "nav nav-pills mb-3" ] (List.map viewStageLink stages)
@@ -1357,24 +1462,33 @@ viewStandings translations { id, draws, teams, stages } onStage =
 
 viewReports : WebData (List Translation) -> Event -> Html Msg
 viewReports translations { id } =
-    div [] [ text "Reports: TODO" ]
+    div [] [ text "Coming Soon." ]
 
 
 viewDraw : WebData (List Translation) -> Event -> Draw -> Html Msg
 viewDraw translations event draw =
     let
-        viewGameRow game =
-            div [ class "mt-4" ] [ viewGame translations event game ]
+        viewDrawSheet index drawSheet =
+            case drawSheet of
+                Just game ->
+                    let
+                        sheetLabel =
+                            List.Extra.getAt index event.sheetNames
+                    in
+                    div [ class "mt-4" ] [ viewGame translations event sheetLabel game ]
+
+                Nothing ->
+                    text ""
     in
     div []
         ([ h5 [] [ text ("Draw " ++ draw.label ++ " - " ++ draw.startsAt) ]
          ]
-            ++ List.map viewGameRow (List.filterMap identity draw.drawSheets)
+            ++ List.indexedMap viewDrawSheet draw.drawSheets
         )
 
 
-viewGame : WebData (List Translation) -> Event -> Game -> Html Msg
-viewGame translations event game =
+viewGame : WebData (List Translation) -> Event -> Maybe String -> Game -> Html Msg
+viewGame translations event sheetLabel game =
     let
         numberOfEnds =
             List.map (\s -> List.length s.endScores) game.sides
@@ -1432,7 +1546,7 @@ viewGame translations event game =
         [ table [ class "table" ]
             [ thead []
                 [ tr []
-                    ([ th [ style "border-top" "none" ] [ text game.name ]
+                    ([ th [ style "border-top" "none" ] [ text (Maybe.withDefault game.name sheetLabel) ]
                      , th [ style "border-top" "none" ] [ text "LSFE" ]
                      ]
                         ++ List.map viewEndHeader (List.range 1 numberOfEnds)
@@ -1446,7 +1560,15 @@ viewGame translations event game =
 
 viewTeam : WebData (List Translation) -> Team -> Html Msg
 viewTeam translations team =
-    div [] [ text team.name ]
+    div []
+        [ h5 [] [ text team.name ]
+        , div [] [ text (Maybe.withDefault "" team.coach) ]
+        ]
+
+
+viewReport : WebData (List Translation) -> Event -> String -> Html Msg
+viewReport translations { id } report =
+    div [] [ text ("Coming Soon: " ++ report) ]
 
 
 
