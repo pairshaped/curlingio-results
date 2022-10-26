@@ -559,7 +559,8 @@ matchRoute =
 matchNestedEventRoute : Parser (NestedEventRoute -> a) a
 matchNestedEventRoute =
     Url.Parser.oneOf
-        [ Url.Parser.map DrawsRoute (Url.Parser.s "draws")
+        [ Url.Parser.map DrawsRoute Url.Parser.top
+        , Url.Parser.map DrawsRoute (Url.Parser.s "draws")
         , Url.Parser.map StagesRoute (Url.Parser.s "stages")
         , Url.Parser.map TeamsRoute (Url.Parser.s "teams")
         , Url.Parser.map ReportsRoute (Url.Parser.s "reports")
@@ -590,7 +591,7 @@ toRoute path =
             }
 
         _ =
-            Debug.log (Url.toString url) (Url.Parser.parse matchRoute url)
+            Debug.log (Url.toString url) { url = url, parsed = Url.Parser.parse matchRoute url }
     in
     Maybe.withDefault ItemsRoute (Url.Parser.parse matchRoute url)
 
@@ -640,10 +641,35 @@ init : Decode.Value -> ( Model, Cmd Msg )
 init flags_ =
     case Decode.decodeValue decodeFlags flags_ of
         Ok flags ->
-            ( Model flags flags.hash False NotAsked NotAsked "" NotAsked NotAsked Nothing
+            let
+                hash =
+                    case flags.hash of
+                        Just "" ->
+                            Nothing
+
+                        Nothing ->
+                            Nothing
+
+                        Just _ ->
+                            flags.hash
+
+                path =
+                    case hash of
+                        Just h ->
+                            Just h
+
+                        Nothing ->
+                            case flags.eventId of
+                                Just eventId ->
+                                    Just ("#/events/" ++ String.fromInt eventId ++ "/draws")
+
+                                Nothing ->
+                                    Nothing
+            in
+            ( Model flags path False NotAsked NotAsked "" NotAsked NotAsked Nothing
             , Cmd.batch
                 [ getTranslations flags
-                , case toRoute flags.hash of
+                , case toRoute path of
                     ItemsRoute ->
                         getItems flags
 
@@ -651,6 +677,10 @@ init flags_ =
                         getProduct flags id
 
                     EventRoute id _ ->
+                        let
+                            _ =
+                                Debug.log "init with event:" id
+                        in
                         getEvent flags id
                 ]
             )
@@ -867,6 +897,15 @@ teamResultsRankedByPoints : List TeamResult -> List TeamResult
 teamResultsRankedByPoints teamResults =
     List.sortBy .points teamResults
         |> List.reverse
+
+
+teamHasDetails : Team -> Bool
+teamHasDetails team =
+    -- Check if there are any team details to show.
+    not (List.isEmpty team.lineup)
+        || (team.contactName /= Nothing)
+        || (team.contactEmail /= Nothing)
+        || (team.contactPhone /= Nothing)
 
 
 
@@ -1125,8 +1164,23 @@ viewEvent { flags, path, translations } event =
         viewNavItem eventSection =
             let
                 isActiveRoute =
-                    -- TODO
-                    False
+                    -- TODO: This needs a bit of work. I don't like the string pattern matching, would prefer patterning on toRoute result.
+                    case path of
+                        Just p ->
+                            if String.contains "stages" p then
+                                eventSection == "stages"
+
+                            else if String.contains "teams" p then
+                                eventSection == "teams"
+
+                            else if String.contains "reports" p then
+                                eventSection == "reports"
+
+                            else
+                                eventSection == "draws"
+
+                        Nothing ->
+                            eventSection == "draws"
 
                 newPath =
                     "#/events/" ++ String.fromInt event.id ++ "/" ++ eventSection
@@ -1335,26 +1389,18 @@ viewTeams : WebData (List Translation) -> Event -> Html Msg
 viewTeams translations { id, teams } =
     let
         viewTeamRow team =
-            let
-                noDetails =
-                    -- Check if there are any team details to show.
-                    List.isEmpty team.lineup
-                        && (team.contactName == Nothing)
-                        && (team.contactEmail == Nothing)
-                        && (team.contactPhone == Nothing)
-            in
             tr []
                 [ td []
-                    [ if noDetails then
-                        -- No point in linking to team details if there are no more details.
-                        text team.name
-
-                      else
+                    [ if teamHasDetails team then
                         let
                             newPath =
                                 "#/events/" ++ String.fromInt id ++ "/teams/" ++ String.fromInt team.id
                         in
                         a [ href newPath, onClick (UpdateRoute newPath) ] [ text team.name ]
+
+                      else
+                        -- No point in linking to team details if there are no more details.
+                        text team.name
                     ]
                 , td [] []
                 , td [] []
@@ -1411,11 +1457,15 @@ viewStandings translations { id, draws, teams, stages } onStage =
                     in
                     tr []
                         [ td []
-                            [ a
-                                [ href newPath
-                                , onClick (UpdateRoute newPath)
-                                ]
-                                [ text teamResult.team.name ]
+                            [ if teamHasDetails teamResult.team then
+                                a
+                                    [ href newPath
+                                    , onClick (UpdateRoute newPath)
+                                    ]
+                                    [ text teamResult.team.name ]
+
+                              else
+                                text teamResult.team.name
                             ]
                         , td [ class "text-right" ] [ text (String.fromInt teamResult.gamesPlayed) ]
                         , td [ class "text-right" ] [ text (String.fromInt teamResult.wins) ]
