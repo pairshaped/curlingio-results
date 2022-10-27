@@ -1208,7 +1208,7 @@ viewEvent { flags, path, translations } event =
                         viewDrawSchedule translations event
 
                     DrawRoute idx ->
-                        case List.Extra.getAt idx event.draws of
+                        case List.Extra.getAt (idx - 1) event.draws of
                             Just draw ->
                                 viewDraw translations event draw
 
@@ -1217,9 +1217,9 @@ viewEvent { flags, path, translations } event =
                                 viewDrawSchedule translations event
 
                     GameRoute drawIndex sheetIndex ->
-                        case List.Extra.getAt drawIndex event.draws of
+                        case List.Extra.getAt (drawIndex - 1) event.draws of
                             Just draw ->
-                                case List.Extra.getAt sheetIndex draw.drawSheets of
+                                case List.Extra.getAt (sheetIndex - 1) draw.drawSheets of
                                     Just (Just game) ->
                                         let
                                             sheetLabel =
