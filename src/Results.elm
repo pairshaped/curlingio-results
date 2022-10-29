@@ -1,7 +1,7 @@
 module Results exposing (init)
 
 import Browser
-import Html exposing (Html, a, button, caption, div, h3, h5, input, label, li, ol, p, small, span, strong, sup, table, tbody, td, text, th, thead, tr, ul)
+import Html exposing (Html, a, button, caption, div, h3, h5, input, label, li, ol, p, small, span, strong, sup, table, tbody, td, text, th, thead, tr, u, ul)
 import Html.Attributes exposing (class, classList, href, id, placeholder, rowspan, style, target, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Http
@@ -29,6 +29,7 @@ type alias Model =
     , search : String
     , product : WebData Product
     , event : WebData Event
+    , scoringHilight : Maybe ScoringHilight
     , errorMsg : Maybe String
     }
 
@@ -49,6 +50,17 @@ type NestedEventRoute
     | TeamRoute Int
     | ReportsRoute
     | ReportRoute String
+
+
+type ScoringHilight
+    = HilightHammer
+    | HilightStolenEnd
+    | HilightBlankEnd
+    | HilightOnePoint
+    | HilightTwoPoint
+    | HilightThreePoint
+    | HilightFourPoint
+    | HilightMoreThanFourPoint
 
 
 type alias Translation =
@@ -741,7 +753,7 @@ init flags_ =
                                 Nothing ->
                                     Nothing
             in
-            ( Model flags path False NotAsked NotAsked "" NotAsked NotAsked Nothing
+            ( Model flags path False NotAsked NotAsked "" NotAsked NotAsked Nothing Nothing
             , Cmd.batch
                 [ getTranslations flags
                 , case toRoute path of
@@ -761,7 +773,7 @@ init flags_ =
                 flags =
                     Flags Nothing Nothing Nothing "" LeaguesSection False 10 [] Nothing
             in
-            ( Model flags Nothing False NotAsked NotAsked "" NotAsked NotAsked (Just (Decode.errorToString error))
+            ( Model flags Nothing False NotAsked NotAsked "" NotAsked NotAsked Nothing (Just (Decode.errorToString error))
             , Cmd.none
             )
 
@@ -1014,6 +1026,7 @@ type Msg
     | GotEvent (WebData Event)
     | GotProduct (WebData Product)
     | UpdateRoute String
+    | ToggleScoringHilight ScoringHilight
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -1049,6 +1062,18 @@ update msg model =
 
         UpdateRoute path ->
             ( { model | path = Just path }
+            , Cmd.none
+            )
+
+        ToggleScoringHilight scoringHilight ->
+            ( { model
+                | scoringHilight =
+                    if model.scoringHilight == Just scoringHilight then
+                        Nothing
+
+                    else
+                        Just scoringHilight
+              }
             , Cmd.none
             )
 
@@ -1230,7 +1255,7 @@ viewItems { flags, fullScreen, translations, search } items =
 
 
 viewEvent : Model -> Event -> Html Msg
-viewEvent { flags, path, translations } event =
+viewEvent { flags, path, translations, scoringHilight } event =
     let
         viewNavItem eventSection =
             let
@@ -1276,7 +1301,7 @@ viewEvent { flags, path, translations } event =
             EventRoute _ nestedRoute ->
                 case nestedRoute of
                     DrawsRoute ->
-                        viewDrawSchedule translations event
+                        viewDrawSchedule translations scoringHilight event
 
                     DrawRoute drawNumber ->
                         let
@@ -1286,11 +1311,11 @@ viewEvent { flags, path, translations } event =
                         in
                         case List.Extra.getAt drawIndex event.draws of
                             Just draw ->
-                                viewDraw translations event drawIndex draw
+                                viewDraw translations scoringHilight event drawIndex draw
 
                             Nothing ->
                                 -- TODO Maybe an error instead since we didn't find the corresponding draw?
-                                viewDrawSchedule translations event
+                                viewDrawSchedule translations scoringHilight event
 
                     GameRoute drawNumber sheetNumber ->
                         let
@@ -1311,15 +1336,15 @@ viewEvent { flags, path, translations } event =
                                                 List.Extra.getAt sheetIndex event.sheetNames
                                                     |> Maybe.withDefault ""
                                         in
-                                        viewGame translations event sheetLabel True drawIndex sheetIndex game
+                                        viewGame translations scoringHilight event sheetLabel True drawIndex sheetIndex game
 
                                     _ ->
                                         -- TODO Maybe an error instead since we didn't find the corresponding game?
-                                        viewDraw translations event drawIndex draw
+                                        viewDraw translations scoringHilight event drawIndex draw
 
                             Nothing ->
                                 -- TODO Maybe an error instead since we didn't find the corresponding draw?
-                                viewDrawSchedule translations event
+                                viewDrawSchedule translations scoringHilight event
 
                     StagesRoute ->
                         case List.head event.stages of
@@ -1355,12 +1380,12 @@ viewEvent { flags, path, translations } event =
                         viewReport translations event report
 
             _ ->
-                viewDrawSchedule translations event
+                viewDrawSchedule translations scoringHilight event
         ]
 
 
-viewDrawSchedule : WebData (List Translation) -> Event -> Html Msg
-viewDrawSchedule translations { id, endScoresEnabled, sheetNames, draws } =
+viewDrawSchedule : WebData (List Translation) -> Maybe ScoringHilight -> Event -> Html Msg
+viewDrawSchedule translations scoringHilight { id, endScoresEnabled, sheetNames, draws } =
     let
         isDrawActive draw =
             List.any
@@ -1601,8 +1626,8 @@ viewReports translations { id } =
     div [] [ text "Coming Soon." ]
 
 
-viewDraw : WebData (List Translation) -> Event -> Int -> Draw -> Html Msg
-viewDraw translations event drawIndex draw =
+viewDraw : WebData (List Translation) -> Maybe ScoringHilight -> Event -> Int -> Draw -> Html Msg
+viewDraw translations scoringHilight event drawIndex draw =
     let
         viewDrawSheet sheetIndex drawSheet =
             case drawSheet of
@@ -1612,7 +1637,7 @@ viewDraw translations event drawIndex draw =
                             List.Extra.getAt sheetIndex event.sheetNames
                                 |> Maybe.withDefault ""
                     in
-                    viewGame translations event sheetLabel False drawIndex sheetIndex game
+                    viewGame translations scoringHilight event sheetLabel False drawIndex sheetIndex game
 
                 Nothing ->
                     text ""
@@ -1624,8 +1649,8 @@ viewDraw translations event drawIndex draw =
         )
 
 
-viewGame : WebData (List Translation) -> Event -> String -> Bool -> Int -> Int -> Game -> Html Msg
-viewGame translations { id, numberOfEnds, teams, draws, topRock, botRock } sheetLabel detailed drawIndex sheetIndex game =
+viewGame : WebData (List Translation) -> Maybe ScoringHilight -> Event -> String -> Bool -> Int -> Int -> Game -> Html Msg
+viewGame translations scoringHilight { id, numberOfEnds, teams, draws, topRock, botRock } sheetLabel detailed drawIndex sheetIndex game =
     let
         maxNumberOfEnds =
             List.map (\s -> List.length s.endScores) game.sides
@@ -1668,21 +1693,49 @@ viewGame translations { id, numberOfEnds, teams, draws, topRock, botRock } sheet
                                     Nothing ->
                                         False
 
-                        endScore =
+                        endScoreStr =
                             case List.Extra.getAt (endNumber - 1) side.endScores of
                                 Just es ->
                                     String.fromInt es
 
                                 Nothing ->
                                     "-"
+
+                        endScoreInt =
+                            List.Extra.getAt (endNumber - 1) side.endScores
+                                |> Maybe.withDefault 0
+
+                        stolenEnd =
+                            (endScoreInt > 0) && not hasHammer
+
+                        blankEnd =
+                            case List.Extra.getAt (endNumber - 1) side.endScores of
+                                Just 0 ->
+                                    True
+
+                                _ ->
+                                    False
+
+                        isHilighted =
+                            (scoringHilight == Just HilightHammer && hasHammer)
+                                || (scoringHilight == Just HilightStolenEnd && stolenEnd)
+                                || (scoringHilight == Just HilightBlankEnd && blankEnd)
+                                || (scoringHilight == Just HilightOnePoint && (endScoreInt == 1))
+                                || (scoringHilight == Just HilightTwoPoint && (endScoreInt == 2))
+                                || (scoringHilight == Just HilightThreePoint && (endScoreInt == 3))
+                                || (scoringHilight == Just HilightFourPoint && (endScoreInt == 4))
+                                || (scoringHilight == Just HilightMoreThanFourPoint && (endScoreInt > 4))
                     in
                     td
                         [ classList
                             [ ( "text-center", True )
-                            , ( "bg-light", hasHammer )
+                            , ( "bg-light", hasHammer && not isHilighted )
+                            , ( "bg-secondary", isHilighted )
+                            , ( "text-light", isHilighted )
+                            , ( "font-weight-bolder", isHilighted )
                             ]
                         ]
-                        [ text endScore ]
+                        [ text endScoreStr ]
 
                 rockStyles =
                     [ style "border-bottom"
@@ -1698,7 +1751,12 @@ viewGame translations { id, numberOfEnds, teams, draws, topRock, botRock } sheet
                     ]
             in
             tr []
-                ([ td [ classList [ ( "font-weight-bold", isWinner ) ] ]
+                ([ td
+                    [ classList
+                        [ ( "font-weight-bold", isWinner )
+                        , ( "text-primary", side.firstHammer && scoringHilight == Just HilightHammer )
+                        ]
+                    ]
                     [ span rockStyles
                         [ text
                             (teamName side
@@ -1731,39 +1789,74 @@ viewGame translations { id, numberOfEnds, teams, draws, topRock, botRock } sheet
         [ div [ class "table-responsive mt-4" ]
             [ table [ class "table table-bordered mb-0" ]
                 [ caption []
-                    [ case game.state of
-                        GameComplete ->
-                            let
-                                winner =
-                                    List.Extra.find (\s -> s.result == Just SideResultWon) game.sides
+                    [ div [ class "d-flex justify-content-between" ]
+                        [ div []
+                            [ case game.state of
+                                GameComplete ->
+                                    let
+                                        winner =
+                                            List.Extra.find (\s -> s.result == Just SideResultWon) game.sides
 
-                                loser =
-                                    List.Extra.find (\s -> s.result /= Just SideResultWon) game.sides
+                                        loser =
+                                            List.Extra.find (\s -> s.result /= Just SideResultWon) game.sides
 
-                                sideResultText result =
-                                    translate translations (sideResultToString result)
-                            in
-                            if List.any (\s -> s.result == Just SideResultTied) game.sides then
-                                let
-                                    joinedResult =
-                                        List.map teamName game.sides
-                                            |> String.join (" " ++ sideResultText (Just SideResultTied) ++ " ")
-                                in
-                                text (joinedResult ++ ".")
+                                        sideResultText result =
+                                            translate translations (sideResultToString result)
+                                    in
+                                    if List.any (\s -> s.result == Just SideResultTied) game.sides then
+                                        let
+                                            joinedResult =
+                                                List.map teamName game.sides
+                                                    |> String.join (" " ++ sideResultText (Just SideResultTied) ++ " ")
+                                        in
+                                        text (joinedResult ++ ".")
 
-                            else
-                                case ( winner, loser ) of
-                                    ( Just w, Just l ) ->
-                                        text (teamName w ++ " " ++ sideResultText w.result ++ ", " ++ teamName l ++ " " ++ sideResultText l.result ++ ".")
+                                    else
+                                        case ( winner, loser ) of
+                                            ( Just w, Just l ) ->
+                                                text (teamName w ++ " " ++ sideResultText w.result ++ ", " ++ teamName l ++ " " ++ sideResultText l.result ++ ".")
 
-                                    _ ->
-                                        text "Unknown result."
+                                            _ ->
+                                                text "Unknown result."
 
-                        GameActive ->
-                            text (translate translations "game_in_progress")
+                                GameActive ->
+                                    text (translate translations "game_in_progress")
 
-                        GamePending ->
-                            text (translate translations "game_not_started")
+                                GamePending ->
+                                    text (translate translations "game_not_started")
+                            ]
+                        , div []
+                            [ text
+                                (case scoringHilight of
+                                    Just HilightHammer ->
+                                        "Hammers"
+
+                                    Just HilightStolenEnd ->
+                                        "Stolen ends"
+
+                                    Just HilightBlankEnd ->
+                                        "Blank ends"
+
+                                    Just HilightOnePoint ->
+                                        "One point ends"
+
+                                    Just HilightTwoPoint ->
+                                        "Two point ends"
+
+                                    Just HilightThreePoint ->
+                                        "Three point ends"
+
+                                    Just HilightFourPoint ->
+                                        "Four point ends"
+
+                                    Just HilightMoreThanFourPoint ->
+                                        "More than four point ends"
+
+                                    Nothing ->
+                                        ""
+                                )
+                            ]
+                        ]
                     ]
                 , thead []
                     [ tr []
@@ -1810,7 +1903,7 @@ viewReportScoringAnalysis draws teams =
     div
         [ class "table-responsive" ]
         [ h5 [] [ text "Scoring Analysis" ]
-        , table [ class "table table-sm table-bordered table-hover small" ]
+        , table [ class "table table-sm table-bordered small" ]
             ([ caption []
                 [ ol [ class "pl-3" ]
                     [ li [] [ text " LSFE - Last Shot in the First End" ]
@@ -1825,17 +1918,17 @@ viewReportScoringAnalysis draws teams =
                     , th [ class "text-center" ] [ text "Games" ]
                     , th [ class "text-center" ] [ text "Ends" ]
                     , th [] []
-                    , th [ class "text-right" ] [ span [] [ text "LSFE" ], sup [] [ text "1" ] ]
-                    , th [ class "text-right" ] [ span [] [ text "SE" ], sup [] [ text "2" ] ]
-                    , th [ class "text-right" ] [ span [] [ text "BE" ], sup [] [ text "3" ] ]
-                    , th [ class "text-right" ] [ text "1pt" ]
-                    , th [ class "text-right" ] [ text "2pt" ]
-                    , th [ class "text-right" ] [ text "3pt" ]
-                    , th [ class "text-right" ] [ text "4pt" ]
-                    , th [ class "text-right" ] [ text ">4pt" ]
+                    , th [ class "text-right text-primary", style "cursor" "pointer", onClick (ToggleScoringHilight HilightHammer) ] [ u [] [ text "LSFE" ], sup [] [ text "1" ] ]
+                    , th [ class "text-right text-primary", style "cursor" "pointer", onClick (ToggleScoringHilight HilightStolenEnd) ] [ u [] [ text "SE" ], sup [] [ text "2" ] ]
+                    , th [ class "text-right text-primary", style "cursor" "pointer", onClick (ToggleScoringHilight HilightBlankEnd) ] [ u [] [ text "BE" ], sup [] [ text "3" ] ]
+                    , th [ class "text-right text-primary", style "cursor" "pointer", onClick (ToggleScoringHilight HilightOnePoint) ] [ text "1pt" ]
+                    , th [ class "text-right text-primary", style "cursor" "pointer", onClick (ToggleScoringHilight HilightTwoPoint) ] [ text "2pt" ]
+                    , th [ class "text-right text-primary", style "cursor" "pointer", onClick (ToggleScoringHilight HilightThreePoint) ] [ text "3pt" ]
+                    , th [ class "text-right text-primary", style "cursor" "pointer", onClick (ToggleScoringHilight HilightFourPoint) ] [ text "4pt" ]
+                    , th [ class "text-right text-primary", style "cursor" "pointer", onClick (ToggleScoringHilight HilightMoreThanFourPoint) ] [ text ">4pt" ]
                     , th [ class "text-right" ] [ text "Tot" ]
                     , th [ class "text-right" ] [ text "Avg" ]
-                    , th [ class "text-right" ] [ span [] [ text "SP" ], sup [] [ text "4" ] ]
+                    , th [ class "text-right text-primary", style "cursor" "pointer", onClick (ToggleScoringHilight HilightStolenEnd) ] [ u [] [ text "SP" ], sup [] [ text "4" ] ]
                     ]
                 ]
              ]
@@ -1946,21 +2039,67 @@ viewTeamScoringAnalysis draws team =
             -- see averagePointsFor
             toFloat (round ((toFloat totalPointsAgainst / toFloat (List.length endsAgainst)) * 100)) / 100
 
-        stolenEndsFor =
-            -- TODO
-            0
+        stolenEnds : Bool -> List Int
+        stolenEnds for =
+            -- The for is a bool to indicate for (True) or against (False)
+            let
+                -- We need to look at each end score, and whether or not they had the hammer.
+                stolenEndsForGame game =
+                    let
+                        -- We don't know if the team side is the first or second, so build a tuple so we know.
+                        sides =
+                            if for then
+                                ( List.Extra.find (\s -> s.teamId == Just team.id) game.sides
+                                , List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
+                                )
 
-        stolenEndsAgainst =
-            -- TODO
-            0
+                            else
+                                ( List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
+                                , List.Extra.find (\s -> s.teamId == Just team.id) game.sides
+                                )
 
-        stolenPointsFor =
-            -- TODO
-            0
+                        -- We don't care about the event's number of ends, just the max of either side.
+                        numberOfEnds =
+                            List.map (\side -> List.length side.endScores) game.sides
+                                |> List.maximum
+                                |> Maybe.withDefault 0
 
-        stolenPointsAgainst =
-            -- TODO
-            0
+                        stolenEnd : Side -> Side -> Int -> Maybe Int
+                        stolenEnd sideFor sideAgainst endIndex =
+                            let
+                                hasHammer =
+                                    if endIndex > 0 then
+                                        -- Check if they lost the previous end (thus getting hammer for this end)
+                                        Maybe.withDefault 0 (List.Extra.getAt (endIndex - 1) sideAgainst.endScores) > 0
+
+                                    else
+                                        -- First end and first hammer?
+                                        sideFor.firstHammer == True
+                            in
+                            if hasHammer then
+                                Nothing
+
+                            else
+                                List.Extra.getAt endIndex sideFor.endScores
+                    in
+                    case sides of
+                        ( Just sideFor, Just sideAgainst ) ->
+                            List.range 0 numberOfEnds
+                                |> List.map (stolenEnd sideFor sideAgainst)
+                                |> List.filterMap identity
+                                |> List.filter (\e -> e > 0)
+
+                        _ ->
+                            []
+            in
+            List.map (\game -> stolenEndsForGame game) games
+                |> List.concat
+
+        stolenEndsCount for =
+            List.length (stolenEnds for)
+
+        stolenPoints for =
+            List.sum (stolenEnds for)
     in
     tbody []
         [ tr []
@@ -1969,7 +2108,7 @@ viewTeamScoringAnalysis draws team =
             , td [ rowspan 2, class "text-center" ] [ div [ class "mt-3" ] [ text (String.fromInt (List.length endsFor)) ] ]
             , td [ class "pl-2" ] [ text "For" ]
             , td [ class "text-right" ] [ text (String.fromInt firstHammerCountFor) ]
-            , td [ class "text-right" ] [ text (String.fromInt stolenEndsFor) ]
+            , td [ class "text-right" ] [ text (String.fromInt (stolenEndsCount True)) ]
             , td [ class "text-right" ] [ text (String.fromInt blankEndsFor) ]
             , td [ class "text-right" ] [ text (String.fromInt onePointEndsFor) ]
             , td [ class "text-right" ] [ text (String.fromInt twoPointEndsFor) ]
@@ -1978,12 +2117,12 @@ viewTeamScoringAnalysis draws team =
             , td [ class "text-right" ] [ text (String.fromInt moreThanFourPointEndsFor) ]
             , td [ class "text-right" ] [ text (String.fromInt totalPointsFor) ]
             , td [ class "text-right" ] [ text (String.fromFloat averagePointsFor) ]
-            , td [ class "text-right" ] [ text (String.fromInt stolenPointsFor) ]
+            , td [ class "text-right" ] [ text (String.fromInt (stolenPoints True)) ]
             ]
         , tr []
             [ td [ class "pl-2" ] [ text "Against" ]
             , td [ class "text-right" ] [ text (String.fromInt firstHammerCountAgainst) ]
-            , td [ class "text-right" ] [ text (String.fromInt stolenEndsAgainst) ]
+            , td [ class "text-right" ] [ text (String.fromInt (stolenEndsCount False)) ]
             , td [ class "text-right" ] [ text (String.fromInt blankEndsAgainst) ]
             , td [ class "text-right" ] [ text (String.fromInt onePointEndsAgainst) ]
             , td [ class "text-right" ] [ text (String.fromInt twoPointEndsAgainst) ]
@@ -1992,7 +2131,7 @@ viewTeamScoringAnalysis draws team =
             , td [ class "text-right" ] [ text (String.fromInt moreThanFourPointEndsAgainst) ]
             , td [ class "text-right" ] [ text (String.fromInt totalPointsAgainst) ]
             , td [ class "text-right" ] [ text (String.fromFloat averagePointsAgainst) ]
-            , td [ class "text-right" ] [ text (String.fromInt stolenPointsAgainst) ]
+            , td [ class "text-right" ] [ text (String.fromInt (stolenPoints False)) ]
             ]
         ]
 
