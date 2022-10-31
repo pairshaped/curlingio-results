@@ -53,14 +53,14 @@ type NestedEventRoute
 
 
 type ScoringHilight
-    = HilightHammer
-    | HilightStolenEnd
-    | HilightBlankEnd
-    | HilightOnePoint
-    | HilightTwoPoint
-    | HilightThreePoint
-    | HilightFourPoint
-    | HilightMoreThanFourPoint
+    = HilightHammers
+    | HilightStolenEnds
+    | HilightBlankEnds
+    | Hilight1PointEnds
+    | Hilight2PointEnds
+    | Hilight3PointEnds
+    | Hilight4PointEnds
+    | Hilight5PlusPointEnds
 
 
 type alias Translation =
@@ -1800,14 +1800,14 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                                     False
 
                         isHilighted =
-                            (scoringHilight == Just HilightHammer && hasHammer)
-                                || (scoringHilight == Just HilightStolenEnd && stolenEnd)
-                                || (scoringHilight == Just HilightBlankEnd && blankEnd)
-                                || (scoringHilight == Just HilightOnePoint && (endScoreInt == 1))
-                                || (scoringHilight == Just HilightTwoPoint && (endScoreInt == 2))
-                                || (scoringHilight == Just HilightThreePoint && (endScoreInt == 3))
-                                || (scoringHilight == Just HilightFourPoint && (endScoreInt == 4))
-                                || (scoringHilight == Just HilightMoreThanFourPoint && (endScoreInt > 4))
+                            (scoringHilight == Just HilightHammers && hasHammer)
+                                || (scoringHilight == Just HilightStolenEnds && stolenEnd)
+                                || (scoringHilight == Just HilightBlankEnds && blankEnd)
+                                || (scoringHilight == Just Hilight1PointEnds && (endScoreInt == 1))
+                                || (scoringHilight == Just Hilight2PointEnds && (endScoreInt == 2))
+                                || (scoringHilight == Just Hilight3PointEnds && (endScoreInt == 3))
+                                || (scoringHilight == Just Hilight4PointEnds && (endScoreInt == 4))
+                                || (scoringHilight == Just Hilight5PlusPointEnds && (endScoreInt > 4))
                     in
                     td
                         [ classList
@@ -1837,7 +1837,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                 ([ td
                     [ classList
                         [ ( "font-weight-bold", wonOrTied )
-                        , ( "text-primary", side.firstHammer && scoringHilight == Just HilightHammer )
+                        , ( "text-primary", side.firstHammer && scoringHilight == Just HilightHammers )
                         ]
                     ]
                     [ span rockStyles
@@ -1917,39 +1917,39 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
         viewGameHilight =
             case scoringHilight of
                 Just hilight ->
-                    i
+                    button
                         [ style "cursor" "pointer"
+                        , class "btn btn-sm btn-secondary"
                         , onClick (ToggleScoringHilight hilight)
                         ]
                         [ span []
                             [ text
                                 (case hilight of
-                                    HilightHammer ->
-                                        "Hammers."
+                                    HilightHammers ->
+                                        "Hammers"
 
-                                    HilightStolenEnd ->
-                                        "Stolen ends."
+                                    HilightStolenEnds ->
+                                        "Stolen ends"
 
-                                    HilightBlankEnd ->
-                                        "Blank ends."
+                                    HilightBlankEnds ->
+                                        "Blank ends"
 
-                                    HilightOnePoint ->
-                                        "One point ends."
+                                    Hilight1PointEnds ->
+                                        "1 point ends"
 
-                                    HilightTwoPoint ->
-                                        "Two point ends."
+                                    Hilight2PointEnds ->
+                                        "2 point ends"
 
-                                    HilightThreePoint ->
-                                        "Three point ends."
+                                    Hilight3PointEnds ->
+                                        "3 point ends"
 
-                                    HilightFourPoint ->
-                                        "Four point ends."
+                                    Hilight4PointEnds ->
+                                        "4 point ends"
 
-                                    HilightMoreThanFourPoint ->
-                                        "More than four point ends."
+                                    Hilight5PlusPointEnds ->
+                                        "5+ point ends"
                                 )
                             ]
-                        , sup [] [ text " ✘" ]
                         ]
 
                 Nothing ->
@@ -2192,93 +2192,93 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                     , th
                         [ classList
                             [ ( "text-right", True )
-                            , ( "text-primary", isForGame && not (isHilighted HilightHammer) )
-                            , ( "text-danger", isForGame && isHilighted HilightHammer )
+                            , ( "text-primary", isForGame && not (isHilighted HilightHammers) )
+                            , ( "text-danger", isForGame && isHilighted HilightHammers )
                             ]
                         , style "cursor" "pointer"
-                        , onClick (ToggleScoringHilight HilightHammer)
+                        , onClick (ToggleScoringHilight HilightHammers)
                         ]
                         [ span [] [ text "LSFE" ], sup [] [ text "1" ] ]
                     , th
                         [ classList
                             [ ( "text-right", True )
-                            , ( "text-primary", isForGame && not (isHilighted HilightStolenEnd) )
-                            , ( "text-danger", isForGame && isHilighted HilightStolenEnd )
+                            , ( "text-primary", isForGame && not (isHilighted HilightStolenEnds) )
+                            , ( "text-danger", isForGame && isHilighted HilightStolenEnds )
                             ]
                         , style "cursor" "pointer"
-                        , onClick (ToggleScoringHilight HilightStolenEnd)
+                        , onClick (ToggleScoringHilight HilightStolenEnds)
                         ]
                         [ span [] [ text "SE" ], sup [] [ text "2" ] ]
                     , th
                         [ classList
                             [ ( "text-right", True )
-                            , ( "text-primary", isForGame && not (isHilighted HilightBlankEnd) )
-                            , ( "text-danger", isForGame && isHilighted HilightBlankEnd )
+                            , ( "text-primary", isForGame && not (isHilighted HilightBlankEnds) )
+                            , ( "text-danger", isForGame && isHilighted HilightBlankEnds )
                             ]
                         , style "cursor" "pointer"
-                        , onClick (ToggleScoringHilight HilightBlankEnd)
+                        , onClick (ToggleScoringHilight HilightBlankEnds)
                         ]
                         [ span [] [ text "BE" ], sup [] [ text "3" ] ]
                     , th
                         [ classList
                             [ ( "text-right", True )
-                            , ( "text-primary", isForGame && not (isHilighted HilightOnePoint) )
-                            , ( "text-danger", isForGame && isHilighted HilightOnePoint )
+                            , ( "text-primary", isForGame && not (isHilighted Hilight1PointEnds) )
+                            , ( "text-danger", isForGame && isHilighted Hilight1PointEnds )
                             ]
                         , style "cursor" "pointer"
-                        , onClick (ToggleScoringHilight HilightOnePoint)
+                        , onClick (ToggleScoringHilight Hilight1PointEnds)
                         ]
                         [ text "1pt" ]
                     , th
                         [ classList
                             [ ( "text-right", True )
-                            , ( "text-primary", isForGame && not (isHilighted HilightTwoPoint) )
-                            , ( "text-danger", isForGame && isHilighted HilightTwoPoint )
+                            , ( "text-primary", isForGame && not (isHilighted Hilight2PointEnds) )
+                            , ( "text-danger", isForGame && isHilighted Hilight2PointEnds )
                             ]
                         , style "cursor" "pointer"
-                        , onClick (ToggleScoringHilight HilightTwoPoint)
+                        , onClick (ToggleScoringHilight Hilight2PointEnds)
                         ]
                         [ text "2pt" ]
                     , th
                         [ classList
                             [ ( "text-right", True )
-                            , ( "text-primary", isForGame && not (isHilighted HilightThreePoint) )
-                            , ( "text-danger", isForGame && isHilighted HilightThreePoint )
+                            , ( "text-primary", isForGame && not (isHilighted Hilight3PointEnds) )
+                            , ( "text-danger", isForGame && isHilighted Hilight3PointEnds )
                             ]
                         , style "cursor" "pointer"
-                        , onClick (ToggleScoringHilight HilightThreePoint)
+                        , onClick (ToggleScoringHilight Hilight3PointEnds)
                         ]
                         [ text "3pt" ]
                     , th
                         [ classList
                             [ ( "text-right", True )
-                            , ( "text-primary", isForGame && not (isHilighted HilightFourPoint) )
-                            , ( "text-danger", isForGame && isHilighted HilightFourPoint )
+                            , ( "text-primary", isForGame && not (isHilighted Hilight4PointEnds) )
+                            , ( "text-danger", isForGame && isHilighted Hilight4PointEnds )
                             ]
                         , style "cursor" "pointer"
-                        , onClick (ToggleScoringHilight HilightFourPoint)
+                        , onClick (ToggleScoringHilight Hilight4PointEnds)
                         ]
                         [ text "4pt" ]
                     , th
                         [ classList
                             [ ( "text-right", True )
-                            , ( "text-primary", isForGame && not (isHilighted HilightMoreThanFourPoint) )
-                            , ( "text-danger", isForGame && isHilighted HilightMoreThanFourPoint )
+                            , ( "text-primary", isForGame && not (isHilighted Hilight5PlusPointEnds) )
+                            , ( "text-danger", isForGame && isHilighted Hilight5PlusPointEnds )
                             ]
                         , style "cursor" "pointer"
-                        , onClick (ToggleScoringHilight HilightMoreThanFourPoint)
+                        , onClick (ToggleScoringHilight Hilight5PlusPointEnds)
                         ]
-                        [ text ">4pt" ]
+                        [ text "5pt+" ]
                     , th [ class "text-right" ] [ text "Tot" ]
                     , th [ class "text-right" ] [ text "Avg" ]
                     , th
                         [ classList
                             [ ( "text-right", True )
-                            , ( "text-primary", isForGame && not (isHilighted HilightStolenEnd) )
-                            , ( "text-danger", isForGame && isHilighted HilightStolenEnd )
+                            , ( "text-primary", isForGame && not (isHilighted HilightStolenEnds) )
+                            , ( "text-danger", isForGame && isHilighted HilightStolenEnds )
                             ]
                         , style "cursor" "pointer"
-                        , onClick (ToggleScoringHilight HilightStolenEnd)
+                        , onClick (ToggleScoringHilight HilightStolenEnds)
                         ]
                         [ span [] [ text "SP" ], sup [] [ text "4" ] ]
                     ]
