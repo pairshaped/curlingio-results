@@ -1,8 +1,9 @@
 module Results exposing (init)
 
 import Browser
-import Html exposing (Html, a, button, caption, div, h3, h4, h5, i, input, label, li, nav, ol, p, small, span, strong, sup, table, tbody, td, text, th, thead, tr, u, ul)
-import Html.Attributes exposing (attribute, class, classList, colspan, href, id, placeholder, rowspan, style, target, title, type_, value)
+import CustomSvg exposing (..)
+import Html exposing (Html, a, button, caption, div, h3, h4, h5, h6, i, img, input, label, li, nav, ol, p, small, span, strong, sup, table, tbody, td, text, th, thead, tr, u, ul)
+import Html.Attributes exposing (attribute, class, classList, colspan, href, id, placeholder, rowspan, src, style, target, title, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
@@ -10,8 +11,6 @@ import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import List.Extra
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
-import Svg
-import Svg.Attributes
 import Url
 import Url.Parser exposing ((</>), Parser)
 
@@ -43,7 +42,7 @@ type Route
 type NestedEventRoute
     = DrawsRoute
     | DrawRoute Int
-    | GameRoute Int Int
+    | GameRoute String
     | StagesRoute
     | StageRoute Int
     | TeamsRoute
@@ -123,6 +122,7 @@ type alias Event =
     , teams : List Team
     , stages : List Stage
     , draws : List Draw
+    , games : List Game
     }
 
 
@@ -198,17 +198,16 @@ type Tiebreaker
 
 
 type alias Draw =
-    { drawNumber : Int
+    { id : Int
     , startsAt : String
     , label : String
     , attendance : Int
-    , drawSheets : List (Maybe Game)
+    , drawSheets : List (Maybe String)
     }
 
 
 type alias Game =
-    { drawNumber : Int
-    , sheetNumber : Int
+    { id : String
     , name : String
     , stageId : Int
     , state : GameState
@@ -342,6 +341,7 @@ decodeEvent =
         |> optional "teams" (list decodeTeam) []
         |> optional "stages" (list decodeStage) []
         |> optional "draws" (list decodeDraw) []
+        |> optional "games" (list decodeGame) []
 
 
 decodeTeam : Decoder Team
@@ -486,79 +486,78 @@ decodeStage =
 
 decodeDraw : Decoder Draw
 decodeDraw =
-    let
-        decodeGame : Decoder Game
-        decodeGame =
-            let
-                decodeGameState : Decoder GameState
-                decodeGameState =
-                    string
-                        |> Decode.andThen
-                            (\str ->
-                                case String.toLower str of
-                                    "active" ->
-                                        Decode.succeed GameActive
-
-                                    "complete" ->
-                                        Decode.succeed GameComplete
-
-                                    _ ->
-                                        Decode.succeed GamePending
-                            )
-
-                decodeSide : Decoder Side
-                decodeSide =
-                    let
-                        decodeSideResult : Decoder (Maybe SideResult)
-                        decodeSideResult =
-                            string
-                                |> Decode.andThen
-                                    (\str ->
-                                        case str of
-                                            "won" ->
-                                                Decode.succeed (Just SideResultWon)
-
-                                            "lost" ->
-                                                Decode.succeed (Just SideResultLost)
-
-                                            "tied" ->
-                                                Decode.succeed (Just SideResultTied)
-
-                                            "conceded" ->
-                                                Decode.succeed (Just SideResultConceded)
-
-                                            "forfeited" ->
-                                                Decode.succeed (Just SideResultForfeited)
-
-                                            "time_penalized" ->
-                                                Decode.succeed (Just SideResultTimePenalized)
-
-                                            _ ->
-                                                Decode.succeed Nothing
-                                    )
-                    in
-                    Decode.succeed Side
-                        |> optional "team_id" (nullable int) Nothing
-                        |> optional "top_rock" bool False
-                        |> optional "first_hammer" bool False
-                        |> optional "result" decodeSideResult Nothing
-                        |> optional "score" (nullable int) Nothing
-                        |> optional "end_scores" (list int) []
-            in
-            Decode.succeed Game
-                |> required "draw_number" int
-                |> required "sheet_number" int
-                |> required "name" string
-                |> required "stage_id" int
-                |> required "state" decodeGameState
-                |> required "game_positions" (list decodeSide)
-    in
     Decode.succeed Draw
-        |> required "draw_number" int
+        |> required "id" int
         |> required "starts_at" string
         |> required "label" string
         |> optional "attendance" int 0
-        |> required "games" (list (nullable decodeGame))
+        |> required "draw_sheets" (list (nullable string))
+
+
+decodeGame : Decoder Game
+decodeGame =
+    let
+        decodeGameState : Decoder GameState
+        decodeGameState =
+            string
+                |> Decode.andThen
+                    (\str ->
+                        case String.toLower str of
+                            "active" ->
+                                Decode.succeed GameActive
+
+                            "complete" ->
+                                Decode.succeed GameComplete
+
+                            _ ->
+                                Decode.succeed GamePending
+                    )
+
+        decodeSide : Decoder Side
+        decodeSide =
+            let
+                decodeSideResult : Decoder (Maybe SideResult)
+                decodeSideResult =
+                    string
+                        |> Decode.andThen
+                            (\str ->
+                                case str of
+                                    "won" ->
+                                        Decode.succeed (Just SideResultWon)
+
+                                    "lost" ->
+                                        Decode.succeed (Just SideResultLost)
+
+                                    "tied" ->
+                                        Decode.succeed (Just SideResultTied)
+
+                                    "conceded" ->
+                                        Decode.succeed (Just SideResultConceded)
+
+                                    "forfeited" ->
+                                        Decode.succeed (Just SideResultForfeited)
+
+                                    "time_penalized" ->
+                                        Decode.succeed (Just SideResultTimePenalized)
+
+                                    _ ->
+                                        Decode.succeed Nothing
+                            )
+            in
+            Decode.succeed Side
+                |> optional "team_id" (nullable int) Nothing
+                |> optional "top_rock" bool False
+                |> optional "first_hammer" bool False
+                |> optional "result" decodeSideResult Nothing
+                |> optional "score" (nullable int) Nothing
+                |> optional "end_scores" (list int) []
+    in
+    Decode.succeed Game
+        |> required "id" string
+        |> required "name" string
+        |> required "stage_id" int
+        |> required "state" decodeGameState
+        |> required "game_positions" (list decodeSide)
 
 
 
@@ -583,7 +582,7 @@ matchNestedEventRoute =
         , Url.Parser.map TeamsRoute (Url.Parser.s "teams")
         , Url.Parser.map ReportsRoute (Url.Parser.s "reports")
         , Url.Parser.map DrawRoute (Url.Parser.s "draws" </> Url.Parser.int)
-        , Url.Parser.map GameRoute (Url.Parser.s "draws" </> Url.Parser.int </> Url.Parser.s "sheets" </> Url.Parser.int)
+        , Url.Parser.map GameRoute (Url.Parser.s "games" </> Url.Parser.string)
         , Url.Parser.map StageRoute (Url.Parser.s "stages" </> Url.Parser.int)
         , Url.Parser.map TeamRoute (Url.Parser.s "teams" </> Url.Parser.int)
         , Url.Parser.map ReportRoute (Url.Parser.s "reports" </> Url.Parser.string)
@@ -616,41 +615,17 @@ toRoute path =
 
 drawUrl : Int -> Draw -> String
 drawUrl eventId draw =
-    let
-        eventIdStr =
-            String.fromInt eventId
-
-        drawNumberStr =
-            String.fromInt draw.drawNumber
-    in
-    "#/events/" ++ eventIdStr ++ "/draws/" ++ drawNumberStr
+    "#/events/" ++ String.fromInt eventId ++ "/draws/" ++ String.fromInt draw.id
 
 
 gameUrl : Int -> Game -> String
 gameUrl eventId game =
-    let
-        eventIdStr =
-            String.fromInt eventId
-
-        drawNumberStr =
-            String.fromInt game.drawNumber
-
-        sheetNumberStr =
-            String.fromInt game.sheetNumber
-    in
-    "#/events/" ++ eventIdStr ++ "/draws/" ++ drawNumberStr ++ "/sheets/" ++ sheetNumberStr
+    "#/events/" ++ String.fromInt eventId ++ "/games/" ++ game.id
 
 
 teamUrl : Int -> Team -> String
 teamUrl eventId team =
-    let
-        eventIdStr =
-            String.fromInt eventId
-
-        teamIdStr =
-            String.fromInt team.id
-    in
-    "#/events/" ++ eventIdStr ++ "/teams/" ++ teamIdStr
+    "#/events/" ++ String.fromInt eventId ++ "/teams/" ++ String.fromInt team.id
 
 
 stageUrl : Int -> Stage -> String
@@ -662,7 +637,7 @@ stageUrl eventId stage =
         stageIdStr =
             String.fromInt stage.id
     in
-    "#/events/" ++ eventIdStr ++ "/stages/" ++ stageIdStr
+    "#/events/" ++ String.fromInt eventId ++ "/stages/" ++ String.fromInt stage.id
 
 
 translate : WebData (List Translation) -> String -> String
@@ -724,6 +699,40 @@ sideResultToString translations result =
             Nothing ->
                 "unknown"
         )
+
+
+teamPositionToString : WebData (List Translation) -> TeamPosition -> String
+teamPositionToString translations position =
+    translate translations
+        (case position of
+            TeamFourth ->
+                "fourth"
+
+            TeamThird ->
+                "third"
+
+            TeamSecond ->
+                "second"
+
+            TeamFirst ->
+                "first"
+
+            TeamAlternate ->
+                "alternate"
+        )
+
+
+deliveryToString : WebData (List Translation) -> Maybe RockDelivery -> String
+deliveryToString translations delivery =
+    case delivery of
+        Just RockDeliveryRight ->
+            translate translations "right"
+
+        Just RockDeliveryLeft ->
+            translate translations "right"
+
+        Nothing ->
+            "-"
 
 
 init : Decode.Value -> ( Model, Cmd Msg )
@@ -888,16 +897,22 @@ eventSections excludeEventSections =
         |> List.filter included
 
 
-gamesByStage : Stage -> List Draw -> List Game
-gamesByStage stage draws =
-    -- Get the draw sheets (games) from each draw,
-    -- concat (flatten) to a list of games
-    -- keep the games that aren't Nothing
-    -- keep the games that are complete
-    List.map .drawSheets draws
-        |> List.concat
-        |> List.filterMap identity
-        |> List.filter (\g -> g.stageId == stage.id)
+gamesForTeam : List Game -> Team -> List Game
+gamesForTeam games team =
+    let
+        participatedIn sides =
+            List.any (\s -> s.teamId == Just team.id) sides
+    in
+    List.filter (\g -> participatedIn g.sides) games
+
+
+teamsWithGames : List Team -> List Game -> List Team
+teamsWithGames teams games =
+    let
+        teamHasGames team =
+            not (List.isEmpty (gamesForTeam games team))
+    in
+    List.filter teamHasGames teams
 
 
 teamResultsForGames : Stage -> List Team -> List Game -> List TeamResult
@@ -1049,25 +1064,121 @@ findTeamForSide teams side =
         |> Maybe.andThen findTeamById
 
 
+sheetNameForGame : Event -> Game -> String
+sheetNameForGame event game =
+    let
+        drawHasGame draw =
+            List.any (\ds -> ds == Just game.id) draw.drawSheets
 
--- SVG
+        sheetNumber draw =
+            List.Extra.elemIndex (Just game.id) draw.drawSheets
+    in
+    case List.Extra.find drawHasGame event.draws of
+        Just draw ->
+            case sheetNumber draw of
+                Just index ->
+                    List.Extra.getAt index event.sheetNames
+                        |> Maybe.withDefault ""
+
+                Nothing ->
+                    ""
+
+        Nothing ->
+            ""
 
 
-svgScreenResize path =
-    Svg.svg
-        [ Svg.Attributes.width "32"
-        , Svg.Attributes.height "32"
-        , Svg.Attributes.viewBox "0 0 24 24"
-        ]
-        [ Svg.path [ Svg.Attributes.d path ] [] ]
+gameScore : Game -> Maybe String
+gameScore game =
+    let
+        intScores =
+            List.map (\s -> s.score) game.sides
+                |> List.filterMap identity
+                |> List.sort
+                |> List.reverse
+
+        strScores =
+            List.map String.fromInt intScores
+
+        fromScores =
+            case game.state of
+                GameComplete ->
+                    if Maybe.withDefault 0 (List.head intScores) > Maybe.withDefault 0 (List.Extra.getAt 1 intScores) then
+                        String.join " > " strScores
+
+                    else
+                        String.join " = " strScores
+
+                _ ->
+                    ""
+    in
+    case fromScores of
+        "" ->
+            Nothing
+
+        score ->
+            Just score
 
 
-svgExitFullScreen =
-    svgScreenResize "M.172 15.828a.5.5 0 0 0 .707 0l4.096-4.096V14.5a.5.5 0 1 0 1 0v-3.975a.5.5 0 0 0-.5-.5H1.5a.5.5 0 0 0 0 1h2.768L.172 15.121a.5.5 0 0 0 0 .707zM15.828.172a.5.5 0 0 0-.707 0l-4.096 4.096V1.5a.5.5 0 1 0-1 0v3.975a.5.5 0 0 0 .5.5H14.5a.5.5 0 0 0 0-1h-2.768L15.828.879a.5.5 0 0 0 0-.707z"
+stolenEnds : Bool -> List Game -> Team -> List Int
+stolenEnds for games team =
+    -- The for is a bool to indicate for (True) or against (False)
+    let
+        -- We need to look at each end score, and whether or not they had the hammer.
+        stolenEndsForGame game =
+            let
+                -- We don't know if the team side is the first or second, so build a tuple so we know.
+                sides =
+                    if for then
+                        ( List.Extra.find (\s -> s.teamId == Just team.id) game.sides
+                        , List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
+                        )
+
+                    else
+                        ( List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
+                        , List.Extra.find (\s -> s.teamId == Just team.id) game.sides
+                        )
+
+                -- We don't care about the event's number of ends, just the max of either side.
+                numberOfEnds =
+                    List.map (\side -> List.length side.endScores) game.sides
+                        |> List.maximum
+                        |> Maybe.withDefault 0
+
+                stolenEnd : Side -> Side -> Int -> Maybe Int
+                stolenEnd sideFor sideAgainst endIndex =
+                    let
+                        hasHammer =
+                            if endIndex > 0 then
+                                -- Check if they lost the previous end (thus getting hammer for this end)
+                                Maybe.withDefault 0 (List.Extra.getAt (endIndex - 1) sideAgainst.endScores) > 0
+
+                            else
+                                -- First end and first hammer?
+                                sideFor.firstHammer == True
+                    in
+                    if hasHammer then
+                        Nothing
+
+                    else
+                        List.Extra.getAt endIndex sideFor.endScores
+            in
+            case sides of
+                ( Just sideFor, Just sideAgainst ) ->
+                    List.range 0 numberOfEnds
+                        |> List.map (stolenEnd sideFor sideAgainst)
+                        |> List.filterMap identity
+                        |> List.filter (\e -> e > 0)
+
+                _ ->
+                    []
+    in
+    List.map (\game -> stolenEndsForGame game) games
+        |> List.concat
 
 
-svgFullScreen =
-    svgScreenResize "M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707zm4.344-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707z"
+roundTwoDecimal : Float -> Float
+roundTwoDecimal num =
+    toFloat (round (num * 100)) / 100
 
 
 
@@ -1146,6 +1257,7 @@ view model =
         (List.append
             [ id "curlingio__results"
             , style "position" "relative"
+            , style "background-color" "#fff"
             ]
             (if model.fullScreen then
                 [ style "width" "100%"
@@ -1155,7 +1267,6 @@ view model =
                 , style "left" "0"
                 , style "z-index" "100"
                 , style "overflow-y" "auto"
-                , style "backgroup-color" "#fff"
                 ]
 
              else
@@ -1168,6 +1279,7 @@ view model =
             , style "top" "10px"
             , style "right" "10px"
             , onClick ToggleFullScreen
+            , class "d-print-none"
             ]
             [ if model.fullScreen then
                 svgExitFullScreen
@@ -1344,15 +1456,19 @@ viewEvent { flags, path, translations, scoringHilight } event =
                     [ classList
                         [ ( "nav-link", True )
                         , ( "active", isActiveRoute )
+                        , ( " px-2", True )
                         ]
                     , onClick (UpdateRoute newPath)
                     , href newPath
                     ]
-                    [ text (translate translations eventSection) ]
+                    [ span [ class "d-none d-md-block" ] [ text (translate translations eventSection) ]
+                    , small [ class "d-md-none" ] [ text (translate translations eventSection) ]
+                    ]
                 ]
     in
     div [ class "p-3" ]
-        [ h3 [ class "mb-3" ] [ text event.name ]
+        [ h3 [ class "mb-3 d-none d-md-block" ] [ text event.name ]
+        , h6 [ class "mb-3 d-md-none" ] [ text event.name ]
         , ul [ class "nav nav-tabs mb-3" ]
             (List.map viewNavItem (eventSections flags.excludeEventSections))
         , case toRoute path of
@@ -1361,8 +1477,8 @@ viewEvent { flags, path, translations, scoringHilight } event =
                     DrawsRoute ->
                         viewDrawSchedule translations scoringHilight event
 
-                    DrawRoute drawNumber ->
-                        case List.Extra.find (\d -> d.drawNumber == drawNumber) event.draws of
+                    DrawRoute drawId ->
+                        case List.Extra.find (\d -> d.id == drawId) event.draws of
                             Just draw ->
                                 viewDraw translations scoringHilight event draw
 
@@ -1370,28 +1486,27 @@ viewEvent { flags, path, translations, scoringHilight } event =
                                 -- TODO Maybe an error instead since we didn't find the corresponding draw?
                                 viewDrawSchedule translations scoringHilight event
 
-                    GameRoute drawNumber sheetNumber ->
-                        case List.Extra.find (\d -> d.drawNumber == drawNumber) event.draws of
-                            Just draw ->
+                    GameRoute gameId ->
+                        let
+                            findDraw =
                                 let
-                                    matchingGame =
-                                        List.filterMap identity draw.drawSheets
-                                            |> List.Extra.find (\g -> g.drawNumber == drawNumber && g.sheetNumber == sheetNumber)
+                                    hasGame draw =
+                                        List.any (\ds -> ds == Just gameId) draw.drawSheets
                                 in
-                                case matchingGame of
-                                    Just game ->
-                                        let
-                                            sheetLabel =
-                                                List.Extra.getAt (sheetNumber - 1) event.sheetNames
-                                                    |> Maybe.withDefault ""
-                                        in
-                                        viewGame translations scoringHilight event sheetLabel True draw game
+                                List.Extra.find hasGame event.draws
 
-                                    _ ->
-                                        -- TODO Maybe an error instead since we didn't find the corresponding game?
-                                        viewDraw translations scoringHilight event draw
+                            findGame =
+                                List.Extra.find (\g -> g.id == gameId) event.games
+                        in
+                        case ( findDraw, findGame ) of
+                            ( Just draw, Just game ) ->
+                                let
+                                    sheetLabel =
+                                        sheetNameForGame event game
+                                in
+                                viewGame translations scoringHilight event sheetLabel True draw game
 
-                            Nothing ->
+                            _ ->
                                 -- TODO Maybe an error instead since we didn't find the corresponding draw?
                                 viewDrawSchedule translations scoringHilight event
 
@@ -1434,25 +1549,24 @@ viewEvent { flags, path, translations, scoringHilight } event =
 
 
 viewDrawSchedule : WebData (List Translation) -> Maybe ScoringHilight -> Event -> Html Msg
-viewDrawSchedule translations scoringHilight { id, endScoresEnabled, sheetNames, teams, draws } =
+viewDrawSchedule translations scoringHilight event =
     let
         isDrawActive draw =
-            List.any
-                (\g ->
-                    case g of
-                        Just g_ ->
-                            g_.state == GameActive
-
-                        Nothing ->
-                            False
-                )
-                draw.drawSheets
+            let
+                activeGame gameId =
+                    List.any (\g -> g.id == gameId && g.state == GameActive) event.games
+            in
+            -- Are there any games in the draw that are active
+            List.filterMap identity draw.drawSheets
+                |> List.filter activeGame
+                |> List.isEmpty
+                |> not
 
         drawLink draw label =
-            if endScoresEnabled then
+            if event.endScoresEnabled then
                 let
                     newPath =
-                        drawUrl id draw
+                        drawUrl event.id draw
                 in
                 a [ href newPath, onClick (UpdateRoute newPath) ] [ text label ]
 
@@ -1474,21 +1588,21 @@ viewDrawSchedule translations scoringHilight { id, endScoresEnabled, sheetNames,
                                 GameActive ->
                                     "text-primary font-weight-bold"
                     in
-                    if endScoresEnabled then
+                    if event.endScoresEnabled then
                         let
                             newPath =
-                                gameUrl id game_
+                                gameUrl event.id game_
                         in
                         a
                             [ href newPath
                             , onClick (UpdateRoute newPath)
                             , class stateClass
-                            , title (gameNameWithResult teams game_)
+                            , title (gameNameWithResult event.teams game_)
                             ]
                             [ text game_.name ]
 
                     else
-                        text (gameNameWithResult teams game_)
+                        text (gameNameWithResult event.teams game_)
 
                 Nothing ->
                     text ""
@@ -1497,9 +1611,16 @@ viewDrawSchedule translations scoringHilight { id, endScoresEnabled, sheetNames,
             let
                 viewDrawRow draw =
                     let
-                        viewDrawSheet game =
+                        viewDrawSheet drawSheet =
                             td [ class "text-center" ]
-                                [ gameLink game ]
+                                [ case drawSheet of
+                                    Just gameId ->
+                                        List.Extra.find (\g -> g.id == gameId) event.games
+                                            |> gameLink
+
+                                    Nothing ->
+                                        text ""
+                                ]
                     in
                     tr
                         [ classList
@@ -1517,32 +1638,34 @@ viewDrawSchedule translations scoringHilight { id, endScoresEnabled, sheetNames,
                     [ tr []
                         ([ th [ style "border-top" "none", style "min-width" "65px" ] [ text (translate translations "draw") ] ]
                             ++ [ th [ style "border-top" "none", style "min-width" "220px" ] [ text (translate translations "starts_at") ] ]
-                            ++ List.map (\sheetName -> th [ class "text-center", style "border-top" "none", style "min-width" "198px" ] [ text sheetName ]) sheetNames
+                            ++ List.map (\sheetName -> th [ class "text-center", style "border-top" "none", style "min-width" "198px" ] [ text sheetName ]) event.sheetNames
                         )
                     ]
                 , tbody []
-                    (List.map viewDrawRow draws)
+                    (List.map viewDrawRow event.draws)
                 ]
 
         viewListSchedule =
             let
                 viewDrawListItem draw =
                     let
-                        viewDrawSheet game =
+                        viewDrawSheet gameId =
                             li []
-                                [ gameLink game ]
+                                [ List.Extra.find (\g -> g.id == gameId) event.games
+                                    |> gameLink
+                                ]
                     in
                     div []
-                        [ h5 [ class "mb-0" ] [ drawLink draw (translate translations "draw" ++ " " ++ draw.label) ]
+                        [ h6 [ class "mb-0" ] [ drawLink draw (translate translations "draw" ++ " " ++ draw.label) ]
                         , small [] [ drawLink draw draw.startsAt ]
-                        , ul [ class "mt-2" ] (List.map viewDrawSheet draw.drawSheets)
+                        , ul [ class "mt-2" ] (List.filterMap identity draw.drawSheets |> List.map viewDrawSheet)
                         ]
             in
-            div [] (List.map viewDrawListItem draws)
+            div [] (List.map viewDrawListItem event.draws)
     in
     div []
-        [ div [ class "table-responsive d-none d-md-block" ] [ viewTableSchedule ]
-        , div [ class "d-md-none" ] [ viewListSchedule ]
+        [ div [ class "table-responsive d-none d-md-block d-print-none" ] [ viewTableSchedule ]
+        , div [ class "d-md-none d-print-block" ] [ viewListSchedule ]
         ]
 
 
@@ -1568,26 +1691,34 @@ viewTeams translations event =
                 , td [] []
                 ]
     in
-    table [ class "table table-striped" ]
-        [ thead []
-            [ tr []
-                [ th [ style "border-top" "none" ] [ text (translate translations "team") ]
-                , th [ style "border-top" "none" ] [ text (translate translations "coach") ]
-                , th [ style "border-top" "none" ] [ text (translate translations "affiliation") ]
-                , th [ style "border-top" "none" ] [ text (translate translations "location") ]
+    div [ class "table-responsive" ]
+        [ table [ class "table table-striped" ]
+            [ thead []
+                [ tr []
+                    [ th [ style "min-width" "150px", style "border-top" "none" ] [ text (translate translations "team") ]
+                    , th [ style "min-width" "150px", style "border-top" "none" ] [ text (translate translations "coach") ]
+                    , th [ style "min-width" "150px", style "border-top" "none" ] [ text (translate translations "affiliation") ]
+                    , th [ style "min-width" "150px", style "border-top" "none" ] [ text (translate translations "location") ]
+                    ]
                 ]
+            , tbody [] (List.map viewTeamRow event.teams)
             ]
-        , tbody [] (List.map viewTeamRow event.teams)
         ]
 
 
 viewStages : WebData (List Translation) -> Event -> Stage -> Html Msg
-viewStages translations { id, draws, teams, stages } onStage =
+viewStages translations event onStage =
     let
+        games =
+            List.filter (\g -> g.stageId == onStage.id) event.games
+
+        teams =
+            teamsWithGames event.teams games
+
         viewStageLink stage =
             let
                 newPath =
-                    stageUrl id stage
+                    stageUrl event.id stage
             in
             li [ class "nav-item" ]
                 [ a
@@ -1604,7 +1735,7 @@ viewStages translations { id, draws, teams, stages } onStage =
         viewRoundRobin =
             let
                 teamResults =
-                    gamesByStage onStage draws
+                    List.filter (\g -> g.stageId == onStage.id) games
                         |> teamResultsForGames onStage teams
                         |> teamResultsRankedByPoints
 
@@ -1614,7 +1745,7 @@ viewStages translations { id, draws, teams, stages } onStage =
                 viewRow teamResult =
                     let
                         newPath =
-                            teamUrl id teamResult.team
+                            teamUrl event.id teamResult.team
                     in
                     tr []
                         [ td []
@@ -1639,29 +1770,31 @@ viewStages translations { id, draws, teams, stages } onStage =
                         , td [ class "text-right" ] [ text (String.fromFloat teamResult.points) ]
                         ]
             in
-            table [ class "table table-striped" ]
-                [ thead []
-                    [ tr []
-                        [ th [ style "border-top" "none" ] [ text (translate translations "team") ]
-                        , th [ class "text-right", style "border-top" "none" ] [ text (translate translations "games") ]
-                        , th [ class "text-right", style "border-top" "none" ] [ text (translate translations "wins") ]
-                        , th [ class "text-right", style "border-top" "none" ] [ text (translate translations "losses") ]
-                        , if hasTies then
-                            th [ class "text-right", style "border-top" "none" ] [ text (translate translations "ties") ]
+            div [ class "table-responsive" ]
+                [ table [ class "table table-striped" ]
+                    [ thead []
+                        [ tr []
+                            [ th [ style "min-width" "150px", style "border-top" "none" ] [ text (translate translations "team") ]
+                            , th [ class "text-right", style "border-top" "none" ] [ text (translate translations "games") ]
+                            , th [ class "text-right", style "border-top" "none" ] [ text (translate translations "wins") ]
+                            , th [ class "text-right", style "border-top" "none" ] [ text (translate translations "losses") ]
+                            , if hasTies then
+                                th [ class "text-right", style "border-top" "none" ] [ text (translate translations "ties") ]
 
-                          else
-                            text ""
-                        , th [ class "text-right", style "border-top" "none" ] [ text (translate translations "points") ]
+                              else
+                                text ""
+                            , th [ class "text-right", style "border-top" "none" ] [ text (translate translations "points") ]
+                            ]
                         ]
+                    , tbody [] (List.map viewRow teamResults)
                     ]
-                , tbody [] (List.map viewRow teamResults)
                 ]
 
         viewBracket =
             div [] [ text "Coming Soon." ]
     in
     div []
-        [ div [ class "nav nav-pills mb-3" ] (List.map viewStageLink stages)
+        [ div [ class "nav nav-pills mb-3" ] (List.map viewStageLink event.stages)
         , case onStage.stageType of
             RoundRobin ->
                 viewRoundRobin
@@ -1669,6 +1802,10 @@ viewStages translations { id, draws, teams, stages } onStage =
             Bracket ->
                 viewBracket
         ]
+
+
+
+-- REPORTS
 
 
 viewReports : WebData (List Translation) -> Event -> Html Msg
@@ -1679,6 +1816,15 @@ viewReports translations event =
 
         scoringAnalysisLink =
             "#/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis"
+
+        scoringAnalysisByHammerLink =
+            "#/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis_by_hammer"
+
+        teamRostersLink =
+            "#/events/" ++ String.fromInt event.id ++ "/reports/team_rosters"
+
+        competitionMatrixLink =
+            "#/events/" ++ String.fromInt event.id ++ "/reports/competition_matrix"
     in
     ul []
         [ if hasAttendance then
@@ -1686,24 +1832,42 @@ viewReports translations event =
 
           else
             text ""
-        , li [] [ text "Competition Matrix" ]
+        , li []
+            [ a
+                [ href competitionMatrixLink
+                , onClick (UpdateRoute competitionMatrixLink)
+                ]
+                [ text (translate translations "competition_matrix") ]
+            ]
         , if event.endScoresEnabled then
             li []
                 [ a
                     [ href scoringAnalysisLink
                     , onClick (UpdateRoute scoringAnalysisLink)
                     ]
-                    [ text "Scoring Analysis" ]
+                    [ text (translate translations "scoring_analysis") ]
                 ]
 
           else
             text ""
         , if event.endScoresEnabled then
-            li [] [ text "Scoring Analysis by Hammer" ]
+            li []
+                [ a
+                    [ href scoringAnalysisByHammerLink
+                    , onClick (UpdateRoute scoringAnalysisByHammerLink)
+                    ]
+                    [ text (translate translations "scoring_analysis_by_hammer") ]
+                ]
 
           else
             text ""
-        , li [] [ text "Team Rosters" ]
+        , li []
+            [ a
+                [ href teamRostersLink
+                , onClick (UpdateRoute teamRostersLink)
+                ]
+                [ text (translate translations "team_rosters") ]
+            ]
         ]
 
 
@@ -1712,13 +1876,21 @@ viewDraw translations scoringHilight event draw =
     let
         viewDrawSheet drawSheet =
             case drawSheet of
-                Just game ->
+                Just gameId ->
                     let
-                        sheetLabel =
-                            List.Extra.getAt (game.sheetNumber - 1) event.sheetNames
-                                |> Maybe.withDefault ""
+                        findGame =
+                            List.Extra.find (\g -> g.id == gameId) event.games
                     in
-                    viewGame translations scoringHilight event sheetLabel False draw game
+                    case findGame of
+                        Just game ->
+                            let
+                                sheetLabel =
+                                    sheetNameForGame event game
+                            in
+                            viewGame translations scoringHilight event sheetLabel False draw game
+
+                        Nothing ->
+                            text ""
 
                 Nothing ->
                     text ""
@@ -1919,35 +2091,37 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                 Just hilight ->
                     button
                         [ style "cursor" "pointer"
-                        , class "btn btn-sm btn-secondary"
+                        , class "btn btn-sm btn-secondary d-print-none"
                         , onClick (ToggleScoringHilight hilight)
                         ]
                         [ span []
                             [ text
-                                (case hilight of
-                                    HilightHammers ->
-                                        "Hammers"
+                                (translate translations
+                                    (case hilight of
+                                        HilightHammers ->
+                                            "hammers"
 
-                                    HilightStolenEnds ->
-                                        "Stolen ends"
+                                        HilightStolenEnds ->
+                                            "stolen_ends"
 
-                                    HilightBlankEnds ->
-                                        "Blank ends"
+                                        HilightBlankEnds ->
+                                            "blank_ends"
 
-                                    Hilight1PointEnds ->
-                                        "1 point ends"
+                                        Hilight1PointEnds ->
+                                            "one_point_ends"
 
-                                    Hilight2PointEnds ->
-                                        "2 point ends"
+                                        Hilight2PointEnds ->
+                                            "two_point_ends"
 
-                                    Hilight3PointEnds ->
-                                        "3 point ends"
+                                        Hilight3PointEnds ->
+                                            "three_point_ends"
 
-                                    Hilight4PointEnds ->
-                                        "4 point ends"
+                                        Hilight4PointEnds ->
+                                            "four_point_ends"
 
-                                    Hilight5PlusPointEnds ->
-                                        "5+ point ends"
+                                        Hilight5PlusPointEnds ->
+                                            "five_plus_point_ends"
+                                    )
                                 )
                             ]
                         ]
@@ -1973,7 +2147,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                             [ text (translate translations "draw" ++ " " ++ draw.label ++ ": " ++ draw.startsAt) ]
                         ]
                     , li
-                        [ class "breadcrumb-item active"
+                        [ class "breadcrumb-item active d-none d-md-inline-block"
                         , attribute "aria-current" "page"
                         ]
                         [ text game.name ]
@@ -2025,125 +2199,253 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
 viewTeam : WebData (List Translation) -> Event -> Team -> Html Msg
 viewTeam translations event team =
     let
-        hasSideForTeam game =
-            List.any (\s -> s.teamId == Just team.id) game.sides
-
-        draws =
+        viewTeamLineup =
             let
-                hasGameForTeam draw =
-                    List.filterMap identity draw.drawSheets
-                        |> List.filter hasSideForTeam
+                hasDelivery =
+                    List.any (\c -> c.delivery /= Nothing) team.lineup
+
+                hasClubName =
+                    List.any (\c -> c.clubName /= Nothing) team.lineup
+
+                hasClubCity =
+                    List.any (\c -> c.clubCity /= Nothing) team.lineup
+
+                hasPhotoUrl =
+                    List.any (\c -> c.photoUrl /= Nothing) team.lineup
+
+                viewTeamCurler curler =
+                    div [ class "col-12 col-md-6 col-lg-4 col-xl-3 mb-4" ]
+                        [ div [ class "card" ]
+                            [ if hasPhotoUrl then
+                                div [ class "d-flex justify-content-center d-print-none", style "height" "150px" ]
+                                    [ case curler.photoUrl of
+                                        Just photoUrl ->
+                                            img
+                                                [ class "card-img-top mt-2"
+                                                , style "width" "auto"
+                                                , style "max-height" "100%"
+                                                , src photoUrl
+                                                ]
+                                                []
+
+                                        Nothing ->
+                                            div [ class "mt-3" ] [ svgNoImage ]
+                                    ]
+
+                              else
+                                text ""
+                            , div [ class "card-body" ]
+                                [ h5 [ class "card-title mb-1" ] [ text curler.name ]
+                                , p [ class "card-text" ]
+                                    [ span [] [ text (teamPositionToString translations curler.position) ]
+                                    , if curler.skip then
+                                        sup [] [ text (" " ++ translate translations "skip") ]
+
+                                      else
+                                        text ""
+                                    , if hasDelivery then
+                                        small [ class "d-block" ] [ text (translate translations "delivery" ++ ": " ++ deliveryToString translations curler.delivery) ]
+
+                                      else
+                                        text ""
+                                    , if hasClubName then
+                                        small [ class "d-block" ] [ text (Maybe.withDefault "-" curler.clubName) ]
+
+                                      else
+                                        text ""
+                                    , if hasClubCity then
+                                        small [ class "d-block" ] [ text (Maybe.withDefault "-" curler.clubCity) ]
+
+                                      else
+                                        text ""
+                                    ]
+                                ]
+                            ]
+                        ]
+            in
+            div [ class "row" ] (List.map viewTeamCurler team.lineup)
+
+        viewTeamInfo =
+            let
+                hasTeamContactInfo =
+                    [ team.contactName, team.contactEmail, team.contactPhone ]
+                        |> List.filterMap identity
+                        |> List.isEmpty
+                        |> not
+
+                hasTeamOtherInfo =
+                    [ team.coach, team.affiliation, team.location ]
+                        |> List.filterMap identity
                         |> List.isEmpty
                         |> not
             in
-            List.filter hasGameForTeam event.draws
-
-        viewTeamDraw : Draw -> List (Html Msg)
-        viewTeamDraw draw =
-            let
-                games : List Game
-                games =
-                    List.filterMap identity draw.drawSheets
-                        |> List.filter hasSideForTeam
-
-                viewTeamGame : Game -> Html Msg
-                viewTeamGame game =
-                    let
-                        drawPath =
-                            drawUrl event.id draw
-
-                        gamePath =
-                            gameUrl event.id game
-
-                        resultLabel =
-                            let
-                                resultText =
-                                    let
-                                        sideResultText res =
-                                            sideResultToString translations res
-                                    in
-                                    case game.state of
-                                        GameComplete ->
-                                            List.Extra.find (\s -> s.teamId == Just team.id) game.sides
-                                                |> Maybe.map .result
-                                                |> Maybe.map sideResultText
-
-                                        GameActive ->
-                                            Just (translate translations "game_in_progress")
-
-                                        GamePending ->
-                                            Nothing
-                            in
-                            case resultText of
-                                Just t ->
-                                    a [ href gamePath, onClick (UpdateRoute gamePath) ] [ text t ]
-
-                                Nothing ->
-                                    text "-"
-
-                        gameScoreLabel =
-                            let
-                                gameScore =
-                                    List.map (\s -> s.score) game.sides
-                                        |> List.filterMap identity
-                                        |> List.sort
-                                        |> List.reverse
-                                        |> List.map String.fromInt
-                                        |> String.join " - "
-                            in
-                            case gameScore of
-                                "" ->
-                                    text ""
-
-                                _ ->
-                                    a [ href gamePath, onClick (UpdateRoute gamePath) ] [ text gameScore ]
-
-                        opponentLabel =
-                            let
-                                opponent =
-                                    List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
-                                        |> Maybe.andThen (findTeamForSide event.teams)
-                            in
-                            case opponent of
-                                Just oppo ->
-                                    let
-                                        oppoPath =
-                                            teamUrl event.id oppo
-                                    in
-                                    a
-                                        [ href oppoPath
-                                        , onClick (UpdateRoute oppoPath)
-                                        ]
-                                        [ text oppo.name
-                                        ]
-
-                                Nothing ->
-                                    text ""
-                    in
-                    tr []
-                        [ td [] [ a [ href drawPath, onClick (UpdateRoute drawPath) ] [ text draw.label ] ]
-                        , td [] [ a [ href drawPath, onClick (UpdateRoute drawPath) ] [ text draw.startsAt ] ]
-                        , td [] [ resultLabel ]
-                        , td [] [ gameScoreLabel ]
-                        , td [] [ opponentLabel ]
+            div [ class "row mb-4" ]
+                [ if hasTeamContactInfo then
+                    div [ class "col-12 col-md-6 table-responsive" ]
+                        [ table [ class "table" ]
+                            [ tr []
+                                [ th [ class "w-25", style "min-width" "140px" ] [ text (translate translations "contact_name") ]
+                                , td [ class "w-25", style "min-width" "160px" ] [ text (Maybe.withDefault "-" team.contactName) ]
+                                ]
+                            , tr []
+                                [ th [] [ text (translate translations "contact_email") ]
+                                , td [] [ text (Maybe.withDefault "-" team.contactEmail) ]
+                                ]
+                            , tr []
+                                [ th [] [ text (translate translations "contact_phone") ]
+                                , td [] [ text (Maybe.withDefault "-" team.contactPhone) ]
+                                ]
+                            ]
                         ]
+
+                  else
+                    text ""
+                , if hasTeamOtherInfo then
+                    div [ class "col-12 col-md-6 table-responsive" ]
+                        [ table [ class "table" ]
+                            [ tr []
+                                [ th [ class "w-25", style "min-width" "100px" ] [ text (translate translations "coach") ]
+                                , td [ class "w-25", style "min-width" "160px" ] [ text (Maybe.withDefault "-" team.coach) ]
+                                ]
+                            , tr []
+                                [ th [] [ text (translate translations "affiliation") ]
+                                , td [] [ text (Maybe.withDefault "-" team.affiliation) ]
+                                ]
+                            , tr []
+                                [ th [] [ text (translate translations "location") ]
+                                , td [] [ text (Maybe.withDefault "-" team.location) ]
+                                ]
+                            ]
+                        ]
+
+                  else
+                    text ""
+                ]
+
+        viewTeamSchedule =
+            let
+                findGame gameId =
+                    List.Extra.find (\g -> g.id == gameId) event.games
+
+                hasSideForTeam game =
+                    List.any (\s -> s.teamId == Just team.id) game.sides
+
+                draws =
+                    let
+                        hasGameForTeam draw =
+                            List.filterMap identity draw.drawSheets
+                                |> List.map findGame
+                                |> List.filterMap identity
+                                |> List.filter hasSideForTeam
+                                |> List.isEmpty
+                                |> not
+                    in
+                    List.filter hasGameForTeam event.draws
+
+                viewTeamDraw : Draw -> List (Html Msg)
+                viewTeamDraw draw =
+                    let
+                        games =
+                            List.filterMap identity draw.drawSheets
+                                |> List.map findGame
+                                |> List.filterMap identity
+                                |> List.filter hasSideForTeam
+
+                        viewTeamGame : Game -> Html Msg
+                        viewTeamGame game =
+                            let
+                                drawPath =
+                                    drawUrl event.id draw
+
+                                gamePath =
+                                    gameUrl event.id game
+
+                                resultLabel =
+                                    let
+                                        resultText =
+                                            let
+                                                sideResultText res =
+                                                    sideResultToString translations res
+                                            in
+                                            case game.state of
+                                                GameComplete ->
+                                                    List.Extra.find (\s -> s.teamId == Just team.id) game.sides
+                                                        |> Maybe.map .result
+                                                        |> Maybe.map sideResultText
+
+                                                GameActive ->
+                                                    Just (translate translations "game_in_progress")
+
+                                                GamePending ->
+                                                    Nothing
+                                    in
+                                    case resultText of
+                                        Just t ->
+                                            a [ href gamePath, onClick (UpdateRoute gamePath) ] [ text t ]
+
+                                        Nothing ->
+                                            text "-"
+
+                                gameScoreLabel =
+                                    case gameScore game of
+                                        Just score ->
+                                            a [ href gamePath, onClick (UpdateRoute gamePath) ] [ text score ]
+
+                                        Nothing ->
+                                            text ""
+
+                                opponentLabel =
+                                    let
+                                        opponent =
+                                            List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
+                                                |> Maybe.andThen (findTeamForSide event.teams)
+                                    in
+                                    case opponent of
+                                        Just oppo ->
+                                            let
+                                                oppoPath =
+                                                    teamUrl event.id oppo
+                                            in
+                                            a
+                                                [ href oppoPath
+                                                , onClick (UpdateRoute oppoPath)
+                                                ]
+                                                [ text oppo.name
+                                                ]
+
+                                        Nothing ->
+                                            text ""
+                            in
+                            tr []
+                                [ td [] [ a [ href drawPath, onClick (UpdateRoute drawPath) ] [ text draw.label ] ]
+                                , td [] [ a [ href drawPath, onClick (UpdateRoute drawPath) ] [ text draw.startsAt ] ]
+                                , td [] [ resultLabel ]
+                                , td [] [ gameScoreLabel ]
+                                , td [] [ opponentLabel ]
+                                ]
+                    in
+                    List.map viewTeamGame games
             in
-            List.map viewTeamGame games
-    in
-    div []
-        [ h5 [ class "mb-3" ] [ text team.name ]
-        , div [] [ text (Maybe.withDefault "" team.coach) ]
-        , table [ class "table" ]
-            [ thead []
-                [ tr []
-                    [ th [ colspan 2 ] [ text "Draw" ]
-                    , th [] [ text "Result" ]
-                    , th [] [ text "Score" ]
-                    , th [] [ text "Opponent" ]
+            div [ class "table-responsive" ]
+                [ table [ class "table" ]
+                    [ thead []
+                        [ tr []
+                            [ th [ style "min-width" "100px" ] [ text "Draw" ]
+                            , th [ style "min-width" "220px" ] []
+                            , th [ style "min-width" "170px" ] [ text "Result" ]
+                            , th [ style "min-width" "80px" ] [ text "Score" ]
+                            , th [ style "min-width" "150px" ] [ text "Opponent" ]
+                            ]
+                        ]
+                    , tbody [] (List.map viewTeamDraw draws |> List.concat)
                     ]
                 ]
-            , tbody [] (List.map viewTeamDraw draws |> List.concat)
-            ]
+    in
+    div []
+        [ h4 [ class "mb-3" ] [ text team.name ]
+        , viewTeamLineup
+        , viewTeamInfo
+        , viewTeamSchedule
         ]
 
 
@@ -2163,7 +2465,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
         [ class "table-responsive" ]
         [ div
             [ class "d-flex justify-content-between" ]
-            [ h5 [ class "mb-3" ] [ text (translate translations "scoring_analysis_report") ]
+            [ h4 [ class "mb-3" ] [ text (translate translations "scoring_analysis") ]
             , if isForGame then
                 a
                     [ href fullReportUrl
@@ -2177,15 +2479,15 @@ viewReportScoringAnalysis translations scoringHilight event teams =
         , table [ class "table table-sm table-bordered small" ]
             ([ caption []
                 [ ol [ class "pl-3" ]
-                    [ li [] [ text " LSFE - Last Shot in the First End" ]
-                    , li [] [ text "SE - Stolen Ends" ]
-                    , li [] [ text "BE - Blank Ends" ]
-                    , li [] [ text "SP - Stolen Points" ]
+                    [ li [] [ text (" LSFE - " ++ translate translations "last_shot_in_first_end") ]
+                    , li [] [ text ("SE - " ++ translate translations "stolen_ends") ]
+                    , li [] [ text ("BE - " ++ translate translations "blank_ends") ]
+                    , li [] [ text ("SP - " ++ translate translations "stolen_points") ]
                     ]
                 ]
              , thead [ class "thead-light" ]
                 [ tr []
-                    [ th [] [ text "Team" ]
+                    [ th [ style "min-width" "80px" ] [ text "Team" ]
                     , th [ class "text-center" ] [ text "Games" ]
                     , th [ class "text-center" ] [ text "Ends" ]
                     , th [] []
@@ -2297,10 +2599,7 @@ viewTeamScoringAnalysis event team =
                 participatedIn sides =
                     List.any (\s -> s.teamId == Just team.id) sides
             in
-            List.map .drawSheets event.draws
-                |> List.concat
-                |> List.filterMap identity
-                |> List.filter (\g -> g.state /= GamePending)
+            List.filter (\g -> g.state /= GamePending) event.games
                 |> List.filter (\g -> participatedIn g.sides)
 
         sidesFor =
@@ -2391,67 +2690,11 @@ viewTeamScoringAnalysis event team =
             -- see averagePointsFor
             toFloat (round ((toFloat totalPointsAgainst / toFloat (List.length endsAgainst)) * 100)) / 100
 
-        stolenEnds : Bool -> List Int
-        stolenEnds for =
-            -- The for is a bool to indicate for (True) or against (False)
-            let
-                -- We need to look at each end score, and whether or not they had the hammer.
-                stolenEndsForGame game =
-                    let
-                        -- We don't know if the team side is the first or second, so build a tuple so we know.
-                        sides =
-                            if for then
-                                ( List.Extra.find (\s -> s.teamId == Just team.id) game.sides
-                                , List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
-                                )
-
-                            else
-                                ( List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
-                                , List.Extra.find (\s -> s.teamId == Just team.id) game.sides
-                                )
-
-                        -- We don't care about the event's number of ends, just the max of either side.
-                        numberOfEnds =
-                            List.map (\side -> List.length side.endScores) game.sides
-                                |> List.maximum
-                                |> Maybe.withDefault 0
-
-                        stolenEnd : Side -> Side -> Int -> Maybe Int
-                        stolenEnd sideFor sideAgainst endIndex =
-                            let
-                                hasHammer =
-                                    if endIndex > 0 then
-                                        -- Check if they lost the previous end (thus getting hammer for this end)
-                                        Maybe.withDefault 0 (List.Extra.getAt (endIndex - 1) sideAgainst.endScores) > 0
-
-                                    else
-                                        -- First end and first hammer?
-                                        sideFor.firstHammer == True
-                            in
-                            if hasHammer then
-                                Nothing
-
-                            else
-                                List.Extra.getAt endIndex sideFor.endScores
-                    in
-                    case sides of
-                        ( Just sideFor, Just sideAgainst ) ->
-                            List.range 0 numberOfEnds
-                                |> List.map (stolenEnd sideFor sideAgainst)
-                                |> List.filterMap identity
-                                |> List.filter (\e -> e > 0)
-
-                        _ ->
-                            []
-            in
-            List.map (\game -> stolenEndsForGame game) games
-                |> List.concat
-
         stolenEndsCount for =
-            List.length (stolenEnds for)
+            List.length (stolenEnds for games team)
 
         stolenPoints for =
-            List.sum (stolenEnds for)
+            List.sum (stolenEnds for games team)
     in
     tbody []
         [ tr []
@@ -2495,11 +2738,287 @@ viewTeamScoringAnalysis event team =
         ]
 
 
+viewReportScoringAnalysisByHammer : WebData (List Translation) -> Event -> Html Msg
+viewReportScoringAnalysisByHammer translations event =
+    let
+        games : List Game
+        games =
+            -- Not pending
+            List.filter (\g -> g.state /= GamePending) event.games
+
+        viewByHammer : Bool -> Html Msg
+        viewByHammer withHammer =
+            let
+                teams =
+                    teamsWithGames event.teams games
+
+                viewTeamByHammer team =
+                    let
+                        gamesCount =
+                            gamesForTeam games team
+                                |> List.length
+
+                        sidesFor =
+                            List.map .sides games
+                                |> List.concat
+                                |> List.filter (\s -> s.teamId == Just team.id)
+
+                        sidesAgainst =
+                            List.map .sides (gamesForTeam games team)
+                                |> List.concat
+                                |> List.filter (\s -> s.teamId /= Just team.id)
+
+                        endsFor =
+                            List.map .endScores sidesFor
+                                |> List.concat
+
+                        endsAgainst =
+                            List.map .endScores sidesAgainst
+                                |> List.concat
+
+                        endsCount =
+                            endsFor |> List.length
+
+                        blankEndsFor =
+                            List.filter (\e -> e == 0) endsFor
+                                |> List.length
+
+                        blankEndsForPercent =
+                            round ((toFloat blankEndsFor / toFloat (endsFor |> List.length)) * 100)
+
+                        stolenEndsAgainst =
+                            List.length (stolenEnds False games team)
+
+                        stolenEndsAgainstPercent =
+                            round ((toFloat stolenEndsAgainst / toFloat (endsAgainst |> List.length)) * 100)
+
+                        singlePointsFor =
+                            List.filter (\e -> e == 1) endsFor
+                                |> List.length
+
+                        singlePointsForPercent =
+                            round ((toFloat singlePointsFor / toFloat (endsFor |> List.length)) * 100)
+
+                        multiPointsFor =
+                            List.filter (\e -> e > 1) endsFor
+                                |> List.length
+
+                        multiPointsForPercent =
+                            round ((toFloat multiPointsFor / toFloat (endsFor |> List.length)) * 100)
+                    in
+                    tr []
+                        [ td []
+                            [ text team.name ]
+                        , td [ class "text-right" ]
+                            [ text (String.fromInt gamesCount) ]
+                        , td [ class "text-right" ]
+                            [ text (String.fromInt endsCount) ]
+                        , td [ class "text-right" ]
+                            [ text (String.fromInt blankEndsFor) ]
+                        , td [ class "text-right" ]
+                            [ text (String.fromInt blankEndsForPercent) ]
+                        , td [ class "text-right" ]
+                            [ text (String.fromInt stolenEndsAgainst) ]
+                        , td [ class "text-right" ]
+                            [ text (String.fromInt stolenEndsAgainstPercent) ]
+                        , td [ class "text-right" ]
+                            [ text (String.fromInt singlePointsFor) ]
+                        , td [ class "text-right" ]
+                            [ text (String.fromInt singlePointsForPercent) ]
+                        , td [ class "text-right" ]
+                            [ text (String.fromInt multiPointsFor) ]
+                        , td [ class "text-right" ]
+                            [ text (String.fromInt multiPointsForPercent) ]
+                        ]
+            in
+            div [ class "table-responsive" ]
+                [ table [ class "table table-striped mt-3" ]
+                    [ thead []
+                        [ tr []
+                            [ th [ colspan 3, style "border-top" "none", style "min-width" "250px" ]
+                                [ text
+                                    (translate translations
+                                        (if withHammer then
+                                            "with_hammer"
+
+                                         else
+                                            "without_hammer"
+                                        )
+                                    )
+                                ]
+                            , th [ colspan 2, class "text-right", style "border-top" "none", style "min-width" "140px" ] [ text (translate translations "blank_ends_for") ]
+                            , th [ colspan 2, class "text-right", style "border-top" "none", style "min-width" "180px" ] [ text (translate translations "stolen_ends_against") ]
+                            , th [ colspan 2, class "text-right", style "border-top" "none", style "min-width" "155px" ] [ text (translate translations "single_points_for") ]
+                            , th [ colspan 2, class "text-right", style "border-top" "none", style "min-width" "145px" ] [ text (translate translations "multi_points_for") ]
+                            ]
+                        , tr []
+                            [ th [ style "min-width" "150px" ] [ text (translate translations "team") ]
+                            , th [ class "text-right", style "min-width" "60px" ] [ text (translate translations "games") ]
+                            , th [ class "text-right", style "min-width" "60px" ] [ text (translate translations "ends") ]
+                            , th [ class "text-right" ] [ text "#" ]
+                            , th [ class "text-right" ] [ text "%" ]
+                            , th [ class "text-right" ] [ text "#" ]
+                            , th [ class "text-right" ] [ text "%" ]
+                            , th [ class "text-right" ] [ text "#" ]
+                            , th [ class "text-right" ] [ text "%" ]
+                            , th [ class "text-right" ] [ text "#" ]
+                            , th [ class "text-right" ] [ text "%" ]
+                            ]
+                        ]
+                    , tbody [] (List.map viewTeamByHammer teams)
+                    ]
+                ]
+    in
+    div []
+        [ h4 [] [ text (translate translations "scoring_analysis_by_hammer") ]
+        , viewByHammer True
+        , viewByHammer False
+        ]
+
+
+viewReportTeamRosters : WebData (List Translation) -> List Team -> Html Msg
+viewReportTeamRosters translations teams =
+    let
+        hasDelivery =
+            let
+                hasForTeam team =
+                    List.any (\c -> c.delivery /= Nothing) team.lineup
+            in
+            List.filter hasForTeam teams
+                |> List.isEmpty
+                |> not
+
+        viewTeamRoster team =
+            let
+                viewTeamRosterCurler curler =
+                    tr []
+                        [ td [] [ text curler.name ]
+                        , td []
+                            [ text (teamPositionToString translations curler.position)
+                            , if curler.skip then
+                                sup [ class "ml-1" ] [ text (translate translations "skip") ]
+
+                              else
+                                text ""
+                            ]
+                        , if hasDelivery then
+                            td [] [ text (deliveryToString translations curler.delivery) ]
+
+                          else
+                            text ""
+                        ]
+            in
+            [ thead [ class "thead-light" ]
+                [ tr [] [ th [ colspan 3 ] [ text team.name ] ]
+                ]
+            , tbody [] (List.map viewTeamRosterCurler team.lineup)
+            ]
+    in
+    div []
+        [ h4 [ class "mb-3" ] [ text (translate translations "team_rosters") ]
+        , div [ class "table-responsive" ]
+            [ table [ class "table" ] (List.map viewTeamRoster teams |> List.concat)
+            ]
+        ]
+
+
+viewReportCompetitionMatrix : WebData (List Translation) -> Event -> Html Msg
+viewReportCompetitionMatrix translations event =
+    let
+        viewStageMatrix stage =
+            let
+                -- Only the games participating in this stage.
+                games =
+                    List.filter (\g -> g.stageId == stage.id) event.games
+
+                -- Only the teams participating in this stage.
+                teams =
+                    -- Filter the teams so only team ids included in sides included in games included in the passed stage.
+                    let
+                        teamIncluded team =
+                            let
+                                inSide side =
+                                    side.teamId == Just team.id
+
+                                inGame game =
+                                    List.any inSide game.sides
+                            in
+                            List.any inGame games
+                    in
+                    -- Filter the event.teams to include only those teams involved in games that are in this stage.
+                    List.filter teamIncluded event.teams
+
+                viewTeamColumn team =
+                    td [ class "text-center" ] [ text team.name ]
+
+                viewTeamRow team =
+                    tr []
+                        ([ td [ class "text-center" ] [ text team.name ]
+                         ]
+                            ++ List.map (viewTeamCell team) teams
+                        )
+
+                viewTeamCell teamA teamB =
+                    let
+                        teamIdsForGame g =
+                            List.map .teamId g.sides
+                                |> List.filterMap identity
+
+                        matchingGame =
+                            List.Extra.find (\g -> [ teamA.id, teamB.id ] == teamIdsForGame g || [ teamB.id, teamA.id ] == teamIdsForGame g) games
+                    in
+                    case matchingGame of
+                        Just game ->
+                            td [ class "text-center" ]
+                                [ case gameScore game of
+                                    Just score ->
+                                        let
+                                            gamePath =
+                                                gameUrl event.id game
+                                        in
+                                        a
+                                            [ href gamePath
+                                            , onClick (UpdateRoute gamePath)
+                                            ]
+                                            [ text score ]
+
+                                    Nothing ->
+                                        text ""
+                                ]
+
+                        Nothing ->
+                            td [ class "bg-light" ] []
+            in
+            div [ class "table-responsive mt-3" ]
+                [ h5 [] [ text stage.name ]
+                , table [ class "table table-bordered" ]
+                    ([ tr []
+                        ([ td [] [] ] ++ List.map viewTeamColumn teams)
+                     ]
+                        ++ List.map viewTeamRow teams
+                    )
+                ]
+    in
+    div []
+        ([ h4 [] [ text (translate translations "competition_matrix") ] ]
+            ++ (List.filter (\s -> s.stageType == RoundRobin) event.stages |> List.map viewStageMatrix)
+        )
+
+
 viewReport : WebData (List Translation) -> Maybe ScoringHilight -> Event -> String -> Html Msg
 viewReport translations scoringHilight event report =
     case report of
         "scoring_analysis" ->
-            viewReportScoringAnalysis translations scoringHilight event event.teams
+            viewReportScoringAnalysis translations scoringHilight event (teamsWithGames event.teams event.games)
+
+        "scoring_analysis_by_hammer" ->
+            viewReportScoringAnalysisByHammer translations event
+
+        "team_rosters" ->
+            viewReportTeamRosters translations event.teams
+
+        "competition_matrix" ->
+            viewReportCompetitionMatrix translations event
 
         _ ->
             div [] [ text ("Coming Soon: " ++ report) ]
