@@ -337,7 +337,7 @@ decodeEvent =
         |> optional "number_of_ends" int 10
         |> optional "top_rock" string "red"
         |> optional "bot_rock" string "yellow"
-        |> required "sheet_names" (list string)
+        |> optional "sheet_names" (list string) []
         |> optional "teams" (list decodeTeam) []
         |> optional "stages" (list decodeStage) []
         |> optional "draws" (list decodeDraw) []
@@ -1122,10 +1122,10 @@ gameNameWithResult teams game =
             in
             String.join
                 (if tied then
-                    " tied "
+                    " = "
 
                  else
-                    " defeated "
+                    " > "
                 )
                 sortedTeamNames
 
@@ -1713,9 +1713,9 @@ viewDrawSchedule translations scoringHilight event =
                             [ href newPath
                             , onClick (UpdateRoute newPath)
                             , class stateClass
-                            , title (gameNameWithResult event.teams game_)
+                            , title game_.name
                             ]
-                            [ text game_.name ]
+                            [ text (gameNameWithResult event.teams game_) ]
 
                     else
                         text (gameNameWithResult event.teams game_)
@@ -2357,6 +2357,9 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
 viewTeam : WebData (List Translation) -> Event -> Team -> Html Msg
 viewTeam translations event team =
     let
+        hasDraws =
+            not (List.isEmpty event.draws)
+
         viewTeamLineup =
             let
                 hasDelivery =
@@ -2603,7 +2606,11 @@ viewTeam translations event team =
         [ h4 [ class "mb-3" ] [ text team.name ]
         , viewTeamLineup
         , viewTeamInfo
-        , viewTeamSchedule
+        , if hasDraws then
+            viewTeamSchedule
+
+          else
+            text ""
         ]
 
 
