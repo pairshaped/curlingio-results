@@ -763,21 +763,11 @@ init flags_ =
 
                                 Nothing ->
                                     Nothing
+
+                newModel =
+                    Model flags path False NotAsked NotAsked "" NotAsked NotAsked Nothing Nothing
             in
-            ( Model flags path False NotAsked NotAsked "" NotAsked NotAsked Nothing Nothing
-            , Cmd.batch
-                [ getTranslations flags
-                , case toRoute path of
-                    ItemsRoute ->
-                        getItems flags
-
-                    ProductRoute id ->
-                        getProduct flags id
-
-                    EventRoute id _ ->
-                        getEvent flags id
-                ]
-            )
+            ( newModel, getData newModel False )
 
         Err error ->
             let
@@ -834,6 +824,62 @@ baseClubUrl flags =
     baseUrl flags ++ "/clubs/" ++ flags.apiKey ++ "/"
 
 
+getData : Model -> Bool -> Cmd Msg
+getData { flags, path, translations, items, product, event } refresh =
+    -- Pass True for refresh to force load new data.
+    Cmd.batch
+        [ case translations of
+            Success _ ->
+                Cmd.none
+
+            _ ->
+                -- Get translations if we don't already have them.
+                -- We never force refresh translations (waste of bandwidth).
+                getTranslations flags
+        , case toRoute path of
+            ItemsRoute ->
+                case items of
+                    Success _ ->
+                        -- Get new data if we're forcing a refresh.
+                        if refresh then
+                            getItems flags
+
+                        else
+                            Cmd.none
+
+                    _ ->
+                        getItems flags
+
+            ProductRoute id ->
+                case product of
+                    Success p ->
+                        -- Get new data if we're forcing a refresh or if the
+                        -- current product has a different id than the route.
+                        if refresh || p.id /= id then
+                            getProduct flags id
+
+                        else
+                            Cmd.none
+
+                    _ ->
+                        getProduct flags id
+
+            EventRoute id _ ->
+                case event of
+                    Success e ->
+                        -- Get new data if we're forcing a refresh or if the
+                        -- current event has a different id than the route.
+                        if refresh || e.id /= id then
+                            getEvent flags id
+
+                        else
+                            Cmd.none
+
+                    _ ->
+                        getEvent flags id
+        ]
+
+
 getTranslations : Flags -> Cmd Msg
 getTranslations flags =
     let
@@ -884,17 +930,49 @@ getProduct flags id =
     RemoteData.Http.get url GotProduct decodeProduct
 
 
-eventSections : List String -> List String
-eventSections excludeEventSections =
+eventSections : List String -> Event -> List String
+eventSections excludeEventSections event =
     let
         -- Check if a section is included (not in the explicitly excluded sections list).
         included section =
             List.map String.toLower excludeEventSections
                 |> List.member (String.toLower section)
                 |> not
+
+        hasData section =
+            let
+                hasDraws =
+                    not (List.isEmpty event.draws)
+
+                hasStages =
+                    not (List.isEmpty event.stages)
+
+                hasTeams =
+                    not (List.isEmpty event.teams)
+
+                hasCompletedGames =
+                    List.any (\g -> g.state == GameComplete) event.games
+            in
+            case section of
+                "draws" ->
+                    hasDraws
+
+                "stages" ->
+                    hasStages
+
+                "teams" ->
+                    hasTeams
+
+                "reports" ->
+                    (hasDraws && hasTeams)
+                        || hasCompletedGames
+
+                _ ->
+                    True
     in
     [ "details", "notes", "registrations", "spares", "draws", "stages", "teams", "reports" ]
         |> List.filter included
+        |> List.filter hasData
 
 
 gamesForTeam : List Game -> Team -> List Game
@@ -1189,9 +1267,8 @@ type Msg
     = ToggleFullScreen
     | GotTranslations (WebData (List Translation))
     | GotItems (WebData (List Item))
-    | ReloadItems
+    | ReloadRoute
     | UpdateSearch String
-    | SelectEvent Int
     | GotEvent (WebData Event)
     | GotProduct (WebData Product)
     | UpdateRoute String
@@ -1210,14 +1287,11 @@ update msg model =
         GotItems response ->
             ( { model | items = response, errorMsg = Nothing }, Cmd.none )
 
-        ReloadItems ->
-            ( model, getItems model.flags )
+        ReloadRoute ->
+            ( model, getData model True )
 
         UpdateSearch val ->
             ( { model | search = String.toLower val }, Cmd.none )
-
-        SelectEvent id ->
-            ( model, getEvent model.flags id )
 
         GotEvent response ->
             ( { model | event = response }
@@ -1230,9 +1304,11 @@ update msg model =
             )
 
         UpdateRoute path ->
-            ( { model | path = Just path }
-            , Cmd.none
-            )
+            let
+                updatedModel =
+                    { model | path = Just path }
+            in
+            ( updatedModel, getData updatedModel False )
 
         ToggleScoringHilight scoringHilight ->
             ( { model
@@ -1253,6 +1329,10 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
+    let
+        viewLoading =
+            viewNotReady (translate model.translations "Loading")
+    in
     div
         (List.append
             [ id "curlingio__results"
@@ -1292,29 +1372,39 @@ view model =
                 viewNotReady errorMsg
 
             Nothing ->
-                case model.event of
-                    Success event ->
-                        viewEvent model event
-
-                    Loading ->
-                        viewNotReady "Loading..."
-
-                    Failure error ->
-                        viewFetchError (errorMessage error)
-
-                    NotAsked ->
+                case toRoute model.path of
+                    ItemsRoute ->
                         case model.items of
-                            NotAsked ->
-                                viewNotReady "Initializing..."
-
-                            Loading ->
-                                viewNotReady "Loading..."
+                            Success items ->
+                                viewItems model items
 
                             Failure error ->
                                 viewFetchError (errorMessage error)
 
-                            Success items ->
-                                viewItems model items
+                            _ ->
+                                viewLoading
+
+                    ProductRoute id ->
+                        case model.product of
+                            Success product ->
+                                viewProduct model product
+
+                            Failure error ->
+                                viewFetchError (errorMessage error)
+
+                            _ ->
+                                viewLoading
+
+                    EventRoute id nestedRoute ->
+                        case model.event of
+                            Success event ->
+                                viewEvent model nestedRoute event
+
+                            Failure error ->
+                                viewFetchError (errorMessage error)
+
+                            _ ->
+                                viewLoading
         ]
 
 
@@ -1328,7 +1418,7 @@ viewFetchError message =
     div
         [ class "p-3" ]
         [ p [] [ text message ]
-        , button [ class "btn btn-primary", onClick ReloadItems ] [ text "Reload" ]
+        , button [ class "btn btn-primary", onClick ReloadRoute ] [ text "Reload" ]
         ]
 
 
@@ -1358,7 +1448,11 @@ viewItems { flags, fullScreen, translations, search } items =
             tr []
                 ([ td []
                     [ if item.publishResults then
-                        a [ href ("#/events/" ++ String.fromInt item.id), onClick (SelectEvent item.id) ] [ text item.name ]
+                        let
+                            newPath =
+                                "#/events/" ++ String.fromInt item.id
+                        in
+                        a [ href newPath, onClick (UpdateRoute newPath) ] [ text item.name ]
 
                       else
                         text item.name
@@ -1413,7 +1507,7 @@ viewItems { flags, fullScreen, translations, search } items =
             -- I don't think we want the user initiating reloads, unless the initial load fails maybe, but even then I think
             -- we're better off having a ticker doing reloads every 30s if they're on an event.
             -- , div [ class "d-flex text-right" ]
-            -- [ button [ class "btn btn-sm btn-primary mr-2", onClick ReloadItems ] [ text "Reload" ]
+            -- [ button [ class "btn btn-sm btn-primary mr-2", onClick ReloadRoute ] [ text "Reload" ]
             ]
         , div
             [ class "table-responsive" ]
@@ -1424,29 +1518,45 @@ viewItems { flags, fullScreen, translations, search } items =
         ]
 
 
-viewEvent : Model -> Event -> Html Msg
-viewEvent { flags, path, translations, scoringHilight } event =
+viewProduct : Model -> Product -> Html Msg
+viewProduct model product =
+    div [] [ text "TODO: Product Selected" ]
+
+
+viewEvent : Model -> NestedEventRoute -> Event -> Html Msg
+viewEvent { flags, translations, scoringHilight } nestedRoute event =
     let
         viewNavItem eventSection =
             let
                 isActiveRoute =
                     -- TODO: This needs a bit of work. I don't like the string pattern matching, would prefer patterning on toRoute result.
-                    case path of
-                        Just p ->
-                            if String.contains "stages" p then
-                                eventSection == "stages"
-
-                            else if String.contains "teams" p then
-                                eventSection == "teams"
-
-                            else if String.contains "reports" p then
-                                eventSection == "reports"
-
-                            else
-                                eventSection == "draws"
-
-                        Nothing ->
+                    case nestedRoute of
+                        DrawsRoute ->
                             eventSection == "draws"
+
+                        DrawRoute _ ->
+                            eventSection == "draws"
+
+                        StagesRoute ->
+                            eventSection == "stages"
+
+                        StageRoute _ ->
+                            eventSection == "stages"
+
+                        GameRoute _ ->
+                            eventSection == "draws"
+
+                        TeamsRoute ->
+                            eventSection == "teams"
+
+                        TeamRoute _ ->
+                            eventSection == "teams"
+
+                        ReportsRoute ->
+                            eventSection == "reports"
+
+                        ReportRoute _ ->
+                            eventSection == "reports"
 
                 newPath =
                     "#/events/" ++ String.fromInt event.id ++ "/" ++ eventSection
@@ -1470,82 +1580,88 @@ viewEvent { flags, path, translations, scoringHilight } event =
         [ h3 [ class "mb-3 d-none d-md-block" ] [ text event.name ]
         , h6 [ class "mb-3 d-md-none" ] [ text event.name ]
         , ul [ class "nav nav-tabs mb-3" ]
-            (List.map viewNavItem (eventSections flags.excludeEventSections))
-        , case toRoute path of
-            EventRoute _ nestedRoute ->
-                case nestedRoute of
-                    DrawsRoute ->
-                        viewDrawSchedule translations scoringHilight event
+            (List.map viewNavItem (eventSections flags.excludeEventSections event))
+        , case nestedRoute of
+            DrawsRoute ->
+                if List.isEmpty event.draws then
+                    viewNoDataForRoute translations
 
-                    DrawRoute drawId ->
-                        case List.Extra.find (\d -> d.id == drawId) event.draws of
-                            Just draw ->
-                                viewDraw translations scoringHilight event draw
+                else
+                    viewDrawSchedule translations scoringHilight event
 
-                            Nothing ->
-                                -- TODO Maybe an error instead since we didn't find the corresponding draw?
-                                viewDrawSchedule translations scoringHilight event
+            DrawRoute drawId ->
+                case List.Extra.find (\d -> d.id == drawId) event.draws of
+                    Just draw ->
+                        viewDraw translations scoringHilight event draw
 
-                    GameRoute gameId ->
+                    Nothing ->
+                        viewNoDataForRoute translations
+
+            GameRoute gameId ->
+                let
+                    findDraw =
                         let
-                            findDraw =
-                                let
-                                    hasGame draw =
-                                        List.any (\ds -> ds == Just gameId) draw.drawSheets
-                                in
-                                List.Extra.find hasGame event.draws
-
-                            findGame =
-                                List.Extra.find (\g -> g.id == gameId) event.games
+                            hasGame draw =
+                                List.any (\ds -> ds == Just gameId) draw.drawSheets
                         in
-                        case ( findDraw, findGame ) of
-                            ( Just draw, Just game ) ->
-                                let
-                                    sheetLabel =
-                                        sheetNameForGame event game
-                                in
-                                viewGame translations scoringHilight event sheetLabel True draw game
+                        List.Extra.find hasGame event.draws
 
-                            _ ->
-                                -- TODO Maybe an error instead since we didn't find the corresponding draw?
-                                viewDrawSchedule translations scoringHilight event
+                    findGame =
+                        List.Extra.find (\g -> g.id == gameId) event.games
+                in
+                case ( findDraw, findGame ) of
+                    ( Just draw, Just game ) ->
+                        let
+                            sheetLabel =
+                                sheetNameForGame event game
+                        in
+                        viewGame translations scoringHilight event sheetLabel True draw game
 
-                    StagesRoute ->
-                        case List.head event.stages of
-                            Just stage ->
-                                viewStages translations event stage
+                    _ ->
+                        viewNoDataForRoute translations
 
-                            Nothing ->
-                                p [] [ text "No stages found" ]
+            StagesRoute ->
+                case List.head event.stages of
+                    Just stage ->
+                        viewStages translations event stage
 
-                    StageRoute id ->
-                        case List.Extra.find (\s -> s.id == id) event.stages of
-                            Just stage ->
-                                viewStages translations event stage
+                    Nothing ->
+                        viewNoDataForRoute translations
 
-                            Nothing ->
-                                p [] [ text "Stage not found." ]
+            StageRoute id ->
+                case List.Extra.find (\s -> s.id == id) event.stages of
+                    Just stage ->
+                        viewStages translations event stage
 
-                    TeamsRoute ->
-                        viewTeams translations event
+                    Nothing ->
+                        viewNoDataForRoute translations
 
-                    TeamRoute id ->
-                        case List.Extra.find (\t -> t.id == id) event.teams of
-                            Just team ->
-                                viewTeam translations event team
+            TeamsRoute ->
+                if List.isEmpty event.teams then
+                    viewNoDataForRoute translations
 
-                            Nothing ->
-                                p [] [ text "Team not found." ]
+                else
+                    viewTeams translations event
 
-                    ReportsRoute ->
-                        viewReports translations event
+            TeamRoute id ->
+                case List.Extra.find (\t -> t.id == id) event.teams of
+                    Just team ->
+                        viewTeam translations event team
 
-                    ReportRoute report ->
-                        viewReport translations scoringHilight event report
+                    Nothing ->
+                        viewNoDataForRoute translations
 
-            _ ->
-                viewDrawSchedule translations scoringHilight event
+            ReportsRoute ->
+                viewReports translations event
+
+            ReportRoute report ->
+                viewReport translations scoringHilight event report
         ]
+
+
+viewNoDataForRoute : WebData (List Translation) -> Html Msg
+viewNoDataForRoute translations =
+    div [] [ text (translate translations "no_data_for_route") ]
 
 
 viewDrawSchedule : WebData (List Translation) -> Maybe ScoringHilight -> Event -> Html Msg
@@ -3101,7 +3217,7 @@ viewReport translations scoringHilight event report =
             viewReportCompetitionMatrix translations event
 
         _ ->
-            div [] [ text ("Coming Soon: " ++ report) ]
+            viewNoDataForRoute translations
 
 
 
