@@ -1820,8 +1820,7 @@ viewRegistrations translations registrations =
                 ]
     in
     div []
-        [ h4 [ class "mb-3" ] [ text "Registrations" ]
-        , if List.isEmpty registrations then
+        [ if List.isEmpty registrations then
             p [] [ text (translate translations "no_registrations") ]
 
           else
@@ -1864,7 +1863,67 @@ viewRegistrations translations registrations =
 
 viewSpares : WebData (List Translation) -> List Spare -> Html Msg
 viewSpares translations spares =
-    div [] [ text "TODO: Spares" ]
+    let
+        viewSpare spare =
+            let
+                positionsToString =
+                    if List.isEmpty spare.positions then
+                        "-"
+
+                    else
+                        String.join ", " spare.positions
+            in
+            tbody []
+                [ tr []
+                    [ td [] [ text (Maybe.withDefault "-" spare.curlerName) ]
+                    , td [] [ text positionsToString ]
+                    , td []
+                        [ case spare.email of
+                            Just email ->
+                                a [ href ("mailto:" ++ email) ] [ text email ]
+
+                            Nothing ->
+                                text "-"
+                        ]
+                    , td []
+                        [ case spare.phone of
+                            Just phone ->
+                                a [ href ("tel:" ++ phone) ] [ text phone ]
+
+                            Nothing ->
+                                text "-"
+                        ]
+                    ]
+                , case spare.notes of
+                    Just notes ->
+                        tr []
+                            [ td [ colspan 4 ] [ i [] [ text (translate translations "notes" ++ ": " ++ notes) ] ]
+                            ]
+
+                    Nothing ->
+                        text ""
+                ]
+    in
+    div []
+        [ if List.isEmpty spares then
+            p [] [ text (translate translations "no_spares") ]
+
+          else
+            div [ class "table-responsive" ]
+                [ table [ class "table" ]
+                    ([ thead []
+                        [ tr []
+                            [ th [ style "border-top" "none" ] [ text (translate translations "curler") ]
+                            , th [ style "border-top" "none" ] [ text (translate translations "position") ]
+                            , th [ style "border-top" "none" ] [ text (translate translations "email") ]
+                            , th [ style "border-top" "none" ] [ text (translate translations "phone") ]
+                            ]
+                        ]
+                     ]
+                        ++ List.map viewSpare spares
+                    )
+                ]
+        ]
 
 
 viewDrawSchedule : WebData (List Translation) -> Maybe ScoringHilight -> Event -> Html Msg
