@@ -1672,6 +1672,15 @@ viewDrawSchedule translations scoringHilight event =
 viewTeams : WebData (List Translation) -> Event -> Html Msg
 viewTeams translations event =
     let
+        hasCoaches =
+            List.any (\t -> t.coach /= Nothing) event.teams
+
+        hasAffiliations =
+            List.any (\t -> t.affiliation /= Nothing) event.teams
+
+        hasLocations =
+            List.any (\t -> t.location /= Nothing) event.teams
+
         viewTeamRow team =
             tr []
                 [ td []
@@ -1686,9 +1695,21 @@ viewTeams translations event =
                         -- No point in linking to team details if there are no more details.
                         text team.name
                     ]
-                , td [] []
-                , td [] []
-                , td [] []
+                , if hasCoaches then
+                    td [] [ text (Maybe.withDefault "-" team.coach) ]
+
+                  else
+                    text ""
+                , if hasAffiliations then
+                    td [] [ text (Maybe.withDefault "-" team.affiliation) ]
+
+                  else
+                    text ""
+                , if hasLocations then
+                    td [] [ text (Maybe.withDefault "-" team.location) ]
+
+                  else
+                    text ""
                 ]
     in
     div [ class "table-responsive" ]
@@ -1696,9 +1717,21 @@ viewTeams translations event =
             [ thead []
                 [ tr []
                     [ th [ style "min-width" "150px", style "border-top" "none" ] [ text (translate translations "team") ]
-                    , th [ style "min-width" "150px", style "border-top" "none" ] [ text (translate translations "coach") ]
-                    , th [ style "min-width" "150px", style "border-top" "none" ] [ text (translate translations "affiliation") ]
-                    , th [ style "min-width" "150px", style "border-top" "none" ] [ text (translate translations "location") ]
+                    , if hasCoaches then
+                        th [ style "min-width" "150px", style "border-top" "none" ] [ text (translate translations "coach") ]
+
+                      else
+                        text ""
+                    , if hasAffiliations then
+                        th [ style "min-width" "150px", style "border-top" "none" ] [ text (translate translations "affiliation") ]
+
+                      else
+                        text ""
+                    , if hasLocations then
+                        th [ style "min-width" "150px", style "border-top" "none" ] [ text (translate translations "location") ]
+
+                      else
+                        text ""
                     ]
                 ]
             , tbody [] (List.map viewTeamRow event.teams)
