@@ -40,7 +40,10 @@ type Route
 
 
 type NestedEventRoute
-    = DrawsRoute
+    = DetailsRoute
+    | RegistrationsRoute
+    | SparesRoute
+    | DrawsRoute
     | DrawRoute Int
     | GameRoute String
     | StagesRoute
@@ -111,6 +114,7 @@ type alias Event =
     { id : Int
     , name : String
     , summary : Maybe String
+    , note : Maybe String
     , startsOn : String
     , endsOn : String
     , endScoresEnabled : Bool
@@ -120,6 +124,8 @@ type alias Event =
     , botRock : String
     , sheetNames : List String
     , teams : List Team
+    , registrations : List Registration
+    , spares : List Spare
     , stages : List Stage
     , draws : List Draw
     , games : List Game
@@ -164,6 +170,33 @@ type TeamPosition
 type RockDelivery
     = RockDeliveryRight
     | RockDeliveryLeft
+
+
+type alias Registration =
+    { curlerName : Maybe String
+    , teamName : Maybe String
+    , skipName : Maybe String
+    , position : Maybe String
+    , lineup : Maybe Lineup
+    }
+
+
+type alias Lineup =
+    { first : Maybe String
+    , second : Maybe String
+    , third : Maybe String
+    , fourth : Maybe String
+    , alternate : Maybe String
+    }
+
+
+type alias Spare =
+    { curlerName : Maybe String
+    , positions : List String
+    , notes : Maybe String
+    , email : Maybe String
+    , phone : Maybe String
+    }
 
 
 type alias Stage =
@@ -330,6 +363,7 @@ decodeEvent =
         |> required "id" int
         |> required "name" string
         |> optional "summary" (nullable string) Nothing
+        |> optional "note" (nullable string) Nothing
         |> required "starts_on" string
         |> required "ends_on" string
         |> optional "end_scores_enabled" bool False
@@ -339,6 +373,8 @@ decodeEvent =
         |> optional "bot_rock" string "yellow"
         |> optional "sheet_names" (list string) []
         |> optional "teams" (list decodeTeam) []
+        |> optional "registrations" (list decodeRegistration) []
+        |> optional "spares" (list decodeSpare) []
         |> optional "stages" (list decodeStage) []
         |> optional "draws" (list decodeDraw) []
         |> optional "games" (list decodeGame) []
@@ -407,6 +443,36 @@ decodeTeamCurler =
         |> optional "club_name" (nullable string) Nothing
         |> optional "club_city" (nullable string) Nothing
         |> optional "photo_url" (nullable string) Nothing
+
+
+decodeRegistration : Decoder Registration
+decodeRegistration =
+    let
+        decodeLineup : Decoder Lineup
+        decodeLineup =
+            Decode.succeed Lineup
+                |> optional "first" (nullable string) Nothing
+                |> optional "second" (nullable string) Nothing
+                |> optional "third" (nullable string) Nothing
+                |> optional "fourth" (nullable string) Nothing
+                |> optional "alternate1" (nullable string) Nothing
+    in
+    Decode.succeed Registration
+        |> optional "curler_name" (nullable string) Nothing
+        |> optional "team_name" (nullable string) Nothing
+        |> optional "skip_name" (nullable string) Nothing
+        |> optional "position" (nullable string) Nothing
+        |> optional "lineup" (nullable decodeLineup) Nothing
+
+
+decodeSpare : Decoder Spare
+decodeSpare =
+    Decode.succeed Spare
+        |> optional "curler_name" (nullable string) Nothing
+        |> optional "positions" (list string) []
+        |> optional "notes" (nullable string) Nothing
+        |> optional "email" (nullable string) Nothing
+        |> optional "phone" (nullable string) Nothing
 
 
 decodeStage : Decoder Stage
@@ -576,7 +642,10 @@ matchRoute =
 matchNestedEventRoute : Parser (NestedEventRoute -> a) a
 matchNestedEventRoute =
     Url.Parser.oneOf
-        [ Url.Parser.map DrawsRoute Url.Parser.top
+        [ Url.Parser.map DetailsRoute Url.Parser.top
+        , Url.Parser.map DetailsRoute (Url.Parser.s "details")
+        , Url.Parser.map RegistrationsRoute (Url.Parser.s "registrations")
+        , Url.Parser.map SparesRoute (Url.Parser.s "spares")
         , Url.Parser.map DrawsRoute (Url.Parser.s "draws")
         , Url.Parser.map StagesRoute (Url.Parser.s "stages")
         , Url.Parser.map TeamsRoute (Url.Parser.s "teams")
@@ -970,7 +1039,7 @@ eventSections excludeEventSections event =
                 _ ->
                     True
     in
-    [ "details", "notes", "registrations", "spares", "draws", "stages", "teams", "reports" ]
+    [ "details", "registrations", "spares", "draws", "stages", "teams", "reports" ]
         |> List.filter included
         |> List.filter hasData
 
@@ -1531,6 +1600,15 @@ viewEvent { flags, translations, scoringHilight } nestedRoute event =
                 isActiveRoute =
                     -- TODO: This needs a bit of work. I don't like the string pattern matching, would prefer patterning on toRoute result.
                     case nestedRoute of
+                        DetailsRoute ->
+                            eventSection == "details"
+
+                        RegistrationsRoute ->
+                            eventSection == "registrations"
+
+                        SparesRoute ->
+                            eventSection == "spares"
+
                         DrawsRoute ->
                             eventSection == "draws"
 
@@ -1582,12 +1660,17 @@ viewEvent { flags, translations, scoringHilight } nestedRoute event =
         , ul [ class "nav nav-tabs mb-3" ]
             (List.map viewNavItem (eventSections flags.excludeEventSections event))
         , case nestedRoute of
-            DrawsRoute ->
-                if List.isEmpty event.draws then
-                    viewNoDataForRoute translations
+            DetailsRoute ->
+                viewDetails translations event
 
-                else
-                    viewDrawSchedule translations scoringHilight event
+            RegistrationsRoute ->
+                viewRegistrations translations event.registrations
+
+            SparesRoute ->
+                viewSpares translations event.spares
+
+            DrawsRoute ->
+                viewDrawSchedule translations scoringHilight event
 
             DrawRoute drawId ->
                 case List.Extra.find (\d -> d.id == drawId) event.draws of
@@ -1637,11 +1720,7 @@ viewEvent { flags, translations, scoringHilight } nestedRoute event =
                         viewNoDataForRoute translations
 
             TeamsRoute ->
-                if List.isEmpty event.teams then
-                    viewNoDataForRoute translations
-
-                else
-                    viewTeams translations event
+                viewTeams translations event
 
             TeamRoute id ->
                 case List.Extra.find (\t -> t.id == id) event.teams of
@@ -1662,6 +1741,130 @@ viewEvent { flags, translations, scoringHilight } nestedRoute event =
 viewNoDataForRoute : WebData (List Translation) -> Html Msg
 viewNoDataForRoute translations =
     div [] [ text (translate translations "no_data_for_route") ]
+
+
+viewDetails : WebData (List Translation) -> Event -> Html Msg
+viewDetails translations event =
+    div [] [ text "TODO: Details" ]
+
+
+viewRegistrations : WebData (List Translation) -> List Registration -> Html Msg
+viewRegistrations translations registrations =
+    let
+        hasCurlers =
+            List.any (\r -> r.curlerName /= Nothing) registrations
+
+        hasTeamNames =
+            List.any (\r -> r.teamName /= Nothing) registrations
+
+        hasSkipNames =
+            List.any (\r -> r.skipName /= Nothing) registrations
+
+        hasPositions =
+            List.any (\r -> r.position /= Nothing) registrations
+
+        hasLineups =
+            List.any (\r -> r.lineup /= Nothing) registrations
+
+        viewRegistration registration =
+            let
+                positionToString =
+                    case registration.position of
+                        Just pos ->
+                            translate translations pos
+
+                        Nothing ->
+                            "-"
+
+                lineupToString =
+                    case registration.lineup of
+                        Just lineup ->
+                            [ lineup.first
+                            , lineup.second
+                            , lineup.third
+                            , lineup.fourth
+                            , lineup.alternate
+                            ]
+                                |> List.filterMap identity
+                                |> String.join ", "
+
+                        Nothing ->
+                            "-"
+            in
+            tr []
+                [ if hasCurlers then
+                    td [] [ text (Maybe.withDefault "-" registration.curlerName) ]
+
+                  else
+                    text ""
+                , if hasTeamNames then
+                    td [] [ text (Maybe.withDefault "-" registration.teamName) ]
+
+                  else
+                    text ""
+                , if hasSkipNames then
+                    td [] [ text (Maybe.withDefault "-" registration.skipName) ]
+
+                  else
+                    text ""
+                , if hasPositions then
+                    td [] [ text positionToString ]
+
+                  else
+                    text ""
+                , if hasLineups then
+                    td [] [ text lineupToString ]
+
+                  else
+                    text ""
+                ]
+    in
+    div []
+        [ h4 [ class "mb-3" ] [ text "Registrations" ]
+        , if List.isEmpty registrations then
+            p [] [ text (translate translations "no_registrations") ]
+
+          else
+            div [ class "table-responsive" ]
+                [ table [ class "table table-striped" ]
+                    [ thead []
+                        [ tr []
+                            [ if hasCurlers then
+                                th [ style "border-top" "none" ] [ text (translate translations "curler") ]
+
+                              else
+                                text ""
+                            , if hasTeamNames then
+                                th [ style "border-top" "none" ] [ text (translate translations "team_name") ]
+
+                              else
+                                text ""
+                            , if hasSkipNames then
+                                th [ style "border-top" "none" ] [ text (translate translations "skip_name") ]
+
+                              else
+                                text ""
+                            , if hasPositions then
+                                th [ style "border-top" "none" ] [ text (translate translations "position") ]
+
+                              else
+                                text ""
+                            , if hasLineups then
+                                th [ style "border-top" "none" ] [ text (translate translations "lineup") ]
+
+                              else
+                                text ""
+                            ]
+                        ]
+                    , tbody [] (List.map viewRegistration registrations)
+                    ]
+                ]
+        ]
+
+
+viewSpares : WebData (List Translation) -> List Spare -> Html Msg
+viewSpares translations spares =
+    div [] [ text "TODO: Spares" ]
 
 
 viewDrawSchedule : WebData (List Translation) -> Maybe ScoringHilight -> Event -> Html Msg
