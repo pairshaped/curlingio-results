@@ -1814,6 +1814,9 @@ viewReports translations event =
         hasAttendance =
             (List.map .attendance event.draws |> List.sum) > 0
 
+        attendanceLink =
+            "#/events/" ++ String.fromInt event.id ++ "/reports/attendance"
+
         scoringAnalysisLink =
             "#/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis"
 
@@ -1828,7 +1831,13 @@ viewReports translations event =
     in
     ul []
         [ if hasAttendance then
-            li [] [ text "Attendance" ]
+            li []
+                [ a
+                    [ href attendanceLink
+                    , onClick (UpdateRoute attendanceLink)
+                    ]
+                    [ text (translate translations "attendance") ]
+                ]
 
           else
             text ""
@@ -3005,9 +3014,47 @@ viewReportCompetitionMatrix translations event =
         )
 
 
+viewReportAttendance : WebData (List Translation) -> List Draw -> Html Msg
+viewReportAttendance translations draws =
+    let
+        viewAttendanceRow idx draw =
+            let
+                sumToCurrent =
+                    List.take (idx + 1) draws
+                        |> List.map (\d -> d.attendance)
+                        |> List.sum
+            in
+            tr []
+                [ td [] [ text draw.label ]
+                , td []
+                    [ text (String.fromInt draw.attendance) ]
+                , td []
+                    [ text (String.fromInt sumToCurrent) ]
+                ]
+    in
+    div []
+        [ h3 [ class "mb-3" ] [ text (translate translations "attendance") ]
+        , div [ class "table-responsive" ]
+            [ table [ class "table table-striped" ]
+                [ thead []
+                    [ tr []
+                        [ th [] [ text (translate translations "draw") ]
+                        , th [] [ text (translate translations "attendance") ]
+                        , th [] [ text (translate translations "total") ]
+                        ]
+                    ]
+                , tbody [] (List.indexedMap viewAttendanceRow draws)
+                ]
+            ]
+        ]
+
+
 viewReport : WebData (List Translation) -> Maybe ScoringHilight -> Event -> String -> Html Msg
 viewReport translations scoringHilight event report =
     case report of
+        "attendance" ->
+            viewReportAttendance translations event.draws
+
         "scoring_analysis" ->
             viewReportScoringAnalysis translations scoringHilight event (teamsWithGames event.teams event.games)
 
