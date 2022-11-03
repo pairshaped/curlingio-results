@@ -3,7 +3,7 @@ port module Results exposing (init)
 import Browser
 import CustomSvg exposing (..)
 import Html exposing (Html, a, button, caption, div, h3, h4, h5, h6, i, img, input, label, li, nav, ol, p, small, span, strong, sup, table, tbody, td, text, th, thead, tr, u, ul)
-import Html.Attributes exposing (attribute, class, classList, colspan, href, id, placeholder, rowspan, src, style, target, title, type_, value)
+import Html.Attributes exposing (alt, attribute, class, classList, colspan, href, id, placeholder, rowspan, src, style, target, title, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
@@ -80,6 +80,7 @@ type alias Flags =
     , registration : Bool
     , pageSize : Int
     , excludeEventSections : List String
+    , defaultEventSection : Maybe String
     , eventId : Maybe Int
     }
 
@@ -114,9 +115,19 @@ type alias Event =
     { id : Int
     , name : String
     , summary : Maybe String
+    , description : Maybe String
     , note : Maybe String
+    , teamRestriction : String
+    , ageRange : String
+    , sponsor : Maybe Sponsor
     , startsOn : String
     , endsOn : String
+    , registrationOpensAt : Maybe String
+    , registrationClosesAt : Maybe String
+    , addToCartUrl : Maybe String
+    , addToCartText : Maybe String
+    , totalWithTax : Maybe String
+    , potentialDiscounts : List String
     , endScoresEnabled : Bool
     , shotByShotEnabled : Bool
     , numberOfEnds : Int
@@ -129,6 +140,13 @@ type alias Event =
     , stages : List Stage
     , draws : List Draw
     , games : List Game
+    }
+
+
+type alias Sponsor =
+    { logoUrl : String
+    , name : Maybe String
+    , url : Maybe String
     }
 
 
@@ -315,6 +333,7 @@ decodeFlags =
         |> optional "registration" bool False
         |> optional "pageSize" int 10
         |> optional "excludeEventSections" (list string) []
+        |> optional "defaultEventSection" (nullable string) Nothing
         |> optional "eventId" (nullable int) Nothing
 
 
@@ -359,13 +378,31 @@ decodeProduct =
 
 decodeEvent : Decoder Event
 decodeEvent =
+    let
+        decodeSponsor : Decoder Sponsor
+        decodeSponsor =
+            Decode.succeed Sponsor
+                |> required "logo_url" string
+                |> optional "name" (nullable string) Nothing
+                |> optional "url" (nullable string) Nothing
+    in
     Decode.succeed Event
         |> required "id" int
         |> required "name" string
         |> optional "summary" (nullable string) Nothing
+        |> optional "description" (nullable string) Nothing
         |> optional "note" (nullable string) Nothing
+        |> required "team_restriction" string
+        |> required "age_range" string
+        |> optional "sponsor" (nullable decodeSponsor) Nothing
         |> required "starts_on" string
         |> required "ends_on" string
+        |> optional "registration_opens_at" (nullable string) Nothing
+        |> optional "registration_closes_at" (nullable string) Nothing
+        |> optional "add_to_cart_url" (nullable string) Nothing
+        |> optional "add_to_cart_text" (nullable string) Nothing
+        |> optional "total_with_tax" (nullable string) Nothing
+        |> optional "potential_discounts" (list string) []
         |> optional "end_scores_enabled" bool False
         |> optional "shot_by_shot_enabled" bool False
         |> optional "number_of_ends" int 10
@@ -630,19 +667,42 @@ decodeGame =
 -- HELPERS
 
 
-matchRoute : Parser (Route -> a) a
-matchRoute =
+matchRoute : Maybe String -> Parser (Route -> a) a
+matchRoute defaultEventSection =
     Url.Parser.oneOf
         [ Url.Parser.map ItemsRoute Url.Parser.top
         , Url.Parser.map ProductRoute (Url.Parser.s "products" </> Url.Parser.int)
-        , Url.Parser.map EventRoute (Url.Parser.s "events" </> Url.Parser.int </> matchNestedEventRoute)
+        , Url.Parser.map EventRoute (Url.Parser.s "events" </> Url.Parser.int </> matchNestedEventRoute defaultEventSection)
         ]
 
 
-matchNestedEventRoute : Parser (NestedEventRoute -> a) a
-matchNestedEventRoute =
+matchNestedEventRoute : Maybe String -> Parser (NestedEventRoute -> a) a
+matchNestedEventRoute defaultEventSection =
     Url.Parser.oneOf
-        [ Url.Parser.map DetailsRoute Url.Parser.top
+        [ Url.Parser.map
+            (case defaultEventSection of
+                Just "registrations" ->
+                    RegistrationsRoute
+
+                Just "spares" ->
+                    SparesRoute
+
+                Just "draws" ->
+                    DrawsRoute
+
+                Just "stages" ->
+                    StagesRoute
+
+                Just "teams" ->
+                    TeamsRoute
+
+                Just "reports" ->
+                    ReportsRoute
+
+                _ ->
+                    DetailsRoute
+            )
+            Url.Parser.top
         , Url.Parser.map DetailsRoute (Url.Parser.s "details")
         , Url.Parser.map RegistrationsRoute (Url.Parser.s "registrations")
         , Url.Parser.map SparesRoute (Url.Parser.s "spares")
@@ -658,8 +718,8 @@ matchNestedEventRoute =
         ]
 
 
-toRoute : Maybe String -> Route
-toRoute path =
+toRoute : Maybe String -> Maybe String -> Route
+toRoute defaultEventSection path =
     let
         url =
             let
@@ -677,7 +737,7 @@ toRoute path =
             }
 
         parsed =
-            Maybe.withDefault ItemsRoute (Url.Parser.parse matchRoute url)
+            Maybe.withDefault ItemsRoute (Url.Parser.parse (matchRoute defaultEventSection) url)
     in
     parsed
 
@@ -841,7 +901,7 @@ init flags_ =
         Err error ->
             let
                 flags =
-                    Flags Nothing Nothing Nothing "" LeaguesSection False 10 [] Nothing
+                    Flags Nothing Nothing Nothing "" LeaguesSection False 10 [] Nothing Nothing
             in
             ( Model flags Nothing False NotAsked NotAsked "" NotAsked NotAsked Nothing (Just (Decode.errorToString error))
             , Cmd.none
@@ -905,7 +965,7 @@ getData { flags, path, translations, items, product, event } refresh =
                 -- Get translations if we don't already have them.
                 -- We never force refresh translations (waste of bandwidth).
                 getTranslations flags
-        , case toRoute path of
+        , case toRoute flags.defaultEventSection path of
             ItemsRoute ->
                 case items of
                     Success _ ->
@@ -1010,6 +1070,12 @@ eventSections excludeEventSections event =
 
         hasData section =
             let
+                hasRegistrations =
+                    not (List.isEmpty event.registrations)
+
+                hasSpares =
+                    not (List.isEmpty event.spares)
+
                 hasDraws =
                     not (List.isEmpty event.draws)
 
@@ -1023,6 +1089,12 @@ eventSections excludeEventSections event =
                     List.any (\g -> g.state == GameComplete) event.games
             in
             case section of
+                "registrations" ->
+                    hasRegistrations
+
+                "spares" ->
+                    hasSpares
+
                 "draws" ->
                     hasDraws
 
@@ -1400,7 +1472,7 @@ view : Model -> Html Msg
 view model =
     let
         viewLoading =
-            viewNotReady (translate model.translations "Loading")
+            viewNotReady model.fullScreen (translate model.translations "Loading")
     in
     div
         (List.append
@@ -1438,17 +1510,17 @@ view model =
             ]
         , case model.errorMsg of
             Just errorMsg ->
-                viewNotReady errorMsg
+                viewNotReady model.fullScreen errorMsg
 
             Nothing ->
-                case toRoute model.path of
+                case toRoute model.flags.defaultEventSection model.path of
                     ItemsRoute ->
                         case model.items of
                             Success items ->
                                 viewItems model items
 
                             Failure error ->
-                                viewFetchError (errorMessage error)
+                                viewFetchError model.fullScreen (errorMessage error)
 
                             _ ->
                                 viewLoading
@@ -1459,7 +1531,7 @@ view model =
                                 viewProduct model product
 
                             Failure error ->
-                                viewFetchError (errorMessage error)
+                                viewFetchError model.fullScreen (errorMessage error)
 
                             _ ->
                                 viewLoading
@@ -1470,22 +1542,22 @@ view model =
                                 viewEvent model nestedRoute event
 
                             Failure error ->
-                                viewFetchError (errorMessage error)
+                                viewFetchError model.fullScreen (errorMessage error)
 
                             _ ->
                                 viewLoading
         ]
 
 
-viewNotReady : String -> Html Msg
-viewNotReady message =
-    p [ class "p-3" ] [ text message ]
+viewNotReady : Bool -> String -> Html Msg
+viewNotReady fullScreen message =
+    p [ classList [ ( "p-3", fullScreen ) ] ] [ text message ]
 
 
-viewFetchError : String -> Html Msg
-viewFetchError message =
+viewFetchError : Bool -> String -> Html Msg
+viewFetchError fullScreen message =
     div
-        [ class "p-3" ]
+        [ classList [ ( "p-3", fullScreen ) ] ]
         [ p [] [ text message ]
         , button [ class "btn btn-primary", onClick ReloadRoute ] [ text "Reload" ]
         ]
@@ -1560,7 +1632,7 @@ viewItems { flags, fullScreen, translations, search } items =
                 )
     in
     div
-        [ class "p-3" ]
+        [ classList [ ( "p-3", fullScreen ) ] ]
         [ div
             [ class "d-flex justify-content-between" ]
             [ div [ class "form-group" ]
@@ -1593,7 +1665,7 @@ viewProduct model product =
 
 
 viewEvent : Model -> NestedEventRoute -> Event -> Html Msg
-viewEvent { flags, translations, scoringHilight } nestedRoute event =
+viewEvent { flags, translations, scoringHilight, fullScreen } nestedRoute event =
     let
         viewNavItem eventSection =
             let
@@ -1650,7 +1722,7 @@ viewEvent { flags, translations, scoringHilight } nestedRoute event =
                     [ text (translate translations eventSection) ]
                 ]
     in
-    div [ class "p-3" ]
+    div [ classList [ ( "p-3", fullScreen ) ] ]
         [ h3 [ class "mb-3 d-none d-md-block" ] [ text event.name ]
         , h6 [ class "mb-3 d-md-none" ] [ text event.name ]
         , ul [ class "nav nav-pills mb-3" ]
@@ -1741,7 +1813,106 @@ viewNoDataForRoute translations =
 
 viewDetails : WebData (List Translation) -> Event -> Html Msg
 viewDetails translations event =
-    div [] [ text "TODO: Details" ]
+    let
+        viewSponsor : Sponsor -> Html Msg
+        viewSponsor sponsor =
+            div [ class "mb-5 ml-5 pb-4", style "float" "right" ]
+                [ div [ class "text-right" ]
+                    [ case sponsor.url of
+                        Just url ->
+                            a [ href url ]
+                                [ img [ alt (Maybe.withDefault "" sponsor.name), src sponsor.logoUrl ] []
+                                ]
+
+                        Nothing ->
+                            img [ alt (Maybe.withDefault "" sponsor.name), src sponsor.logoUrl ] []
+                    , case sponsor.name of
+                        Just name ->
+                            p [] [ text name ]
+
+                        Nothing ->
+                            text ""
+                    ]
+                ]
+    in
+    div []
+        [ case event.sponsor of
+            Just sponsor ->
+                viewSponsor sponsor
+
+            Nothing ->
+                text ""
+        , case ( event.description, event.summary ) of
+            ( Just description, _ ) ->
+                p [] [ text description ]
+
+            ( _, Just summary ) ->
+                p [] [ text summary ]
+
+            ( Nothing, Nothing ) ->
+                text ""
+        , case event.totalWithTax of
+            Just totalWithTax ->
+                div []
+                    [ div [ class "font-weight-bold" ] [ text (translate translations "total_with_tax") ]
+                    , div [ class "value" ] [ text totalWithTax ]
+                    ]
+
+            _ ->
+                text ""
+        , case ( event.addToCartUrl, event.addToCartText ) of
+            ( Just addToCartUrl, Just addToCartText ) ->
+                p [ class "mt-2 mb-5" ]
+                    [ a [ class "btn btn-primary", href addToCartUrl ] [ text addToCartText ]
+                    ]
+
+            _ ->
+                text ""
+        , div [ class "row" ]
+            [ div [ class "col-12 col-md-6 my-2" ]
+                [ strong [ class "d-block" ] [ text (translate translations "starts_on") ]
+                , div [] [ text event.startsOn ]
+                ]
+            , div [ class "col-12 col-md-6 my-2" ]
+                [ strong [ class "d-block" ] [ text (translate translations "ends_on") ]
+                , div [] [ text event.endsOn ]
+                ]
+            , case event.registrationOpensAt of
+                Just registrationOpensAt ->
+                    div [ class "col-12 col-md-6 my-2" ]
+                        [ strong [ class "d-block" ] [ text (translate translations "registration_opens_at") ]
+                        , div [] [ text registrationOpensAt ]
+                        ]
+
+                Nothing ->
+                    text ""
+            , case event.registrationClosesAt of
+                Just registrationClosesAt ->
+                    div [ class "col-12 col-md-6 my-2" ]
+                        [ strong [ class "d-block" ] [ text (translate translations "registration_closes_at") ]
+                        , div [] [ text registrationClosesAt ]
+                        ]
+
+                Nothing ->
+                    text ""
+            , div [ class "col-12 col-md-6 my-2" ]
+                [ strong [ class "d-block" ] [ text (translate translations "team_restriction") ]
+                , div [] [ text event.teamRestriction ]
+                ]
+            , div [ class "col-12 col-md-6 my-2" ]
+                [ strong [ class "d-block" ] [ text (translate translations "age_range") ]
+                , div [] [ text event.ageRange ]
+                ]
+            , if not (List.isEmpty event.potentialDiscounts) then
+                div [ class "col-12 mt-3" ]
+                    [ strong [] [ text (translate translations "potential_discounts") ]
+                    , ul [] (List.map (\d -> li [] [ text d ]) event.potentialDiscounts)
+                    ]
+
+              else
+                text ""
+            ]
+        ]
 
 
 viewRegistrations : WebData (List Translation) -> List Registration -> Html Msg
