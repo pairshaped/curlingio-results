@@ -1644,19 +1644,16 @@ viewEvent { flags, translations, scoringHilight } nestedRoute event =
                     [ classList
                         [ ( "nav-link", True )
                         , ( "active", isActiveRoute )
-                        , ( " px-2", True )
                         ]
                     , href newPath
                     ]
-                    [ span [ class "d-none d-md-block" ] [ text (translate translations eventSection) ]
-                    , small [ class "d-md-none" ] [ text (translate translations eventSection) ]
-                    ]
+                    [ text (translate translations eventSection) ]
                 ]
     in
     div [ class "p-3" ]
         [ h3 [ class "mb-3 d-none d-md-block" ] [ text event.name ]
         , h6 [ class "mb-3 d-md-none" ] [ text event.name ]
-        , ul [ class "nav nav-tabs mb-3" ]
+        , ul [ class "nav nav-pills mb-3" ]
             (List.map viewNavItem (eventSections flags.excludeEventSections event))
         , case nestedRoute of
             DetailsRoute ->
@@ -1828,17 +1825,17 @@ viewRegistrations translations registrations =
                     [ thead []
                         [ tr []
                             [ if hasCurlers then
-                                th [ style "border-top" "none" ] [ text (translate translations "curler") ]
+                                th [ style "border-top" "none", style "min-width" "150px" ] [ text (translate translations "curler") ]
 
                               else
                                 text ""
                             , if hasTeamNames then
-                                th [ style "border-top" "none" ] [ text (translate translations "team_name") ]
+                                th [ style "border-top" "none", style "min-width" "120px" ] [ text (translate translations "team_name") ]
 
                               else
                                 text ""
                             , if hasSkipNames then
-                                th [ style "border-top" "none" ] [ text (translate translations "skip_name") ]
+                                th [ style "border-top" "none", style "min-width" "120px" ] [ text (translate translations "skip_name") ]
 
                               else
                                 text ""
@@ -1848,7 +1845,7 @@ viewRegistrations translations registrations =
                               else
                                 text ""
                             , if hasLineups then
-                                th [ style "border-top" "none" ] [ text (translate translations "lineup") ]
+                                th [ style "border-top" "none", style "min-width" "220px" ] [ text (translate translations "lineup") ]
 
                               else
                                 text ""
@@ -1863,6 +1860,18 @@ viewRegistrations translations registrations =
 viewSpares : WebData (List Translation) -> List Spare -> Html Msg
 viewSpares translations spares =
     let
+        hasPositions =
+            List.any (\s -> not (List.isEmpty s.positions)) spares
+
+        hasNotes =
+            List.any (\s -> s.notes /= Nothing) spares
+
+        hasEmails =
+            List.any (\s -> s.email /= Nothing) spares
+
+        hasPhones =
+            List.any (\s -> s.phone /= Nothing) spares
+
         viewSpare spare =
             let
                 positionsToString =
@@ -1872,11 +1881,20 @@ viewSpares translations spares =
                     else
                         String.join ", " spare.positions
             in
-            tbody []
-                [ tr []
-                    [ td [] [ text (Maybe.withDefault "-" spare.curlerName) ]
-                    , td [] [ text positionsToString ]
-                    , td []
+            tr []
+                [ td [] [ text (Maybe.withDefault "-" spare.curlerName) ]
+                , if hasPositions then
+                    td [] [ text positionsToString ]
+
+                  else
+                    text ""
+                , if hasNotes then
+                    td [] [ text (Maybe.withDefault "-" spare.notes) ]
+
+                  else
+                    text ""
+                , if hasEmails then
+                    td []
                         [ case spare.email of
                             Just email ->
                                 a [ href ("mailto:" ++ email) ] [ text email ]
@@ -1884,7 +1902,11 @@ viewSpares translations spares =
                             Nothing ->
                                 text "-"
                         ]
-                    , td []
+
+                  else
+                    text ""
+                , if hasPhones then
+                    td []
                         [ case spare.phone of
                             Just phone ->
                                 a [ href ("tel:" ++ phone) ] [ text phone ]
@@ -1892,15 +1914,9 @@ viewSpares translations spares =
                             Nothing ->
                                 text "-"
                         ]
-                    ]
-                , case spare.notes of
-                    Just notes ->
-                        tr []
-                            [ td [ colspan 4 ] [ i [] [ text (translate translations "notes" ++ ": " ++ notes) ] ]
-                            ]
 
-                    Nothing ->
-                        text ""
+                  else
+                    text ""
                 ]
     in
     div []
@@ -1910,17 +1926,33 @@ viewSpares translations spares =
           else
             div [ class "table-responsive" ]
                 [ table [ class "table" ]
-                    ([ thead []
+                    [ thead []
                         [ tr []
-                            [ th [ style "border-top" "none" ] [ text (translate translations "curler") ]
-                            , th [ style "border-top" "none" ] [ text (translate translations "position") ]
-                            , th [ style "border-top" "none" ] [ text (translate translations "email") ]
-                            , th [ style "border-top" "none" ] [ text (translate translations "phone") ]
+                            [ th [ style "border-top" "none", style "min-width" "150px" ] [ text (translate translations "curler") ]
+                            , if hasPositions then
+                                th [ style "border-top" "none", style "min-width" "130px" ] [ text (translate translations "position") ]
+
+                              else
+                                text ""
+                            , if hasNotes then
+                                th [ style "border-top" "none", style "min-width" "250px" ] [ text (translate translations "notes") ]
+
+                              else
+                                text ""
+                            , if hasEmails then
+                                th [ style "border-top" "none", style "min-width" "150px" ] [ text (translate translations "email") ]
+
+                              else
+                                text ""
+                            , if hasPhones then
+                                th [ style "border-top" "none", style "min-width" "150px" ] [ text (translate translations "phone") ]
+
+                              else
+                                text ""
                             ]
                         ]
-                     ]
-                        ++ List.map viewSpare spares
-                    )
+                    , tbody [] (List.map viewSpare spares)
+                    ]
                 ]
         ]
 
@@ -2201,7 +2233,7 @@ viewStages translations event onStage =
             div [] [ text "Coming Soon." ]
     in
     div []
-        [ div [ class "nav nav-pills mb-3" ] (List.map viewStageLink event.stages)
+        [ div [ class "nav nav-tabs mb-3" ] (List.map viewStageLink event.stages)
         , case onStage.stageType of
             RoundRobin ->
                 viewRoundRobin
@@ -3326,11 +3358,11 @@ viewReportCompetitionMatrix translations event =
                     List.filter teamIncluded event.teams
 
                 viewTeamColumn team =
-                    td [ class "text-center" ] [ text team.name ]
+                    td [ class "text-center", style "min-width" "80px" ] [ text team.shortName ]
 
                 viewTeamRow team =
                     tr []
-                        ([ td [ class "text-center" ] [ text team.name ]
+                        ([ td [ class "text-center", style "min-width" "80px" ] [ text team.shortName ]
                          ]
                             ++ List.map (viewTeamCell team) teams
                         )
