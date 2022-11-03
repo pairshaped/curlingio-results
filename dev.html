@@ -36,6 +36,10 @@
         }
       }
     )
+    // THIS MUST BE INCLUDED (otherwise navigation will not work!)
+    addEventListener("hashchange", (event) => {
+      scoring.ports.hashChangeReceiver.send(location.hash)
+    })
   </script>
 </body>
 </html>

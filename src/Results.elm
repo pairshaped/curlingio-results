@@ -1,4 +1,4 @@
-module Results exposing (init)
+port module Results exposing (init)
 
 import Browser
 import CustomSvg exposing (..)
@@ -1334,13 +1334,13 @@ roundTwoDecimal num =
 
 type Msg
     = ToggleFullScreen
+    | HashChanged String
     | GotTranslations (WebData (List Translation))
     | GotItems (WebData (List Item))
     | ReloadRoute
     | UpdateSearch String
     | GotEvent (WebData Event)
     | GotProduct (WebData Product)
-    | UpdateRoute String
     | ToggleScoringHilight ScoringHilight
 
 
@@ -1349,6 +1349,13 @@ update msg model =
     case msg of
         ToggleFullScreen ->
             ( { model | fullScreen = not model.fullScreen }, Cmd.none )
+
+        HashChanged hash ->
+            let
+                updatedModel =
+                    { model | path = Just hash }
+            in
+            ( updatedModel, getData updatedModel False )
 
         GotTranslations response ->
             ( { model | translations = response, errorMsg = Nothing }, Cmd.none )
@@ -1371,13 +1378,6 @@ update msg model =
             ( { model | product = response }
             , Cmd.none
             )
-
-        UpdateRoute path ->
-            let
-                updatedModel =
-                    { model | path = Just path }
-            in
-            ( updatedModel, getData updatedModel False )
 
         ToggleScoringHilight scoringHilight ->
             ( { model
@@ -1521,7 +1521,7 @@ viewItems { flags, fullScreen, translations, search } items =
                             newPath =
                                 "#/events/" ++ String.fromInt item.id
                         in
-                        a [ href newPath, onClick (UpdateRoute newPath) ] [ text item.name ]
+                        a [ href newPath ] [ text item.name ]
 
                       else
                         text item.name
@@ -1646,7 +1646,6 @@ viewEvent { flags, translations, scoringHilight } nestedRoute event =
                         , ( "active", isActiveRoute )
                         , ( " px-2", True )
                         ]
-                    , onClick (UpdateRoute newPath)
                     , href newPath
                     ]
                     [ span [ class "d-none d-md-block" ] [ text (translate translations eventSection) ]
@@ -1946,7 +1945,7 @@ viewDrawSchedule translations scoringHilight event =
                     newPath =
                         drawUrl event.id draw
                 in
-                a [ href newPath, onClick (UpdateRoute newPath) ] [ text label ]
+                a [ href newPath ] [ text label ]
 
             else
                 text label
@@ -1973,7 +1972,6 @@ viewDrawSchedule translations scoringHilight event =
                         in
                         a
                             [ href newPath
-                            , onClick (UpdateRoute newPath)
                             , class stateClass
                             , title game_.name
                             ]
@@ -2067,7 +2065,7 @@ viewTeams translations event =
                             newPath =
                                 teamUrl event.id team
                         in
-                        a [ href newPath, onClick (UpdateRoute newPath) ] [ text team.name ]
+                        a [ href newPath ] [ text team.name ]
 
                       else
                         -- No point in linking to team details if there are no more details.
@@ -2134,7 +2132,6 @@ viewStages translations event onStage =
             li [ class "nav-item" ]
                 [ a
                     [ href newPath
-                    , onClick (UpdateRoute newPath)
                     , classList
                         [ ( "nav-link", True )
                         , ( "active", stage.id == onStage.id )
@@ -2163,7 +2160,6 @@ viewStages translations event onStage =
                             [ if teamHasDetails teamResult.team then
                                 a
                                     [ href newPath
-                                    , onClick (UpdateRoute newPath)
                                     ]
                                     [ text teamResult.team.name ]
 
@@ -2242,52 +2238,22 @@ viewReports translations event =
     in
     ul []
         [ if hasAttendance then
-            li []
-                [ a
-                    [ href attendanceLink
-                    , onClick (UpdateRoute attendanceLink)
-                    ]
-                    [ text (translate translations "attendance") ]
-                ]
+            li [] [ a [ href attendanceLink ] [ text (translate translations "attendance") ] ]
 
           else
             text ""
-        , li []
-            [ a
-                [ href competitionMatrixLink
-                , onClick (UpdateRoute competitionMatrixLink)
-                ]
-                [ text (translate translations "competition_matrix") ]
-            ]
+        , li [] [ a [ href competitionMatrixLink ] [ text (translate translations "competition_matrix") ] ]
         , if event.endScoresEnabled then
-            li []
-                [ a
-                    [ href scoringAnalysisLink
-                    , onClick (UpdateRoute scoringAnalysisLink)
-                    ]
-                    [ text (translate translations "scoring_analysis") ]
-                ]
+            li [] [ a [ href scoringAnalysisLink ] [ text (translate translations "scoring_analysis") ] ]
 
           else
             text ""
         , if event.endScoresEnabled then
-            li []
-                [ a
-                    [ href scoringAnalysisByHammerLink
-                    , onClick (UpdateRoute scoringAnalysisByHammerLink)
-                    ]
-                    [ text (translate translations "scoring_analysis_by_hammer") ]
-                ]
+            li [] [ a [ href scoringAnalysisByHammerLink ] [ text (translate translations "scoring_analysis_by_hammer") ] ]
 
           else
             text ""
-        , li []
-            [ a
-                [ href teamRostersLink
-                , onClick (UpdateRoute teamRostersLink)
-                ]
-                [ text (translate translations "team_rosters") ]
-            ]
+        , li [] [ a [ href teamRostersLink ] [ text (translate translations "team_rosters") ] ]
         ]
 
 
@@ -2500,11 +2466,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                 label
 
             else
-                a
-                    [ href gameLink
-                    , onClick (UpdateRoute gameLink)
-                    ]
-                    [ label ]
+                a [ href gameLink ] [ label ]
 
         viewGameHilight =
             case scoringHilight of
@@ -2561,9 +2523,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                 [ ol [ class "breadcrumb" ]
                     [ li [ class "breadcrumb-item" ]
                         [ a
-                            [ href drawLink
-                            , onClick (UpdateRoute drawLink)
-                            ]
+                            [ href drawLink ]
                             [ text (translate translations "draw" ++ " " ++ draw.label ++ ": " ++ draw.startsAt) ]
                         ]
                     , li
@@ -2593,7 +2553,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
 
                               else
                                 small [ class "ml-3" ]
-                                    [ a [ href gameLink, onClick (UpdateRoute gameLink) ] [ text game.name ]
+                                    [ a [ href gameLink ] [ text game.name ]
                                     ]
                             ]
                          ]
@@ -2804,7 +2764,7 @@ viewTeam translations event team =
                                     in
                                     case resultText of
                                         Just t ->
-                                            a [ href gamePath, onClick (UpdateRoute gamePath) ] [ text t ]
+                                            a [ href gamePath ] [ text t ]
 
                                         Nothing ->
                                             text "-"
@@ -2812,7 +2772,7 @@ viewTeam translations event team =
                                 gameScoreLabel =
                                     case gameScore game of
                                         Just score ->
-                                            a [ href gamePath, onClick (UpdateRoute gamePath) ] [ text score ]
+                                            a [ href gamePath ] [ text score ]
 
                                         Nothing ->
                                             text ""
@@ -2829,19 +2789,14 @@ viewTeam translations event team =
                                                 oppoPath =
                                                     teamUrl event.id oppo
                                             in
-                                            a
-                                                [ href oppoPath
-                                                , onClick (UpdateRoute oppoPath)
-                                                ]
-                                                [ text oppo.name
-                                                ]
+                                            a [ href oppoPath ] [ text oppo.name ]
 
                                         Nothing ->
                                             text ""
                             in
                             tr []
-                                [ td [] [ a [ href drawPath, onClick (UpdateRoute drawPath) ] [ text draw.label ] ]
-                                , td [] [ a [ href drawPath, onClick (UpdateRoute drawPath) ] [ text draw.startsAt ] ]
+                                [ td [] [ a [ href drawPath ] [ text draw.label ] ]
+                                , td [] [ a [ href drawPath ] [ text draw.startsAt ] ]
                                 , td [] [ resultLabel ]
                                 , td [] [ gameScoreLabel ]
                                 , td [] [ opponentLabel ]
@@ -2894,11 +2849,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
             [ class "d-flex justify-content-between" ]
             [ h4 [ class "mb-3" ] [ text (translate translations "scoring_analysis") ]
             , if isForGame then
-                a
-                    [ href fullReportUrl
-                    , onClick (UpdateRoute fullReportUrl)
-                    ]
-                    [ small [] [ text (translate translations "full_report" ++ " →") ] ]
+                a [ href fullReportUrl ] [ small [] [ text (translate translations "full_report" ++ " →") ] ]
 
               else
                 text ""
@@ -3129,7 +3080,6 @@ viewTeamScoringAnalysis event team =
                 [ a
                     [ class "d-block mt-3"
                     , href (teamUrl event.id team)
-                    , onClick (UpdateRoute (teamUrl event.id team))
                     ]
                     [ text team.name ]
                 ]
@@ -3403,11 +3353,7 @@ viewReportCompetitionMatrix translations event =
                                             gamePath =
                                                 gameUrl event.id game
                                         in
-                                        a
-                                            [ href gamePath
-                                            , onClick (UpdateRoute gamePath)
-                                            ]
-                                            [ text score ]
+                                        a [ href gamePath ] [ text score ]
 
                                     Nothing ->
                                         text ""
@@ -3490,12 +3436,19 @@ viewReport translations scoringHilight event report =
 
 
 
+-- PORTS
+
+
+port hashChangeReceiver : (String -> msg) -> Sub msg
+
+
+
 -- SUBSCRIPTIONS
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
-    Sub.none
+subscriptions _ =
+    hashChangeReceiver HashChanged
 
 
 
