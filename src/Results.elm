@@ -25,6 +25,7 @@ type alias Model =
     , fullScreen : Bool
     , translations : WebData (List Translation)
     , items : WebData (List Item)
+    , page : Int
     , search : String
     , product : WebData Product
     , event : WebData Event
@@ -99,7 +100,8 @@ type alias Item =
     , location : Maybe String
     , noRegistrationMessage : Maybe String
     , price : Maybe String
-    , purchaseUrl : Maybe String
+    , addToCartUrl : Maybe String
+    , addToCartText : Maybe String
     , publishResults : Bool
     }
 
@@ -108,6 +110,12 @@ type alias Product =
     { id : Int
     , name : String
     , summary : Maybe String
+    , description : Maybe String
+    , sponsor : Maybe Sponsor
+    , addToCartUrl : Maybe String
+    , addToCartText : Maybe String
+    , totalWithTax : Maybe String
+    , potentialDiscounts : List String
     }
 
 
@@ -122,6 +130,7 @@ type alias Event =
     , sponsor : Maybe Sponsor
     , startsOn : String
     , endsOn : String
+    , noRegistrationMessage : Maybe String
     , registrationOpensAt : Maybe String
     , registrationClosesAt : Maybe String
     , addToCartUrl : Maybe String
@@ -364,8 +373,17 @@ decodeItem =
         |> optional "location" (nullable string) Nothing
         |> optional "no_registration_message" (nullable string) Nothing
         |> optional "price" (nullable string) Nothing
-        |> optional "url" (nullable string) Nothing
+        |> optional "add_to_cart_url" (nullable string) Nothing
+        |> optional "add_to_cart_text" (nullable string) Nothing
         |> optional "publish_results" bool False
+
+
+decodeSponsor : Decoder Sponsor
+decodeSponsor =
+    Decode.succeed Sponsor
+        |> required "logo_url" string
+        |> optional "name" (nullable string) Nothing
+        |> optional "url" (nullable string) Nothing
 
 
 decodeProduct : Decoder Product
@@ -374,18 +392,16 @@ decodeProduct =
         |> required "id" int
         |> required "name" string
         |> optional "summary" (nullable string) Nothing
+        |> optional "description" (nullable string) Nothing
+        |> optional "sponsor" (nullable decodeSponsor) Nothing
+        |> optional "add_to_cart_url" (nullable string) Nothing
+        |> optional "add_to_cart_text" (nullable string) Nothing
+        |> optional "total_with_tax" (nullable string) Nothing
+        |> optional "potential_discounts" (list string) []
 
 
 decodeEvent : Decoder Event
 decodeEvent =
-    let
-        decodeSponsor : Decoder Sponsor
-        decodeSponsor =
-            Decode.succeed Sponsor
-                |> required "logo_url" string
-                |> optional "name" (nullable string) Nothing
-                |> optional "url" (nullable string) Nothing
-    in
     Decode.succeed Event
         |> required "id" int
         |> required "name" string
@@ -397,6 +413,7 @@ decodeEvent =
         |> optional "sponsor" (nullable decodeSponsor) Nothing
         |> required "starts_on" string
         |> required "ends_on" string
+        |> optional "no_registration_message" (nullable string) Nothing
         |> optional "registration_opens_at" (nullable string) Nothing
         |> optional "registration_closes_at" (nullable string) Nothing
         |> optional "add_to_cart_url" (nullable string) Nothing
@@ -894,7 +911,7 @@ init flags_ =
                                     Nothing
 
                 newModel =
-                    Model flags path False NotAsked NotAsked "" NotAsked NotAsked Nothing Nothing
+                    Model flags path False NotAsked NotAsked 1 "" NotAsked NotAsked Nothing Nothing
             in
             ( newModel, getData newModel False )
 
@@ -903,7 +920,7 @@ init flags_ =
                 flags =
                     Flags Nothing Nothing Nothing "" LeaguesSection False 10 [] Nothing Nothing
             in
-            ( Model flags Nothing False NotAsked NotAsked "" NotAsked NotAsked Nothing (Just (Decode.errorToString error))
+            ( Model flags Nothing False NotAsked NotAsked 1 "" NotAsked NotAsked Nothing (Just (Decode.errorToString error))
             , Cmd.none
             )
 
@@ -954,7 +971,7 @@ baseClubUrl flags =
 
 
 getData : Model -> Bool -> Cmd Msg
-getData { flags, path, translations, items, product, event } refresh =
+getData { flags, page, path, translations, items, product, event } refresh =
     -- Pass True for refresh to force load new data.
     Cmd.batch
         [ case translations of
@@ -971,13 +988,13 @@ getData { flags, path, translations, items, product, event } refresh =
                     Success _ ->
                         -- Get new data if we're forcing a refresh.
                         if refresh then
-                            getItems flags
+                            getItems flags page
 
                         else
                             Cmd.none
 
                     _ ->
-                        getItems flags
+                        getItems flags page
 
             ProductRoute id ->
                 case product of
@@ -1018,8 +1035,8 @@ getTranslations flags =
     RemoteData.Http.get url GotTranslations decodeTranslations
 
 
-getItems : Flags -> Cmd Msg
-getItems flags =
+getItems : Flags -> Int -> Cmd Msg
+getItems flags page =
     let
         url =
             baseClubUrl flags
@@ -1033,6 +1050,7 @@ getItems flags =
                         ProductsSection ->
                             "products"
                    )
+                ++ ("?page=" ++ String.fromInt page)
     in
     RemoteData.Http.get url GotItems decodeItems
 
@@ -1409,6 +1427,7 @@ type Msg
     | HashChanged String
     | GotTranslations (WebData (List Translation))
     | GotItems (WebData (List Item))
+    | IncrementPageBy Int
     | ReloadRoute
     | UpdateSearch String
     | GotEvent (WebData Event)
@@ -1434,6 +1453,13 @@ update msg model =
 
         GotItems response ->
             ( { model | items = response, errorMsg = Nothing }, Cmd.none )
+
+        IncrementPageBy num ->
+            let
+                updatedModel =
+                    { model | page = model.page + num }
+            in
+            ( updatedModel, getData updatedModel True )
 
         ReloadRoute ->
             ( model, getData model True )
@@ -1528,7 +1554,7 @@ view model =
                     ProductRoute id ->
                         case model.product of
                             Success product ->
-                                viewProduct model product
+                                viewProduct model.fullScreen model.translations product
 
                             Failure error ->
                                 viewFetchError model.fullScreen (errorMessage error)
@@ -1564,8 +1590,22 @@ viewFetchError fullScreen message =
 
 
 viewItems : Model -> List Item -> Html Msg
-viewItems { flags, fullScreen, translations, search } items =
+viewItems { flags, fullScreen, page, translations, search } items =
     let
+        viewPaging =
+            div [ class "d-flex" ]
+                [ if page > 1 then
+                    button [ class "btn btn-primary btn-sm mr-1", onClick (IncrementPageBy -1) ] [ text "< Previous" ]
+
+                  else
+                    text ""
+                , if List.length items >= 10 then
+                    button [ class "btn btn-primary btn-sm", onClick (IncrementPageBy 1) ] [ text "Next >" ]
+
+                  else
+                    text ""
+                ]
+
         filteredItems =
             case String.trim search of
                 "" ->
@@ -1588,15 +1628,16 @@ viewItems { flags, fullScreen, translations, search } items =
         viewItem item =
             tr []
                 ([ td []
-                    [ if item.publishResults then
-                        let
-                            newPath =
-                                "#/events/" ++ String.fromInt item.id
-                        in
-                        a [ href newPath ] [ text item.name ]
+                    [ let
+                        newPath =
+                            case flags.section of
+                                ProductsSection ->
+                                    "#/products/" ++ String.fromInt item.id
 
-                      else
-                        text item.name
+                                _ ->
+                                    "#/events/" ++ String.fromInt item.id
+                      in
+                      a [ href newPath ] [ text item.name ]
                     , small [ class "d-block" ] [ text (Maybe.withDefault "" item.summary) ]
                     ]
                  , td [] [ text (Maybe.withDefault "" item.occursOn) ]
@@ -1605,18 +1646,18 @@ viewItems { flags, fullScreen, translations, search } items =
                             [ td [ class "text-right" ]
                                 [ case item.noRegistrationMessage of
                                     Just msg ->
-                                        case item.purchaseUrl of
+                                        case item.addToCartUrl of
                                             Just url ->
-                                                a [ href url, target "_blank" ] [ text (msg ++ " →") ]
+                                                a [ href url ] [ text (msg ++ " →") ]
 
                                             Nothing ->
                                                 text msg
 
                                     Nothing ->
-                                        case ( item.price, item.purchaseUrl ) of
-                                            ( Just price, Just url ) ->
+                                        case ( item.price, item.addToCartUrl, item.addToCartText ) of
+                                            ( Just price, Just addToCartUrl, Just addToCartText ) ->
                                                 div []
-                                                    [ a [ href url, target "_blank" ] [ text (translate translations "register" ++ " →") ]
+                                                    [ a [ href addToCartUrl ] [ text (addToCartText ++ " →") ]
                                                     , small [ class "d-block" ] [ text price ]
                                                     ]
 
@@ -1656,12 +1697,83 @@ viewItems { flags, fullScreen, translations, search } items =
                 [ class "table" ]
                 (List.map viewItem filteredItems)
             ]
+        , viewPaging
         ]
 
 
-viewProduct : Model -> Product -> Html Msg
-viewProduct model product =
-    div [] [ text "TODO: Product Selected" ]
+viewNoDataForRoute : WebData (List Translation) -> Html Msg
+viewNoDataForRoute translations =
+    div [] [ text (translate translations "no_data_for_route") ]
+
+
+viewSponsor : Sponsor -> Html Msg
+viewSponsor sponsor =
+    div [ class "mb-5 ml-5 pb-4", style "float" "right" ]
+        [ div [ class "text-right" ]
+            [ case sponsor.url of
+                Just url ->
+                    a [ href url ]
+                        [ img [ alt (Maybe.withDefault "" sponsor.name), src sponsor.logoUrl ] []
+                        ]
+
+                Nothing ->
+                    img [ alt (Maybe.withDefault "" sponsor.name), src sponsor.logoUrl ] []
+            , case sponsor.name of
+                Just name ->
+                    p [] [ text name ]
+
+                Nothing ->
+                    text ""
+            ]
+        ]
+
+
+viewProduct : Bool -> WebData (List Translation) -> Product -> Html Msg
+viewProduct fullScreen translations product =
+    div [ classList [ ( "p-3", fullScreen ) ] ]
+        [ h3 [ class "mb-3 d-none d-md-block" ] [ text product.name ]
+        , h6 [ class "mb-3 d-md-none" ] [ text product.name ]
+        , case product.sponsor of
+            Just sponsor ->
+                viewSponsor sponsor
+
+            Nothing ->
+                text ""
+        , case ( product.description, product.summary ) of
+            ( Just description, _ ) ->
+                p [] [ text description ]
+
+            ( _, Just summary ) ->
+                p [] [ text summary ]
+
+            ( Nothing, Nothing ) ->
+                text ""
+        , case product.totalWithTax of
+            Just totalWithTax ->
+                div []
+                    [ div [ class "font-weight-bold" ] [ text (translate translations "total_with_tax") ]
+                    , div [ class "value" ] [ text totalWithTax ]
+                    ]
+
+            _ ->
+                text ""
+        , case ( product.addToCartUrl, product.addToCartText ) of
+            ( Just addToCartUrl, Just addToCartText ) ->
+                p [ class "mt-2 mb-5" ]
+                    [ a [ class "btn btn-primary", href addToCartUrl ] [ text addToCartText ]
+                    ]
+
+            _ ->
+                text ""
+        , if not (List.isEmpty product.potentialDiscounts) then
+            div []
+                [ strong [] [ text (translate translations "potential_discounts") ]
+                , ul [] (List.map (\d -> li [] [ text d ]) product.potentialDiscounts)
+                ]
+
+          else
+            text ""
+        ]
 
 
 viewEvent : Model -> NestedEventRoute -> Event -> Html Msg
@@ -1806,35 +1918,8 @@ viewEvent { flags, translations, scoringHilight, fullScreen } nestedRoute event 
         ]
 
 
-viewNoDataForRoute : WebData (List Translation) -> Html Msg
-viewNoDataForRoute translations =
-    div [] [ text (translate translations "no_data_for_route") ]
-
-
 viewDetails : WebData (List Translation) -> Event -> Html Msg
 viewDetails translations event =
-    let
-        viewSponsor : Sponsor -> Html Msg
-        viewSponsor sponsor =
-            div [ class "mb-5 ml-5 pb-4", style "float" "right" ]
-                [ div [ class "text-right" ]
-                    [ case sponsor.url of
-                        Just url ->
-                            a [ href url ]
-                                [ img [ alt (Maybe.withDefault "" sponsor.name), src sponsor.logoUrl ] []
-                                ]
-
-                        Nothing ->
-                            img [ alt (Maybe.withDefault "" sponsor.name), src sponsor.logoUrl ] []
-                    , case sponsor.name of
-                        Just name ->
-                            p [] [ text name ]
-
-                        Nothing ->
-                            text ""
-                    ]
-                ]
-    in
     div []
         [ case event.sponsor of
             Just sponsor ->
