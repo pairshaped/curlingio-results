@@ -21,7 +21,7 @@ import Url.Parser exposing ((</>), Parser)
 
 type alias Model =
     { flags : Flags
-    , path : Maybe String
+    , hash : Maybe String
     , fullScreen : Bool
     , translations : WebData (List Translation)
     , items : WebData (List Item)
@@ -230,6 +230,7 @@ type alias Stage =
     { id : Int
     , stageType : StageType
     , name : String
+    , iterations : Int
     , rankingMethod : RankingMethod
     , pointsPerWin : Float
     , pointsPerTie : Float
@@ -596,6 +597,7 @@ decodeStage =
         |> required "id" int
         |> required "type" decodeStageType
         |> required "name" string
+        |> optional "iterations" int 1
         |> optional "ranking_method" decodeRankingMethod PointsRanking
         |> optional "points_per_win" float 0
         |> optional "points_per_tie" float 0
@@ -736,12 +738,12 @@ matchNestedEventRoute defaultEventSection =
 
 
 toRoute : Maybe String -> Maybe String -> Route
-toRoute defaultEventSection path =
+toRoute defaultEventSection hash =
     let
         url =
             let
-                fixedPath =
-                    path
+                fixedHash =
+                    hash
                         |> Maybe.withDefault ""
                         |> String.replace "#" ""
             in
@@ -750,7 +752,7 @@ toRoute defaultEventSection path =
             , protocol = Url.Https
             , query = Nothing
             , fragment = Nothing
-            , path = fixedPath
+            , path = fixedHash
             }
 
         parsed =
@@ -886,34 +888,32 @@ init flags_ =
     case Decode.decodeValue decodeFlags flags_ of
         Ok flags ->
             let
-                hash =
-                    case flags.hash of
-                        Just "" ->
-                            Nothing
-
-                        Nothing ->
-                            Nothing
-
-                        Just _ ->
-                            flags.hash
-
-                path =
-                    case hash of
-                        Just h ->
-                            Just h
-
-                        Nothing ->
+                newHash =
+                    let
+                        eventRouteMaybe =
                             case flags.eventId of
                                 Just eventId ->
                                     Just ("#/events/" ++ String.fromInt eventId ++ "/draws")
 
                                 Nothing ->
                                     Nothing
+                    in
+                    case flags.hash of
+                        Just "" ->
+                            eventRouteMaybe
+
+                        Nothing ->
+                            eventRouteMaybe
+
+                        Just _ ->
+                            flags.hash
 
                 newModel =
-                    Model flags path False NotAsked NotAsked 1 "" NotAsked NotAsked Nothing Nothing
+                    Model flags newHash False NotAsked NotAsked 1 "" NotAsked NotAsked Nothing Nothing
             in
-            ( newModel, getData newModel False )
+            ( newModel
+            , getDataMaybe newModel False
+            )
 
         Err error ->
             let
@@ -970,60 +970,93 @@ baseClubUrl flags =
     baseUrl flags ++ "/clubs/" ++ flags.apiKey ++ "/"
 
 
-getData : Model -> Bool -> Cmd Msg
-getData { flags, page, path, translations, items, product, event } refresh =
-    -- Pass True for refresh to force load new data.
+getDataMaybe : Model -> Bool -> Cmd Msg
+getDataMaybe model force =
     Cmd.batch
-        [ case translations of
-            Success _ ->
-                Cmd.none
-
-            _ ->
-                -- Get translations if we don't already have them.
-                -- We never force refresh translations (waste of bandwidth).
-                getTranslations flags
-        , case toRoute flags.defaultEventSection path of
-            ItemsRoute ->
-                case items of
-                    Success _ ->
-                        -- Get new data if we're forcing a refresh.
-                        if refresh then
-                            getItems flags page
-
-                        else
-                            Cmd.none
-
-                    _ ->
-                        getItems flags page
-
-            ProductRoute id ->
-                case product of
-                    Success p ->
-                        -- Get new data if we're forcing a refresh or if the
-                        -- current product has a different id than the route.
-                        if refresh || p.id /= id then
-                            getProduct flags id
-
-                        else
-                            Cmd.none
-
-                    _ ->
-                        getProduct flags id
-
-            EventRoute id _ ->
-                case event of
-                    Success e ->
-                        -- Get new data if we're forcing a refresh or if the
-                        -- current event has a different id than the route.
-                        if refresh || e.id /= id then
-                            getEvent flags id
-
-                        else
-                            Cmd.none
-
-                    _ ->
-                        getEvent flags id
+        [ getTranslationsMaybe model
+        , getItemsMaybe model
+        , getEventMaybe model force
+        , getProductMaybe model
         ]
+
+
+getTranslationsMaybe : Model -> Cmd Msg
+getTranslationsMaybe model =
+    case model.translations of
+        Success _ ->
+            Cmd.none
+
+        _ ->
+            -- always get translations if we don't have them yet.
+            getTranslations model.flags
+
+
+getItemsMaybe : Model -> Cmd Msg
+getItemsMaybe model =
+    case toRoute model.flags.defaultEventSection model.hash of
+        ItemsRoute ->
+            case model.items of
+                Success _ ->
+                    -- Already have the items.
+                    Cmd.none
+
+                _ ->
+                    -- On items route and haven't loaded them yet.
+                    getItems model.flags model.page
+
+        _ ->
+            -- Not on items route.
+            Cmd.none
+
+
+getEventMaybe : Model -> Bool -> Cmd Msg
+getEventMaybe model force =
+    case toRoute model.flags.defaultEventSection model.hash of
+        EventRoute eventId _ ->
+            if force then
+                getEvent model.flags eventId
+
+            else
+                case model.event of
+                    Success event ->
+                        if event.id /= eventId then
+                            -- Different event selected, load it.
+                            getEvent model.flags eventId
+
+                        else
+                            -- Already have the event.
+                            Cmd.none
+
+                    _ ->
+                        -- Haven't loaded an event yet.
+                        getEvent model.flags eventId
+
+        _ ->
+            -- Not on event route.
+            Cmd.none
+
+
+getProductMaybe : Model -> Cmd Msg
+getProductMaybe model =
+    case toRoute model.flags.defaultEventSection model.hash of
+        ProductRoute productId ->
+            case model.product of
+                Success product ->
+                    if product.id /= productId then
+                        -- Different product selected, load it.
+                        getProduct model.flags productId
+
+                    else
+                        -- Already have the product.
+                        Cmd.none
+
+                _ ->
+                    -- Haven't loaded a product yet.
+                    getProduct model.flags productId
+
+        _ ->
+            -- Not o product route.
+            Cmd.none
 
 
 getTranslations : Flags -> Cmd Msg
@@ -1444,9 +1477,11 @@ update msg model =
         HashChanged hash ->
             let
                 updatedModel =
-                    { model | path = Just hash }
+                    { model | hash = Just hash }
             in
-            ( updatedModel, getData updatedModel False )
+            ( updatedModel
+            , getDataMaybe updatedModel False
+            )
 
         GotTranslations response ->
             ( { model | translations = response, errorMsg = Nothing }, Cmd.none )
@@ -1456,13 +1491,18 @@ update msg model =
 
         IncrementPageBy num ->
             let
+                newPageNumber =
+                    model.page + num
+
                 updatedModel =
-                    { model | page = model.page + num }
+                    { model | page = newPageNumber }
             in
-            ( updatedModel, getData updatedModel True )
+            ( updatedModel, getItems model.flags newPageNumber )
 
         ReloadRoute ->
-            ( model, getData model True )
+            ( model
+            , getDataMaybe model True
+            )
 
         UpdateSearch val ->
             ( { model | search = String.toLower val }, Cmd.none )
@@ -1539,7 +1579,7 @@ view model =
                 viewNotReady model.fullScreen errorMsg
 
             Nothing ->
-                case toRoute model.flags.defaultEventSection model.path of
+                case toRoute model.flags.defaultEventSection model.hash of
                     ItemsRoute ->
                         case model.items of
                             Success items ->
