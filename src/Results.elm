@@ -2741,13 +2741,13 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                  ]
                     ++ List.map viewEndScore (List.range 1 maxNumberOfEnds)
                     ++ [ td
-                            [ classList
-                                [ ( "text-center", True )
-                                , ( "font-weight-bold", wonOrTied )
-                                , ( "text-success", wonOrTied )
-                                ]
+                            [ class "text-center" ]
+                            [ if wonOrTied then
+                                u [ class "font-weight-bold" ] [ text (String.fromInt (List.sum side.endScores)) ]
+
+                              else
+                                text (String.fromInt (List.sum side.endScores))
                             ]
-                            [ text (String.fromInt (List.sum side.endScores)) ]
                        ]
                 )
 
