@@ -19,6 +19,11 @@ import Url.Parser exposing ((</>), Parser)
 -- MODEL
 
 
+gridSize : Int
+gridSize =
+    50
+
+
 type alias Model =
     { flags : Flags
     , hash : Maybe String
@@ -228,6 +233,7 @@ type alias Spare =
 
 type alias Stage =
     { id : Int
+    , parentId : Maybe Int
     , stageType : StageType
     , name : String
     , iterations : Int
@@ -237,6 +243,7 @@ type alias Stage =
     , pointsPerLoss : Float
     , pointsPerEnd : List Float
     , tiebreaker : Tiebreaker
+    , groups : Maybe (List Group)
     }
 
 
@@ -267,11 +274,18 @@ type alias Draw =
     }
 
 
+type alias Group =
+    { id : Int
+    , name : String
+    }
+
+
 type alias Game =
     { id : String
     , name : String
     , stageId : Int
     , state : GameState
+    , coords : Maybe GameCoords
     , sides : List Side
     }
 
@@ -282,6 +296,13 @@ type GameState
     | GameComplete
 
 
+type alias GameCoords =
+    { groupId : Int
+    , row : Int
+    , col : Int
+    }
+
+
 type alias Side =
     { teamId : Maybe Int
     , topRock : Bool
@@ -289,6 +310,8 @@ type alias Side =
     , result : Maybe SideResult
     , score : Maybe Int
     , endScores : List Int
+    , winnerId : Maybe String
+    , loserId : Maybe String
     }
 
 
@@ -308,6 +331,12 @@ type alias TeamResult =
     , losses : Int
     , ties : Int
     , points : Float
+    }
+
+
+type alias LineConnector =
+    { fromCoords : ( Int, Int )
+    , toCoords : ( Int, Int )
     }
 
 
@@ -592,9 +621,16 @@ decodeStage =
                             _ ->
                                 Decode.succeed TiebreakerNone
                     )
+
+        decodeGroup : Decoder Group
+        decodeGroup =
+            Decode.succeed Group
+                |> required "id" int
+                |> required "name" string
     in
     Decode.succeed Stage
         |> required "id" int
+        |> optional "parent_id" (nullable int) Nothing
         |> required "type" decodeStageType
         |> required "name" string
         |> optional "iterations" int 1
@@ -604,6 +640,7 @@ decodeStage =
         |> optional "points_per_loss" float 0
         |> optional "points_per_end" decodePointsPerEnd []
         |> optional "tiebreaker" decodeTiebreaker TiebreakerNone
+        |> optional "groups" (nullable (list decodeGroup)) Nothing
 
 
 decodeDraw : Decoder Draw
@@ -634,6 +671,13 @@ decodeGame =
                             _ ->
                                 Decode.succeed GamePending
                     )
+
+        decodeGameCoords : Decoder GameCoords
+        decodeGameCoords =
+            Decode.succeed GameCoords
+                |> required "group_id" int
+                |> required "row" int
+                |> required "col" int
 
         decodeSide : Decoder Side
         decodeSide =
@@ -673,12 +717,15 @@ decodeGame =
                 |> optional "result" decodeSideResult Nothing
                 |> optional "score" (nullable int) Nothing
                 |> optional "end_scores" (list int) []
+                |> optional "winner_id" (nullable string) Nothing
+                |> optional "loser_id" (nullable string) Nothing
     in
     Decode.succeed Game
         |> required "id" string
         |> required "name" string
         |> required "stage_id" int
         |> required "state" decodeGameState
+        |> optional "coords" (nullable decodeGameCoords) Nothing
         |> required "game_positions" (list decodeSide)
 
 
@@ -2447,7 +2494,7 @@ viewStages : WebData (List Translation) -> Event -> Stage -> Html Msg
 viewStages translations event onStage =
     let
         games =
-            List.filter (\g -> g.stageId == onStage.id) event.games
+            List.filter (\g -> g.stageId == onStage.id || Just g.stageId == onStage.parentId) event.games
 
         teams =
             teamsWithGames event.teams games
@@ -2526,7 +2573,191 @@ viewStages translations event onStage =
                 ]
 
         viewBracket =
-            div [] [ text "Coming Soon." ]
+            let
+                viewGroup group =
+                    let
+                        gamesForGroup =
+                            games
+                                |> List.filter (\g -> Maybe.map (\c -> c.groupId) g.coords == Just group.id)
+
+                        colsForGames =
+                            gamesForGroup
+                                |> List.map (\g -> Maybe.map (\coords -> coords.col + 5) g.coords |> Maybe.withDefault 0)
+                                |> List.maximum
+                                |> Maybe.withDefault 10
+
+                        rowsForGroup =
+                            gamesForGroup
+                                |> List.filter (\g -> Maybe.map (\coords -> coords.groupId == group.id) g.coords |> Maybe.withDefault False)
+                                |> List.map (\g -> Maybe.map (\coords -> coords.row + 3) g.coords |> Maybe.withDefault 4)
+                                |> List.maximum
+                                |> Maybe.withDefault 4
+
+                        viewGroupGame game =
+                            case game.coords of
+                                Just coords ->
+                                    let
+                                        viewSide : Int -> Side -> Html Msg
+                                        viewSide position side =
+                                            let
+                                                label =
+                                                    case ( side.teamId, side.winnerId, side.loserId ) of
+                                                        ( Just id, _, _ ) ->
+                                                            case List.Extra.find (\t -> t.id == id) teams of
+                                                                Just team ->
+                                                                    team.name
+
+                                                                Nothing ->
+                                                                    "TBD"
+
+                                                        ( _, Just winnerId, _ ) ->
+                                                            "W: "
+                                                                ++ (List.Extra.find (\g -> g.id == winnerId) games
+                                                                        |> Maybe.map .name
+                                                                        |> Maybe.withDefault "TBD"
+                                                                   )
+
+                                                        ( _, _, Just loserId ) ->
+                                                            "L: "
+                                                                ++ (List.Extra.find (\g -> g.id == loserId) games
+                                                                        |> Maybe.map .name
+                                                                        |> Maybe.withDefault "TBD"
+                                                                   )
+
+                                                        _ ->
+                                                            "TBD"
+                                            in
+                                            div
+                                                ([ style "padding-left" "3px"
+                                                 , classList [ ( "font-weight-bold", side.result == Just SideResultWon ) ]
+                                                 ]
+                                                    ++ (if position == 0 then
+                                                            [ style "border-bottom" "solid 1px rgba(0, 0, 0, 0.3)" ]
+
+                                                        else
+                                                            []
+                                                       )
+                                                )
+                                                [ text label ]
+                                    in
+                                    div
+                                        [ class "d-flex justify-content-center"
+                                        , style "position" "absolute"
+                                        , style "flex-direction" "column"
+                                        , style "width" "180px"
+                                        , style "height" "70px"
+                                        , style "overflow" "hidden"
+                                        , style "background-color" "rgba(0, 0, 0, 0.1)"
+                                        , style "border" "solid 1px rgba(0, 0, 0, 0.3)"
+                                        , style "left" (String.fromInt (coords.col * gridSize) ++ "px")
+                                        , style "top" (String.fromInt (coords.row * gridSize) ++ "px")
+                                        ]
+                                        [ div
+                                            [ class "d-flex w-100"
+                                            , style "height" "20px"
+                                            , style "font-size" "12px"
+                                            , style "background-color" "rgba(0, 0, 0, 0.3)"
+                                            , style "z-index" "200"
+                                            ]
+                                            [ div
+                                                [ class "flex-fill"
+                                                , style "padding-left" "3px"
+                                                , style "color" "white"
+                                                , style "overflow" "hidden"
+                                                ]
+                                                [ text game.name ]
+                                            ]
+                                        , div [] (List.indexedMap viewSide game.sides)
+                                        ]
+
+                                Nothing ->
+                                    text ""
+
+                        viewSvgConnectors : Html Msg
+                        viewSvgConnectors =
+                            let
+                                lineConnectors : List LineConnector
+                                lineConnectors =
+                                    let
+                                        connectors : Game -> List (Maybe LineConnector)
+                                        connectors toGame =
+                                            let
+                                                connectorForPosition : Int -> Side -> Maybe LineConnector
+                                                connectorForPosition toPosition side =
+                                                    let
+                                                        fromCoords fromGameId =
+                                                            case List.Extra.find (\g -> g.id == fromGameId) gamesForGroup of
+                                                                Just fromGame ->
+                                                                    case fromGame.coords of
+                                                                        Just coords ->
+                                                                            Just
+                                                                                ( coords.col * gridSize + 175
+                                                                                , coords.row
+                                                                                    * gridSize
+                                                                                    + 45
+                                                                                )
+
+                                                                        _ ->
+                                                                            Nothing
+
+                                                                _ ->
+                                                                    Nothing
+
+                                                        toCoords =
+                                                            case toGame.coords of
+                                                                Just coords ->
+                                                                    Just
+                                                                        ( coords.col * gridSize + 1
+                                                                        , coords.row
+                                                                            * gridSize
+                                                                            + (if toPosition == 0 then
+                                                                                32
+
+                                                                               else
+                                                                                57
+                                                                              )
+                                                                        )
+
+                                                                Nothing ->
+                                                                    Nothing
+                                                    in
+                                                    case side.winnerId of
+                                                        Just winnerId ->
+                                                            case ( fromCoords winnerId, toCoords ) of
+                                                                ( Just from, Just to ) ->
+                                                                    Just (LineConnector from to)
+
+                                                                _ ->
+                                                                    Nothing
+
+                                                        _ ->
+                                                            Nothing
+                                            in
+                                            List.indexedMap connectorForPosition toGame.sides
+                                    in
+                                    List.map connectors gamesForGroup
+                                        |> List.concat
+                                        |> List.filterMap identity
+                            in
+                            div [ class "group-lines" ]
+                                [ viewSvgConnector ((colsForGames + 1) * gridSize) ((rowsForGroup - 1) * gridSize) lineConnectors
+                                ]
+                    in
+                    div
+                        [ class "mt-4" ]
+                        [ h5 [ class "mb-3" ] [ text ("☷ " ++ group.name) ]
+                        , div [ style "position" "relative" ]
+                            [ viewSvgConnectors
+                            , div [ class "games" ] (List.map viewGroupGame gamesForGroup)
+                            ]
+                        ]
+            in
+            case onStage.groups of
+                Just groups ->
+                    div [] (List.map viewGroup groups)
+
+                Nothing ->
+                    div [] [ text "No groups" ]
     in
     div []
         [ div [ class "nav nav-tabs mb-3" ] (List.map viewStageLink event.stages)
