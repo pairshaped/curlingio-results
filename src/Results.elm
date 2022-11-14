@@ -2316,11 +2316,7 @@ viewDrawSchedule translations scoringHilight event =
 
         drawLink draw label =
             if event.endScoresEnabled then
-                let
-                    newPath =
-                        drawUrl event.id draw
-                in
-                a [ href newPath ] [ text label ]
+                a [ href (drawUrl event.id draw) ] [ text label ]
 
             else
                 text label
@@ -2341,12 +2337,8 @@ viewDrawSchedule translations scoringHilight event =
                                     "text-primary font-weight-bold"
                     in
                     if event.endScoresEnabled then
-                        let
-                            newPath =
-                                gameUrl event.id game_
-                        in
                         a
-                            [ href newPath
+                            [ href (gameUrl event.id game_)
                             , class stateClass
                             , title game_.name
                             ]
@@ -2436,11 +2428,7 @@ viewTeams translations event =
             tr []
                 [ td []
                     [ if teamHasDetails team then
-                        let
-                            newPath =
-                                teamUrl event.id team
-                        in
-                        a [ href newPath ] [ text team.name ]
+                        a [ href (teamUrl event.id team) ] [ text team.name ]
 
                       else
                         -- No point in linking to team details if there are no more details.
@@ -2500,13 +2488,9 @@ viewStages translations event onStage =
             teamsWithGames event.teams games
 
         viewStageLink stage =
-            let
-                newPath =
-                    stageUrl event.id stage
-            in
             li [ class "nav-item" ]
                 [ a
-                    [ href newPath
+                    [ href (stageUrl event.id stage)
                     , classList
                         [ ( "nav-link", True )
                         , ( "active", stage.id == onStage.id )
@@ -2526,15 +2510,11 @@ viewStages translations event onStage =
                     List.any (\teamResult -> teamResult.ties > 0) teamResults
 
                 viewRow teamResult =
-                    let
-                        newPath =
-                            teamUrl event.id teamResult.team
-                    in
                     tr []
                         [ td []
                             [ if teamHasDetails teamResult.team then
                                 a
-                                    [ href newPath
+                                    [ href (teamUrl event.id teamResult.team)
                                     ]
                                     [ text teamResult.team.name ]
 
@@ -2659,11 +2639,12 @@ viewStages translations event onStage =
                                             , style "background-color" "rgba(0, 0, 0, 0.3)"
                                             , style "z-index" "200"
                                             ]
-                                            [ div
-                                                [ class "flex-fill"
+                                            [ a
+                                                [ class "d-block flex-fill"
                                                 , style "padding-left" "3px"
                                                 , style "color" "white"
                                                 , style "overflow" "hidden"
+                                                , href (gameUrl event.id game)
                                                 ]
                                                 [ text game.name ]
                                             ]
@@ -3025,7 +3006,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                 label
 
             else
-                a [ href gameLink ] [ label ]
+                a [ href gamePath ] [ label ]
 
         viewGameHilight =
             case scoringHilight of
@@ -3070,10 +3051,10 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                 Nothing ->
                     text ""
 
-        gameLink =
+        gamePath =
             gameUrl event.id game
 
-        drawLink =
+        drawPath =
             drawUrl event.id draw
     in
     div []
@@ -3082,7 +3063,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                 [ ol [ class "breadcrumb" ]
                     [ li [ class "breadcrumb-item" ]
                         [ a
-                            [ href drawLink ]
+                            [ href drawPath ]
                             [ text (translate translations "draw" ++ " " ++ draw.label ++ ": " ++ draw.startsAt) ]
                         ]
                     , li
@@ -3112,7 +3093,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
 
                               else
                                 small [ class "ml-3" ]
-                                    [ a [ href gameLink ] [ text game.name ]
+                                    [ a [ href gamePath ] [ text game.name ]
                                     ]
                             ]
                          ]
