@@ -2,8 +2,8 @@ port module Results exposing (init)
 
 import Browser
 import CustomSvg exposing (..)
-import Html exposing (Html, a, button, caption, div, h3, h4, h5, h6, i, img, input, label, li, nav, ol, p, small, span, strong, sup, table, tbody, td, text, th, thead, tr, u, ul)
-import Html.Attributes exposing (alt, attribute, class, classList, colspan, href, id, placeholder, rowspan, src, style, target, title, type_, value)
+import Html exposing (Html, a, button, caption, div, h3, h4, h5, h6, i, img, input, label, li, nav, ol, option, p, select, small, span, strong, sup, table, tbody, td, text, th, thead, tr, u, ul)
+import Html.Attributes exposing (alt, attribute, class, classList, colspan, href, id, placeholder, rowspan, selected, src, style, target, title, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
@@ -26,12 +26,11 @@ gridSize =
 
 type alias Model =
     { flags : Flags
-    , hash : Maybe String
+    , hash : String
     , fullScreen : Bool
     , translations : WebData (List Translation)
     , items : WebData (List Item)
-    , page : Int
-    , search : String
+    , itemFilter : ItemFilter
     , product : WebData Product
     , event : WebData Event
     , scoringHilight : Maybe ScoringHilight
@@ -84,7 +83,6 @@ type alias Flags =
     , apiKey : String
     , section : ItemsSection
     , registration : Bool
-    , pageSize : Int
     , excludeEventSections : List String
     , defaultEventSection : Maybe String
     , eventId : Maybe Int
@@ -95,6 +93,13 @@ type ItemsSection
     = LeaguesSection
     | CompetitionsSection
     | ProductsSection
+
+
+type alias ItemFilter =
+    { page : Int
+    , seasonDelta : Int
+    , search : String
+    }
 
 
 type alias Item =
@@ -370,7 +375,6 @@ decodeFlags =
         |> required "apiKey" string
         |> optional "section" decodeSection LeaguesSection
         |> optional "registration" bool False
-        |> optional "pageSize" int 10
         |> optional "excludeEventSections" (list string) []
         |> optional "defaultEventSection" (nullable string) Nothing
         |> optional "eventId" (nullable int) Nothing
@@ -784,14 +788,13 @@ matchNestedEventRoute defaultEventSection =
         ]
 
 
-toRoute : Maybe String -> Maybe String -> Route
+toRoute : Maybe String -> String -> Route
 toRoute defaultEventSection hash =
     let
         url =
             let
                 fixedHash =
                     hash
-                        |> Maybe.withDefault ""
                         |> String.replace "#" ""
             in
             { host = "api.curling.io"
@@ -940,10 +943,10 @@ init flags_ =
                         eventRouteMaybe =
                             case flags.eventId of
                                 Just eventId ->
-                                    Just ("#/events/" ++ String.fromInt eventId ++ "/draws")
+                                    "#/events/" ++ String.fromInt eventId ++ "/draws"
 
                                 Nothing ->
-                                    Nothing
+                                    ""
                     in
                     case flags.hash of
                         Just "" ->
@@ -952,22 +955,27 @@ init flags_ =
                         Nothing ->
                             eventRouteMaybe
 
-                        Just _ ->
-                            flags.hash
+                        Just hash ->
+                            hash
 
                 newModel =
-                    Model flags newHash False NotAsked NotAsked 1 "" NotAsked NotAsked Nothing Nothing
+                    Model flags newHash False NotAsked NotAsked (ItemFilter 1 0 "") NotAsked NotAsked Nothing Nothing
             in
             ( newModel
-            , getDataMaybe newModel False
+            , Cmd.batch
+                [ getTranslations flags
+                , Tuple.second (getItemsMaybe newModel newHash False)
+                , Tuple.second (getEventMaybe newModel newHash False)
+                , Tuple.second (getProductMaybe newModel newHash)
+                ]
             )
 
         Err error ->
             let
                 flags =
-                    Flags Nothing Nothing Nothing "" LeaguesSection False 10 [] Nothing Nothing
+                    Flags Nothing Nothing Nothing "" LeaguesSection False [] Nothing Nothing
             in
-            ( Model flags Nothing False NotAsked NotAsked 1 "" NotAsked NotAsked Nothing (Just (Decode.errorToString error))
+            ( Model flags "" False NotAsked NotAsked (ItemFilter 1 0 "") NotAsked NotAsked Nothing (Just (Decode.errorToString error))
             , Cmd.none
             )
 
@@ -1017,93 +1025,76 @@ baseClubUrl flags =
     baseUrl flags ++ "/clubs/" ++ flags.apiKey ++ "/"
 
 
-getDataMaybe : Model -> Bool -> Cmd Msg
-getDataMaybe model force =
-    Cmd.batch
-        [ getTranslationsMaybe model
-        , getItemsMaybe model
-        , getEventMaybe model force
-        , getProductMaybe model
-        ]
-
-
-getTranslationsMaybe : Model -> Cmd Msg
-getTranslationsMaybe model =
-    case model.translations of
-        Success _ ->
-            Cmd.none
-
-        _ ->
-            -- always get translations if we don't have them yet.
-            getTranslations model.flags
-
-
-getItemsMaybe : Model -> Cmd Msg
-getItemsMaybe model =
-    case toRoute model.flags.defaultEventSection model.hash of
+getItemsMaybe : Model -> String -> Bool -> ( WebData (List Item), Cmd Msg )
+getItemsMaybe { flags, itemFilter, items } hash reload =
+    case toRoute flags.defaultEventSection hash of
         ItemsRoute ->
-            case model.items of
-                Success _ ->
+            case ( items, reload ) of
+                ( Success _, False ) ->
                     -- Already have the items.
-                    Cmd.none
+                    ( items, Cmd.none )
 
                 _ ->
                     -- On items route and haven't loaded them yet.
-                    getItems model.flags model.page
+                    ( Loading, getItems flags itemFilter )
 
         _ ->
             -- Not on items route.
-            Cmd.none
+            ( items, Cmd.none )
 
 
-getEventMaybe : Model -> Bool -> Cmd Msg
-getEventMaybe model force =
-    case toRoute model.flags.defaultEventSection model.hash of
+getEventMaybe : Model -> String -> Bool -> ( WebData Event, Cmd Msg )
+getEventMaybe { flags, event } hash reload =
+    case toRoute flags.defaultEventSection hash of
         EventRoute eventId _ ->
-            if force then
-                getEvent model.flags eventId
+            if reload then
+                ( Loading, getEvent flags eventId )
 
             else
-                case model.event of
-                    Success event ->
-                        if event.id /= eventId then
+                let
+                    _ =
+                        Debug.log "Load" "Event"
+                in
+                case event of
+                    Success event_ ->
+                        if event_.id /= eventId then
                             -- Different event selected, load it.
-                            getEvent model.flags eventId
+                            ( Loading, getEvent flags eventId )
 
                         else
                             -- Already have the event.
-                            Cmd.none
+                            ( event, Cmd.none )
 
                     _ ->
                         -- Haven't loaded an event yet.
-                        getEvent model.flags eventId
+                        ( Loading, getEvent flags eventId )
 
         _ ->
             -- Not on event route.
-            Cmd.none
+            ( event, Cmd.none )
 
 
-getProductMaybe : Model -> Cmd Msg
-getProductMaybe model =
-    case toRoute model.flags.defaultEventSection model.hash of
+getProductMaybe : Model -> String -> ( WebData Product, Cmd Msg )
+getProductMaybe { flags, product } hash =
+    case toRoute flags.defaultEventSection hash of
         ProductRoute productId ->
-            case model.product of
-                Success product ->
-                    if product.id /= productId then
+            case product of
+                Success product_ ->
+                    if product_.id /= productId then
                         -- Different product selected, load it.
-                        getProduct model.flags productId
+                        ( Loading, getProduct flags productId )
 
                     else
                         -- Already have the product.
-                        Cmd.none
+                        ( product, Cmd.none )
 
                 _ ->
                     -- Haven't loaded a product yet.
-                    getProduct model.flags productId
+                    ( Loading, getProduct flags productId )
 
         _ ->
             -- Not o product route.
-            Cmd.none
+            ( product, Cmd.none )
 
 
 getTranslations : Flags -> Cmd Msg
@@ -1115,9 +1106,23 @@ getTranslations flags =
     RemoteData.Http.get url GotTranslations decodeTranslations
 
 
-getItems : Flags -> Int -> Cmd Msg
-getItems flags page =
+getItems : Flags -> ItemFilter -> Cmd Msg
+getItems flags itemFilter =
     let
+        params =
+            case ( itemFilter.page, itemFilter.seasonDelta ) of
+                ( 0, 0 ) ->
+                    ""
+
+                ( 0, seasonDelta ) ->
+                    "?occurred=" ++ String.fromInt seasonDelta
+
+                ( page, 0 ) ->
+                    "?page=" ++ String.fromInt page
+
+                ( page, seasonDelta ) ->
+                    "?page=" ++ String.fromInt page ++ "&occurred=" ++ String.fromInt seasonDelta
+
         url =
             baseClubUrl flags
                 ++ (case flags.section of
@@ -1130,7 +1135,7 @@ getItems flags page =
                         ProductsSection ->
                             "products"
                    )
-                ++ ("?page=" ++ String.fromInt page)
+                ++ params
     in
     RemoteData.Http.get url GotItems decodeItems
 
@@ -1504,12 +1509,12 @@ roundTwoDecimal num =
 
 type Msg
     = ToggleFullScreen
-    | HashChanged String
+    | HashChanged Bool String
     | GotTranslations (WebData (List Translation))
     | GotItems (WebData (List Item))
     | IncrementPageBy Int
-    | ReloadRoute
     | UpdateSearch String
+    | UpdateSeasonDelta String
     | GotEvent (WebData Event)
     | GotProduct (WebData Product)
     | ToggleScoringHilight ScoringHilight
@@ -1521,13 +1526,41 @@ update msg model =
         ToggleFullScreen ->
             ( { model | fullScreen = not model.fullScreen }, Cmd.none )
 
-        HashChanged hash ->
+        HashChanged reload hash ->
             let
-                updatedModel =
-                    { model | hash = Just hash }
+                ( translations, translationsCmd ) =
+                    case model.translations of
+                        Success _ ->
+                            ( model.translations, Cmd.none )
+
+                        _ ->
+                            ( Loading, getTranslations model.flags )
+
+                ( items, itemsCmd ) =
+                    getItemsMaybe model hash reload
+
+                ( event, eventCmd ) =
+                    getEventMaybe model hash reload
+
+                ( product, productCmd ) =
+                    getProductMaybe model hash
+
+                _ =
+                    Debug.log "hash changed:" hash
             in
-            ( updatedModel
-            , getDataMaybe updatedModel False
+            ( { model
+                | hash = hash
+                , translations = translations
+                , items = items
+                , product = product
+                , event = event
+              }
+            , Cmd.batch
+                [ translationsCmd
+                , itemsCmd
+                , productCmd
+                , eventCmd
+                ]
             )
 
         GotTranslations response ->
@@ -1538,21 +1571,30 @@ update msg model =
 
         IncrementPageBy num ->
             let
-                newPageNumber =
-                    model.page + num
+                updatedItemFilter itemFilter =
+                    { itemFilter | page = itemFilter.page + num }
 
                 updatedModel =
-                    { model | page = newPageNumber }
+                    { model | itemFilter = updatedItemFilter model.itemFilter }
             in
-            ( updatedModel, getItems model.flags newPageNumber )
-
-        ReloadRoute ->
-            ( model
-            , getDataMaybe model True
-            )
+            ( updatedModel, getItems model.flags updatedModel.itemFilter )
 
         UpdateSearch val ->
-            ( { model | search = String.toLower val }, Cmd.none )
+            let
+                updatedItemFilter itemFilter =
+                    { itemFilter | search = String.toLower val }
+            in
+            ( { model | itemFilter = updatedItemFilter model.itemFilter }, Cmd.none )
+
+        UpdateSeasonDelta val ->
+            let
+                updatedItemFilter itemFilter =
+                    { itemFilter | seasonDelta = Maybe.withDefault 0 (String.toInt val) }
+
+                updatedModel =
+                    { model | itemFilter = updatedItemFilter model.itemFilter }
+            in
+            ( updatedModel, getItems model.flags updatedModel.itemFilter )
 
         GotEvent response ->
             ( { model | event = response }
@@ -1633,7 +1675,7 @@ view model =
                                 viewItems model items
 
                             Failure error ->
-                                viewFetchError model.fullScreen (errorMessage error)
+                                viewFetchError model (errorMessage error)
 
                             _ ->
                                 viewLoading
@@ -1644,7 +1686,7 @@ view model =
                                 viewProduct model.fullScreen model.translations product
 
                             Failure error ->
-                                viewFetchError model.fullScreen (errorMessage error)
+                                viewFetchError model (errorMessage error)
 
                             _ ->
                                 viewLoading
@@ -1655,7 +1697,7 @@ view model =
                                 viewEvent model nestedRoute event
 
                             Failure error ->
-                                viewFetchError model.fullScreen (errorMessage error)
+                                viewFetchError model (errorMessage error)
 
                             _ ->
                                 viewLoading
@@ -1667,21 +1709,21 @@ viewNotReady fullScreen message =
     p [ classList [ ( "p-3", fullScreen ) ] ] [ text message ]
 
 
-viewFetchError : Bool -> String -> Html Msg
-viewFetchError fullScreen message =
+viewFetchError : Model -> String -> Html Msg
+viewFetchError { fullScreen, hash } message =
     div
         [ classList [ ( "p-3", fullScreen ) ] ]
         [ p [] [ text message ]
-        , button [ class "btn btn-primary", onClick ReloadRoute ] [ text "Reload" ]
+        , button [ class "btn btn-primary", onClick (HashChanged True hash) ] [ text "Reload" ]
         ]
 
 
 viewItems : Model -> List Item -> Html Msg
-viewItems { flags, fullScreen, page, translations, search } items =
+viewItems { flags, fullScreen, itemFilter, translations } items =
     let
         viewPaging =
             div [ class "d-flex" ]
-                [ if page > 1 then
+                [ if itemFilter.page > 1 then
                     button [ class "btn btn-primary btn-sm mr-1", onClick (IncrementPageBy -1) ] [ text "< Previous" ]
 
                   else
@@ -1693,18 +1735,21 @@ viewItems { flags, fullScreen, page, translations, search } items =
                     text ""
                 ]
 
+        viewSeasonDropDown =
+            div [] [ text "season" ]
+
         filteredItems =
-            case String.trim search of
+            case String.trim itemFilter.search of
                 "" ->
                     items
 
                 _ ->
                     let
                         matches item =
-                            String.contains search (String.toLower item.name)
+                            String.contains itemFilter.search (String.toLower item.name)
                                 || (case item.location of
                                         Just location ->
-                                            String.contains search (String.toLower location)
+                                            String.contains itemFilter.search (String.toLower location)
 
                                         Nothing ->
                                             False
@@ -1728,6 +1773,20 @@ viewItems { flags, fullScreen, page, translations, search } items =
                     , small [ class "d-block" ] [ text (Maybe.withDefault "" item.summary) ]
                     ]
                  , td [] [ text (Maybe.withDefault "" item.occursOn) ]
+                 , if flags.registration then
+                    td []
+                        [ text
+                            (case item.price of
+                                Just price ->
+                                    price
+
+                                Nothing ->
+                                    ""
+                            )
+                        ]
+
+                   else
+                    text ""
                  ]
                     ++ (if flags.registration then
                             [ td [ class "text-right" ]
@@ -1735,18 +1794,15 @@ viewItems { flags, fullScreen, page, translations, search } items =
                                     Just msg ->
                                         case item.addToCartUrl of
                                             Just url ->
-                                                a [ href url ] [ text (msg ++ " →") ]
+                                                a [ href url, class "btn btn-sm btn-primary" ] [ text msg ]
 
                                             Nothing ->
                                                 text msg
 
                                     Nothing ->
-                                        case ( item.price, item.addToCartUrl, item.addToCartText ) of
-                                            ( Just price, Just addToCartUrl, Just addToCartText ) ->
-                                                div []
-                                                    [ a [ href addToCartUrl ] [ text (addToCartText ++ " →") ]
-                                                    , small [ class "d-block" ] [ text price ]
-                                                    ]
+                                        case ( item.addToCartUrl, item.addToCartText ) of
+                                            ( Just addToCartUrl, Just addToCartText ) ->
+                                                a [ href addToCartUrl, class "btn btn-sm btn-primary" ] [ text addToCartText ]
 
                                             _ ->
                                                 text ""
@@ -1758,19 +1814,46 @@ viewItems { flags, fullScreen, page, translations, search } items =
                             ]
                        )
                 )
+
+        seasonOptions =
+            let
+                times =
+                    [ ( 1, "next_season" )
+                    , ( 0, "this_season" )
+                    , ( -1, "Last_season" )
+                    , ( -2, "two_seasons_ago" )
+                    , ( -3, "three_seasons_ago" )
+                    ]
+
+                seasonOption ( delta, label ) =
+                    option
+                        [ value (String.fromInt delta)
+                        , selected (delta == itemFilter.seasonDelta)
+                        ]
+                        [ text (translate translations label) ]
+            in
+            List.map seasonOption times
     in
     div
         [ classList [ ( "p-3", fullScreen ) ] ]
         [ div
-            [ class "d-flex justify-content-between" ]
-            [ div [ class "form-group" ]
+            [ class "d-flex" ]
+            [ div [ class "form-group mr-2" ]
                 [ input
                     [ class "form-control"
                     , placeholder (translate translations "search")
-                    , value search
+                    , value itemFilter.search
                     , onInput UpdateSearch
                     ]
                     []
+                ]
+            , div [ class "form-group" ]
+                [ select
+                    [ class "form-control"
+                    , value (String.fromInt itemFilter.seasonDelta)
+                    , onInput UpdateSeasonDelta
+                    ]
+                    seasonOptions
                 ]
 
             -- I don't think we want the user initiating reloads, unless the initial load fails maybe, but even then I think
@@ -1778,12 +1861,16 @@ viewItems { flags, fullScreen, page, translations, search } items =
             -- , div [ class "d-flex text-right" ]
             -- [ button [ class "btn btn-sm btn-primary mr-2", onClick ReloadRoute ] [ text "Reload" ]
             ]
-        , div
-            [ class "table-responsive" ]
-            [ table
-                [ class "table" ]
-                (List.map viewItem filteredItems)
-            ]
+        , if List.isEmpty filteredItems then
+            text ""
+
+          else
+            div
+                [ class "table-responsive" ]
+                [ table
+                    [ class "table" ]
+                    (List.map viewItem filteredItems)
+                ]
         , viewPaging
         ]
 
@@ -3988,7 +4075,7 @@ port hashChangeReceiver : (String -> msg) -> Sub msg
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    hashChangeReceiver HashChanged
+    hashChangeReceiver (HashChanged False)
 
 
 
