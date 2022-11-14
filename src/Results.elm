@@ -854,11 +854,6 @@ translate translationsData key =
             key
 
 
-isLocalMode : String -> Bool
-isLocalMode url =
-    String.contains "localhost" url
-
-
 colorNameToRGB : String -> String
 colorNameToRGB color =
     case color of
@@ -1003,9 +998,15 @@ baseUrl : Flags -> String
 baseUrl { host, lang } =
     let
         devUrl =
+            -- Development
             "http://api.curling.test:3000/" ++ Maybe.withDefault "en" lang
 
         productionUrl =
+            -- Production without caching
+            "https://api.curling.io/" ++ Maybe.withDefault "en" lang
+
+        productionCachedUrl =
+            -- Production cached via CDN (Fastly)
             "https://api-curlingio.global.ssl.fastly.net/" ++ Maybe.withDefault "en" lang
     in
     case host of
@@ -1013,11 +1014,14 @@ baseUrl { host, lang } =
             if String.contains "localhost" h || String.contains ".curling.test" h then
                 devUrl
 
-            else
+            else if String.contains ".curling.io" h then
                 productionUrl
 
+            else
+                productionCachedUrl
+
         Nothing ->
-            productionUrl
+            productionCachedUrl
 
 
 baseClubUrl : Flags -> String
@@ -1051,10 +1055,6 @@ getEventMaybe { flags, event } hash reload =
                 ( Loading, getEvent flags eventId )
 
             else
-                let
-                    _ =
-                        Debug.log "Load" "Event"
-                in
                 case event of
                     Success event_ ->
                         if event_.id /= eventId then
@@ -1544,9 +1544,6 @@ update msg model =
 
                 ( product, productCmd ) =
                     getProductMaybe model hash
-
-                _ =
-                    Debug.log "hash changed:" hash
             in
             ( { model
                 | hash = hash
