@@ -9,14 +9,14 @@ TODO
 ## Installing Dependencies
 
 ```
-yarn
+npm
 ```
 
 
 ## Running It
 
 ```
-yarn start
+npm start
 ```
 
 
@@ -29,10 +29,6 @@ Compile for production by optimizing and minimizing using:
 ```
 
 Deploy is simply pushing the updated prod.js and prod.min.js in master up to github.
-
-
-## Source
-<https://github.com/pairshaped/curlingio-results>
 
 
 ## Copyright and License
