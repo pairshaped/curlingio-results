@@ -27,7 +27,7 @@ gridSize =
 
 timeBetweenReloads : Int
 timeBetweenReloads =
-    30
+    10
 
 
 type alias Model =
@@ -1575,7 +1575,7 @@ update msg model =
         Tick _ ->
             let
                 newReloadIn =
-                    max 0 (model.reloadIn - 5)
+                    max 0 (model.reloadIn - 1)
             in
             ( { model | reloadIn = newReloadIn }, Cmd.none )
 
@@ -1653,7 +1653,7 @@ update msg model =
             ( updatedModel, getItems model.flags updatedModel.itemFilter )
 
         GotEvent response ->
-            ( { model | event = response }
+            ( { model | event = response, reloadIn = timeBetweenReloads }
             , Cmd.none
             )
 
@@ -1705,7 +1705,7 @@ view model =
                 []
             )
         )
-        [ viewReloadButton model.fullScreen model.reloadIn
+        [ viewReloadButton model
         , div
             [ style "cursor" "pointer"
             , style "position" "absolute"
@@ -1773,42 +1773,47 @@ view model =
         ]
 
 
-viewReloadButton : Bool -> Int -> Html Msg
-viewReloadButton fullScreen reloadIn =
-    button
-        [ style "position" "absolute"
-        , style "top"
-            (if fullScreen then
-                "5px"
+viewReloadButton : Model -> Html Msg
+viewReloadButton { flags, hash, fullScreen, reloadIn } =
+    case toRoute flags.defaultEventSection hash of
+        EventRoute _ _ ->
+            button
+                [ style "position" "absolute"
+                , style "top"
+                    (if fullScreen then
+                        "5px"
 
-             else
-                "-5px"
-            )
-        , style "right"
-            (if fullScreen then
-                "50px"
+                     else
+                        "-5px"
+                    )
+                , style "right"
+                    (if fullScreen then
+                        "50px"
 
-             else
-                "40px"
-            )
-        , onClick Reload
-        , classList
-            [ ( "btn", True )
-            , ( "btn-sm", True )
-            , ( "d-print-none", True )
-            , ( "btn-default", reloadIn > 0 )
-            , ( "btn-link", reloadIn == 0 )
-            ]
-        , disabled (reloadIn > 0)
-        ]
-        [ text
-            (if reloadIn > 0 then
-                "Reload data in " ++ String.fromInt reloadIn ++ "s"
+                     else
+                        "40px"
+                    )
+                , onClick Reload
+                , classList
+                    [ ( "btn", True )
+                    , ( "btn-sm", True )
+                    , ( "d-print-none", True )
+                    , ( "btn-default", reloadIn > 0 )
+                    , ( "btn-link", reloadIn == 0 )
+                    ]
+                , disabled (reloadIn > 0)
+                ]
+                [ text
+                    (if reloadIn > 0 then
+                        "Reloadable in " ++ String.fromInt reloadIn ++ "s"
 
-             else
-                "Reload data"
-            )
-        ]
+                     else
+                        "Reload"
+                    )
+                ]
+
+        _ ->
+            text ""
 
 
 viewNotReady : Bool -> String -> Html Msg
@@ -4145,7 +4150,7 @@ subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
         [ hashChangeReceiver (HashChanged False)
-        , Time.every 5000 Tick
+        , Time.every 1000 Tick
         ]
 
 
