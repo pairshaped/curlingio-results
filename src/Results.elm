@@ -3,7 +3,7 @@ port module Results exposing (init)
 import Browser
 import CustomSvg exposing (..)
 import Html exposing (Html, a, button, caption, div, h3, h4, h5, h6, i, img, input, label, li, nav, ol, option, p, select, small, span, strong, sup, table, tbody, td, text, th, thead, tr, u, ul)
-import Html.Attributes exposing (alt, attribute, class, classList, colspan, href, id, placeholder, rowspan, selected, src, style, target, title, type_, value)
+import Html.Attributes exposing (alt, attribute, class, classList, colspan, disabled, href, id, placeholder, rowspan, selected, src, style, target, title, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
@@ -11,6 +11,7 @@ import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import List.Extra
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
+import Time
 import Url
 import Url.Parser exposing ((</>), Parser)
 
@@ -24,6 +25,11 @@ gridSize =
     50
 
 
+timeBetweenReloads : Int
+timeBetweenReloads =
+    30
+
+
 type alias Model =
     { flags : Flags
     , hash : String
@@ -35,6 +41,7 @@ type alias Model =
     , event : WebData Event
     , scoringHilight : Maybe ScoringHilight
     , errorMsg : Maybe String
+    , reloadIn : Int
     }
 
 
@@ -954,7 +961,7 @@ init flags_ =
                             hash
 
                 newModel =
-                    Model flags newHash False NotAsked NotAsked (ItemFilter 1 0 "") NotAsked NotAsked Nothing Nothing
+                    Model flags newHash False NotAsked NotAsked (ItemFilter 1 0 "") NotAsked NotAsked Nothing Nothing timeBetweenReloads
             in
             ( newModel
             , Cmd.batch
@@ -970,7 +977,7 @@ init flags_ =
                 flags =
                     Flags Nothing Nothing Nothing "" LeaguesSection False [] Nothing Nothing
             in
-            ( Model flags "" False NotAsked NotAsked (ItemFilter 1 0 "") NotAsked NotAsked Nothing (Just (Decode.errorToString error))
+            ( Model flags "" False NotAsked NotAsked (ItemFilter 1 0 "") NotAsked NotAsked Nothing (Just (Decode.errorToString error)) 0
             , Cmd.none
             )
 
@@ -1217,6 +1224,46 @@ eventSections excludeEventSections event =
     [ "details", "registrations", "spares", "draws", "stages", "teams", "reports" ]
         |> List.filter included
         |> List.filter hasData
+
+
+eventSectionForRoute : NestedEventRoute -> String
+eventSectionForRoute route =
+    case route of
+        DetailsRoute ->
+            "details"
+
+        RegistrationsRoute ->
+            "registrations"
+
+        SparesRoute ->
+            "spares"
+
+        DrawsRoute ->
+            "draws"
+
+        DrawRoute _ ->
+            "draws"
+
+        StagesRoute ->
+            "stages"
+
+        StageRoute _ ->
+            "stages"
+
+        GameRoute _ ->
+            "draws"
+
+        TeamsRoute ->
+            "teams"
+
+        TeamRoute _ ->
+            "teams"
+
+        ReportsRoute ->
+            "reports"
+
+        ReportRoute _ ->
+            "reports"
 
 
 gamesForTeam : List Game -> Team -> List Game
@@ -1508,8 +1555,10 @@ roundTwoDecimal num =
 
 
 type Msg
-    = ToggleFullScreen
+    = Tick Time.Posix
+    | ToggleFullScreen
     | HashChanged Bool String
+    | Reload
     | GotTranslations (WebData (List Translation))
     | GotItems (WebData (List Item))
     | IncrementPageBy Int
@@ -1523,6 +1572,13 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        Tick _ ->
+            let
+                newReloadIn =
+                    max 0 (model.reloadIn - 5)
+            in
+            ( { model | reloadIn = newReloadIn }, Cmd.none )
+
         ToggleFullScreen ->
             ( { model | fullScreen = not model.fullScreen }, Cmd.none )
 
@@ -1559,6 +1615,9 @@ update msg model =
                 , eventCmd
                 ]
             )
+
+        Reload ->
+            update (HashChanged True model.hash) { model | reloadIn = timeBetweenReloads }
 
         GotTranslations response ->
             ( { model | translations = response, errorMsg = Nothing }, Cmd.none )
@@ -1646,11 +1705,24 @@ view model =
                 []
             )
         )
-        [ div
+        [ viewReloadButton model.fullScreen model.reloadIn
+        , div
             [ style "cursor" "pointer"
             , style "position" "absolute"
-            , style "top" "10px"
-            , style "right" "10px"
+            , style "top"
+                (if model.fullScreen then
+                    "10px"
+
+                 else
+                    "0"
+                )
+            , style "right"
+                (if model.fullScreen then
+                    "10px"
+
+                 else
+                    "0"
+                )
             , onClick ToggleFullScreen
             , class "d-print-none"
             ]
@@ -1701,6 +1773,44 @@ view model =
         ]
 
 
+viewReloadButton : Bool -> Int -> Html Msg
+viewReloadButton fullScreen reloadIn =
+    button
+        [ style "position" "absolute"
+        , style "top"
+            (if fullScreen then
+                "5px"
+
+             else
+                "-5px"
+            )
+        , style "right"
+            (if fullScreen then
+                "50px"
+
+             else
+                "40px"
+            )
+        , onClick Reload
+        , classList
+            [ ( "btn", True )
+            , ( "btn-sm", True )
+            , ( "d-print-none", True )
+            , ( "btn-default", reloadIn > 0 )
+            , ( "btn-link", reloadIn == 0 )
+            ]
+        , disabled (reloadIn > 0)
+        ]
+        [ text
+            (if reloadIn > 0 then
+                "Reload data in " ++ String.fromInt reloadIn ++ "s"
+
+             else
+                "Reload data"
+            )
+        ]
+
+
 viewNotReady : Bool -> String -> Html Msg
 viewNotReady fullScreen message =
     p [ classList [ ( "p-3", fullScreen ) ] ] [ text message ]
@@ -1711,7 +1821,7 @@ viewFetchError { fullScreen, hash } message =
     div
         [ classList [ ( "p-3", fullScreen ) ] ]
         [ p [] [ text message ]
-        , button [ class "btn btn-primary", onClick (HashChanged True hash) ] [ text "Reload" ]
+        , button [ class "btn btn-primary", onClick Reload ] [ text "Reload" ]
         ]
 
 
@@ -1852,11 +1962,6 @@ viewItems { flags, fullScreen, itemFilter, translations } items =
                     ]
                     seasonOptions
                 ]
-
-            -- I don't think we want the user initiating reloads, unless the initial load fails maybe, but even then I think
-            -- we're better off having a ticker doing reloads every 30s if they're on an event.
-            -- , div [ class "d-flex text-right" ]
-            -- [ button [ class "btn btn-sm btn-primary mr-2", onClick ReloadRoute ] [ text "Reload" ]
             ]
         , if List.isEmpty filteredItems then
             text ""
@@ -1954,42 +2059,7 @@ viewEvent { flags, translations, scoringHilight, fullScreen } nestedRoute event 
             let
                 isActiveRoute =
                     -- TODO: This needs a bit of work. I don't like the string pattern matching, would prefer patterning on toRoute result.
-                    case nestedRoute of
-                        DetailsRoute ->
-                            eventSection == "details"
-
-                        RegistrationsRoute ->
-                            eventSection == "registrations"
-
-                        SparesRoute ->
-                            eventSection == "spares"
-
-                        DrawsRoute ->
-                            eventSection == "draws"
-
-                        DrawRoute _ ->
-                            eventSection == "draws"
-
-                        StagesRoute ->
-                            eventSection == "stages"
-
-                        StageRoute _ ->
-                            eventSection == "stages"
-
-                        GameRoute _ ->
-                            eventSection == "draws"
-
-                        TeamsRoute ->
-                            eventSection == "teams"
-
-                        TeamRoute _ ->
-                            eventSection == "teams"
-
-                        ReportsRoute ->
-                            eventSection == "reports"
-
-                        ReportRoute _ ->
-                            eventSection == "reports"
+                    eventSection == eventSectionForRoute nestedRoute
 
                 newPath =
                     "#/events/" ++ String.fromInt event.id ++ "/" ++ eventSection
@@ -2008,8 +2078,9 @@ viewEvent { flags, translations, scoringHilight, fullScreen } nestedRoute event 
     div [ classList [ ( "p-3", fullScreen ) ] ]
         [ h3 [ class "mb-3 d-none d-md-block" ] [ text event.name ]
         , h6 [ class "mb-3 d-md-none" ] [ text event.name ]
-        , ul [ class "nav nav-pills mb-3" ]
+        , ul [ class "nav nav-pills d-print-none mb-3" ]
             (List.map viewNavItem (eventSections flags.excludeEventSections event))
+        , h4 [ class "d-none d-print-block" ] [ text (translate translations (eventSectionForRoute nestedRoute)) ]
         , case nestedRoute of
             DetailsRoute ->
                 viewDetails translations event
@@ -3809,7 +3880,7 @@ viewReportScoringAnalysisByHammer translations event =
                     in
                     tr []
                         [ td []
-                            [ text team.name ]
+                            [ a [ href (teamUrl event.id team) ] [ text team.name ] ]
                         , td [ class "text-right" ]
                             [ text (String.fromInt gamesCount) ]
                         , td [ class "text-right" ]
@@ -4072,7 +4143,10 @@ port hashChangeReceiver : (String -> msg) -> Sub msg
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    hashChangeReceiver (HashChanged False)
+    Sub.batch
+        [ hashChangeReceiver (HashChanged False)
+        , Time.every 5000 Tick
+        ]
 
 
 
