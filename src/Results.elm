@@ -147,6 +147,7 @@ type alias Event =
     , sponsor : Maybe Sponsor
     , startsOn : String
     , endsOn : String
+    , state : EventState
     , noRegistrationMessage : Maybe String
     , registrationOpensAt : Maybe String
     , registrationClosesAt : Maybe String
@@ -167,6 +168,12 @@ type alias Event =
     , draws : List Draw
     , games : List Game
     }
+
+
+type EventState
+    = EventStatePending
+    | EventStateActive
+    | EventStateComplete
 
 
 type alias Sponsor =
@@ -443,6 +450,23 @@ decodeProduct =
 
 decodeEvent : Decoder Event
 decodeEvent =
+    let
+        decodeEventState : Decoder EventState
+        decodeEventState =
+            string
+                |> Decode.andThen
+                    (\str ->
+                        case String.toLower str of
+                            "pending" ->
+                                Decode.succeed EventStatePending
+
+                            "active" ->
+                                Decode.succeed EventStateActive
+
+                            _ ->
+                                Decode.succeed EventStateComplete
+                    )
+    in
     Decode.succeed Event
         |> required "id" int
         |> required "name" string
@@ -454,6 +478,7 @@ decodeEvent =
         |> optional "sponsor" (nullable decodeSponsor) Nothing
         |> required "starts_on" string
         |> required "ends_on" string
+        |> optional "state" decodeEventState EventStateComplete
         |> optional "no_registration_message" (nullable string) Nothing
         |> optional "registration_opens_at" (nullable string) Nothing
         |> optional "registration_closes_at" (nullable string) Nothing
@@ -1774,43 +1799,52 @@ view model =
 
 
 viewReloadButton : Model -> Html Msg
-viewReloadButton { flags, hash, fullScreen, reloadIn } =
+viewReloadButton { flags, hash, fullScreen, reloadIn, event } =
     case toRoute flags.defaultEventSection hash of
         EventRoute _ _ ->
-            button
-                [ style "position" "absolute"
-                , style "top"
-                    (if fullScreen then
-                        "5px"
+            case event of
+                Success event_ ->
+                    if event_.state == EventStateActive && event_.endScoresEnabled then
+                        button
+                            [ style "position" "absolute"
+                            , style "top"
+                                (if fullScreen then
+                                    "5px"
 
-                     else
-                        "-5px"
-                    )
-                , style "right"
-                    (if fullScreen then
-                        "50px"
+                                 else
+                                    "-5px"
+                                )
+                            , style "right"
+                                (if fullScreen then
+                                    "50px"
 
-                     else
-                        "40px"
-                    )
-                , onClick Reload
-                , classList
-                    [ ( "btn", True )
-                    , ( "btn-sm", True )
-                    , ( "d-print-none", True )
-                    , ( "btn-default", reloadIn > 0 )
-                    , ( "btn-link", reloadIn == 0 )
-                    ]
-                , disabled (reloadIn > 0)
-                ]
-                [ text
-                    (if reloadIn > 0 then
-                        "Reloadable in " ++ String.fromInt reloadIn ++ "s"
+                                 else
+                                    "40px"
+                                )
+                            , onClick Reload
+                            , classList
+                                [ ( "btn", True )
+                                , ( "btn-sm", True )
+                                , ( "d-print-none", True )
+                                , ( "btn-default", reloadIn > 0 )
+                                , ( "btn-link", reloadIn == 0 )
+                                ]
+                            , disabled (reloadIn > 0)
+                            ]
+                            [ text
+                                (if reloadIn > 0 then
+                                    "Reloadable in " ++ String.fromInt reloadIn ++ "s"
 
-                     else
-                        "Reload"
-                    )
-                ]
+                                 else
+                                    "Reload"
+                                )
+                            ]
+
+                    else
+                        text ""
+
+                _ ->
+                    text ""
 
         _ ->
             text ""
