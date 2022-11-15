@@ -35,7 +35,7 @@ URL for them above, as well as copies of any plain-text lines
 beginning with `Required Notice:` that the licensor provided
 with the software.  For example:
 
-> Required Notice: Copyright 2508941, Inc. (http://curling.io)
+> Required Notice: Copyright 2508941 Ontario, Inc. (http://curling.io)
 
 ## Changes and New Works License
 
