@@ -37,4 +37,4 @@ Deploy is simply pushing the updated prod.js and prod.min.js in master up to git
 
 ## Copyright and License
 
-See LICENSE.md
+[See LICENSE.md](LICENSE.md)
