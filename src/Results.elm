@@ -1833,7 +1833,7 @@ viewReloadButton { flags, hash, fullScreen, reloadIn, event } =
                             ]
                             [ text
                                 (if reloadIn > 0 then
-                                    "Reloadable in " ++ String.fromInt reloadIn ++ "s"
+                                    "Reload in " ++ String.fromInt reloadIn ++ "s"
 
                                  else
                                     "Reload"
