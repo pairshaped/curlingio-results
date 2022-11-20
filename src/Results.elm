@@ -166,7 +166,6 @@ type alias Event =
     , spares : List Spare
     , stages : List Stage
     , draws : List Draw
-    , games : List Game
     }
 
 
@@ -289,7 +288,7 @@ type alias Draw =
     , startsAt : String
     , label : String
     , attendance : Int
-    , drawSheets : List (Maybe String)
+    , drawSheets : List (Maybe Game)
     }
 
 
@@ -497,7 +496,6 @@ decodeEvent =
         |> optional "spares" (list decodeSpare) []
         |> optional "stages" (list decodeStage) []
         |> optional "draws" (list decodeDraw) []
-        |> optional "games" (list decodeGame) []
 
 
 decodeTeam : Decoder Team
@@ -686,7 +684,7 @@ decodeDraw =
         |> required "starts_at" string
         |> required "label" string
         |> optional "attendance" int 0
-        |> required "draw_sheets" (list (nullable string))
+        |> required "draw_sheets" (list (nullable decodeGame))
 
 
 decodeGame : Decoder Game
@@ -1221,7 +1219,7 @@ eventSections excludeEventSections event =
                     not (List.isEmpty event.teams)
 
                 hasCompletedGames =
-                    List.any (\g -> g.state == GameComplete) event.games
+                    List.any (\g -> g.state == GameComplete) (gamesFromDraws event.draws)
             in
             case section of
                 "registrations" ->
@@ -1402,70 +1400,32 @@ teamHasDetails team =
         || (team.contactPhone /= Nothing)
 
 
-gameNameWithResult : List Team -> Game -> String
-gameNameWithResult teams game =
-    case game.state of
-        GameComplete ->
-            let
-                teamNameForSide side =
-                    List.Extra.find (\t -> Just t.id == side.teamId) teams
-                        |> Maybe.map .shortName
-
-                winningSide =
-                    List.Extra.find (\s -> s.result == Just SideResultWon) game.sides
-
-                losingSide =
-                    case winningSide of
-                        Just winningSide_ ->
-                            List.Extra.find (\s -> s.teamId /= winningSide_.teamId) game.sides
-
-                        Nothing ->
-                            Nothing
-
-                tied =
-                    List.any (\s -> s.result == Just SideResultTied) game.sides
-
-                sortedTeamNames =
-                    if tied then
-                        List.map teamNameForSide game.sides
-                            |> List.filterMap identity
-
-                    else
-                        [ winningSide, losingSide ]
-                            |> List.filterMap identity
-                            |> List.map teamNameForSide
-                            |> List.filterMap identity
-            in
-            String.join
-                (if tied then
-                    " = "
-
-                 else
-                    " > "
-                )
-                sortedTeamNames
-
-        _ ->
-            game.name
-
-
+findTeamForSide : List Team -> Side -> Maybe Team
 findTeamForSide teams side =
-    let
-        findTeamById teamId =
-            List.Extra.find (\team -> team.id == teamId) teams
-    in
-    side.teamId
-        |> Maybe.andThen findTeamById
+    List.Extra.find (\t -> Just t.id == side.teamId) teams
 
 
 sheetNameForGame : Event -> Game -> String
 sheetNameForGame event game =
     let
+        drawHasGame : Draw -> Bool
         drawHasGame draw =
-            List.any (\ds -> ds == Just game.id) draw.drawSheets
+            draw.drawSheets
+                |> List.filterMap identity
+                |> List.any (\g -> g.id == game.id)
 
+        sheetNumber : Draw -> Maybe Int
         sheetNumber draw =
-            List.Extra.elemIndex (Just game.id) draw.drawSheets
+            let
+                matching g =
+                    case g of
+                        Just g_ ->
+                            g_.id == game.id
+
+                        Nothing ->
+                            False
+            in
+            List.Extra.findIndex matching draw.drawSheets
     in
     case List.Extra.find drawHasGame event.draws of
         Just draw ->
@@ -1573,6 +1533,37 @@ stolenEnds for games team =
 roundTwoDecimal : Float -> Float
 roundTwoDecimal num =
     toFloat (round (num * 100)) / 100
+
+
+gamesFromDraws : List Draw -> List Game
+gamesFromDraws draws =
+    List.map .drawSheets draws
+        |> List.concat
+        |> List.filterMap identity
+
+
+findGameById : String -> List Draw -> Maybe Game
+findGameById id draws =
+    gamesFromDraws draws
+        |> List.Extra.find (\g -> g.id == id)
+
+
+drawWithGameId : String -> List Draw -> Maybe Draw
+drawWithGameId id draws =
+    let
+        hasGame draw =
+            let
+                matching drawSheet =
+                    case drawSheet of
+                        Just game ->
+                            game.id == id
+
+                        Nothing ->
+                            False
+            in
+            List.any matching draw.drawSheets
+    in
+    List.Extra.find hasGame draws
 
 
 
@@ -2144,14 +2135,10 @@ viewEvent { flags, translations, scoringHilight, fullScreen } nestedRoute event 
             GameRoute gameId ->
                 let
                     findDraw =
-                        let
-                            hasGame draw =
-                                List.any (\ds -> ds == Just gameId) draw.drawSheets
-                        in
-                        List.Extra.find hasGame event.draws
+                        drawWithGameId gameId event.draws
 
                     findGame =
-                        List.Extra.find (\g -> g.id == gameId) event.games
+                        findGameById gameId event.draws
                 in
                 case ( findDraw, findGame ) of
                     ( Just draw, Just game ) ->
@@ -2497,10 +2484,12 @@ viewSpares translations spares =
 viewDrawSchedule : WebData (List Translation) -> Maybe ScoringHilight -> Event -> Html Msg
 viewDrawSchedule translations scoringHilight event =
     let
+        isDrawActive : Draw -> Bool
         isDrawActive draw =
             let
-                activeGame gameId =
-                    List.any (\g -> g.id == gameId && g.state == GameActive) event.games
+                activeGame : Game -> Bool
+                activeGame game =
+                    List.any (\g -> g.id == game.id && g.state == GameActive) (gamesFromDraws event.draws)
             in
             -- Are there any games in the draw that are active
             List.filterMap identity draw.drawSheets
@@ -2508,6 +2497,7 @@ viewDrawSchedule translations scoringHilight event =
                 |> List.isEmpty
                 |> not
 
+        drawLink : Draw -> String -> Html Msg
         drawLink draw label =
             if event.endScoresEnabled then
                 a [ href (drawUrl event.id draw) ] [ text label ]
@@ -2515,45 +2505,93 @@ viewDrawSchedule translations scoringHilight event =
             else
                 text label
 
+        gameLink : Game -> Html Msg
         gameLink game =
-            case game of
-                Just game_ ->
-                    let
-                        stateClass =
-                            case game_.state of
-                                GamePending ->
-                                    "text-primary"
+            let
+                stateClass =
+                    case game.state of
+                        GamePending ->
+                            "text-primary"
 
-                                GameComplete ->
-                                    "text-secondary"
+                        GameComplete ->
+                            "text-secondary"
 
-                                GameActive ->
-                                    "text-primary font-weight-bold"
-                    in
-                    if event.endScoresEnabled then
-                        a
-                            [ href (gameUrl event.id game_)
-                            , class stateClass
-                            , title game_.name
-                            ]
-                            [ text (gameNameWithResult event.teams game_) ]
+                        GameActive ->
+                            "text-primary font-weight-bold"
 
-                    else
-                        text (gameNameWithResult event.teams game_)
+                gameNameWithResult =
+                    case game.state of
+                        GameComplete ->
+                            let
+                                teamNameForSide side =
+                                    findTeamForSide event.teams side
+                                        |> Maybe.map .shortName
 
-                Nothing ->
-                    text ""
+                                winningSide =
+                                    List.Extra.find (\s -> s.result == Just SideResultWon) game.sides
+
+                                losingSide =
+                                    case winningSide of
+                                        Just winningSide_ ->
+                                            List.Extra.find (\s -> s.teamId /= winningSide_.teamId) game.sides
+
+                                        Nothing ->
+                                            Nothing
+
+                                tied =
+                                    List.any (\s -> s.result == Just SideResultTied) game.sides
+
+                                sortedTeamNames =
+                                    if tied then
+                                        List.map teamNameForSide game.sides
+                                            |> List.filterMap identity
+
+                                    else
+                                        [ winningSide, losingSide ]
+                                            |> List.filterMap identity
+                                            |> List.map teamNameForSide
+                                            |> List.filterMap identity
+                            in
+                            String.join
+                                (String.toLower
+                                    (if tied then
+                                        " " ++ translate translations "tied" ++ " "
+
+                                     else
+                                        " " ++ translate translations "defeated" ++ " "
+                                    )
+                                )
+                                sortedTeamNames
+
+                        _ ->
+                            game.name
+            in
+            if event.endScoresEnabled then
+                a
+                    [ href (gameUrl event.id game)
+                    , class stateClass
+                    , title gameNameWithResult
+                    ]
+                    [ text game.name ]
+
+            else
+                a
+                    [ class stateClass
+                    , title gameNameWithResult
+                    ]
+                    [ text game.name ]
 
         viewTableSchedule =
             let
+                viewDrawRow : Draw -> Html Msg
                 viewDrawRow draw =
                     let
+                        viewDrawSheet : Maybe Game -> Html Msg
                         viewDrawSheet drawSheet =
                             td [ class "text-center" ]
                                 [ case drawSheet of
-                                    Just gameId ->
-                                        List.Extra.find (\g -> g.id == gameId) event.games
-                                            |> gameLink
+                                    Just game ->
+                                        gameLink game
 
                                     Nothing ->
                                         text ""
@@ -2586,11 +2624,8 @@ viewDrawSchedule translations scoringHilight event =
             let
                 viewDrawListItem draw =
                     let
-                        viewDrawSheet gameId =
-                            li []
-                                [ List.Extra.find (\g -> g.id == gameId) event.games
-                                    |> gameLink
-                                ]
+                        viewDrawSheet game =
+                            li [] [ gameLink game ]
                     in
                     div []
                         [ h6 [ class "mb-0" ] [ drawLink draw (translate translations "draw" ++ " " ++ draw.label) ]
@@ -2676,7 +2711,7 @@ viewStages : WebData (List Translation) -> Event -> Stage -> Html Msg
 viewStages translations event onStage =
     let
         games =
-            List.filter (\g -> g.stageId == onStage.id || Just g.stageId == onStage.parentId) event.games
+            List.filter (\g -> g.stageId == onStage.id || Just g.stageId == onStage.parentId) (gamesFromDraws event.draws)
 
         teams =
             teamsWithGames event.teams games
@@ -2994,23 +3029,14 @@ viewReports translations event =
 viewDraw : WebData (List Translation) -> Maybe ScoringHilight -> Event -> Draw -> Html Msg
 viewDraw translations scoringHilight event draw =
     let
-        viewDrawSheet drawSheet =
-            case drawSheet of
-                Just gameId ->
+        viewDrawSheet game =
+            case game of
+                Just game_ ->
                     let
-                        findGame =
-                            List.Extra.find (\g -> g.id == gameId) event.games
+                        sheetLabel =
+                            sheetNameForGame event game_
                     in
-                    case findGame of
-                        Just game ->
-                            let
-                                sheetLabel =
-                                    sheetNameForGame event game
-                            in
-                            viewGame translations scoringHilight event sheetLabel False draw game
-
-                        Nothing ->
-                            text ""
+                    viewGame translations scoringHilight event sheetLabel False draw game_
 
                 Nothing ->
                     text ""
@@ -3441,9 +3467,7 @@ viewTeam translations event team =
 
         viewTeamSchedule =
             let
-                findGame gameId =
-                    List.Extra.find (\g -> g.id == gameId) event.games
-
+                hasSideForTeam : Game -> Bool
                 hasSideForTeam game =
                     List.any (\s -> s.teamId == Just team.id) game.sides
 
@@ -3451,8 +3475,6 @@ viewTeam translations event team =
                     let
                         hasGameForTeam draw =
                             List.filterMap identity draw.drawSheets
-                                |> List.map findGame
-                                |> List.filterMap identity
                                 |> List.filter hasSideForTeam
                                 |> List.isEmpty
                                 |> not
@@ -3464,8 +3486,6 @@ viewTeam translations event team =
                     let
                         games =
                             List.filterMap identity draw.drawSheets
-                                |> List.map findGame
-                                |> List.filterMap identity
                                 |> List.filter hasSideForTeam
 
                         viewTeamGame : Game -> Html Msg
@@ -3711,7 +3731,7 @@ viewTeamScoringAnalysis event team =
                 participatedIn sides =
                     List.any (\s -> s.teamId == Just team.id) sides
             in
-            List.filter (\g -> g.state /= GamePending) event.games
+            List.filter (\g -> g.state /= GamePending) (gamesFromDraws event.draws)
                 |> List.filter (\g -> participatedIn g.sides)
 
         sidesFor =
@@ -3855,7 +3875,7 @@ viewReportScoringAnalysisByHammer translations event =
         games : List Game
         games =
             -- Not pending
-            List.filter (\g -> g.state /= GamePending) event.games
+            List.filter (\g -> g.state /= GamePending) (gamesFromDraws event.draws)
 
         viewByHammer : Bool -> Html Msg
         viewByHammer withHammer =
@@ -4040,7 +4060,7 @@ viewReportCompetitionMatrix translations event =
             let
                 -- Only the games participating in this stage.
                 games =
-                    List.filter (\g -> g.stageId == stage.id) event.games
+                    List.filter (\g -> g.stageId == stage.id) (gamesFromDraws event.draws)
 
                 -- Only the teams participating in this stage.
                 teams =
@@ -4154,7 +4174,11 @@ viewReport translations scoringHilight event report =
             viewReportAttendance translations event.draws
 
         "scoring_analysis" ->
-            viewReportScoringAnalysis translations scoringHilight event (teamsWithGames event.teams event.games)
+            let
+                games =
+                    gamesFromDraws event.draws
+            in
+            viewReportScoringAnalysis translations scoringHilight event (teamsWithGames event.teams games)
 
         "scoring_analysis_by_hammer" ->
             viewReportScoringAnalysisByHammer translations event
