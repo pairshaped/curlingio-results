@@ -1792,10 +1792,17 @@ view model =
 viewReloadButton : Model -> Html Msg
 viewReloadButton { flags, hash, fullScreen, reloadIn, event } =
     case toRoute flags.defaultEventSection hash of
-        EventRoute _ _ ->
+        EventRoute _ nestedRoute ->
             case event of
                 Success event_ ->
-                    if event_.state == EventStateActive && event_.endScoresEnabled then
+                    let
+                        reloadEnabled =
+                            -- Only if the event is active, end scores are enabled, and we're on a route / screen that is meaningfull to reload.
+                            (event_.state == EventStateActive)
+                                && event_.endScoresEnabled
+                                && not (List.member nestedRoute [ DetailsRoute, SparesRoute, TeamsRoute, ReportsRoute ])
+                    in
+                    if reloadEnabled then
                         button
                             [ style "position" "absolute"
                             , style "top"
