@@ -1,9 +1,11 @@
-# Results for [Curling I/O](https://curling.io)
+# Results Widget for [Curling I/O](https://curling.io)
 
 
-## Features
+## Overview
 
-TODO
+Embeddable javscript widget to display a curling club's leagues, competitions, and products pulled from the Curling I/O API.
+
+For leagues and competitions it will display brakcets, standings, schedule, scores, end scores, and shot by shot results as relevant.
 
 
 ## Installing Dependencies
