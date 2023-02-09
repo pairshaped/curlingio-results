@@ -2880,12 +2880,12 @@ viewStages translations event onStage =
                                         [ div
                                             [ class "d-flex w-100"
                                             , style "height" "20px"
-                                            , style "font-size" "12px"
                                             , style "background-color" "rgba(0, 0, 0, 0.3)"
                                             , style "z-index" "200"
                                             ]
                                             [ button
-                                                [ class "d-block flex-fill btn btn-link"
+                                                [ class "d-block flex-fill btn btn-link p-0 m-0"
+                                                , style "font-size" "12px"
                                                 , style "padding-left" "3px"
                                                 , style "color" "white"
                                                 , style "overflow" "hidden"
@@ -3242,7 +3242,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                 label
 
             else
-                button [ class "btn btn-link", onClick (NavigateTo gamePath) ] [ label ]
+                button [ class "btn btn-link p-0 m-0", onClick (NavigateTo gamePath) ] [ label ]
 
         viewGameHilight =
             case scoringHilight of
@@ -3299,7 +3299,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                 [ ol [ class "breadcrumb" ]
                     [ li [ class "breadcrumb-item" ]
                         [ button
-                            [ class "btn btn-link", onClick (NavigateTo drawPath) ]
+                            [ class "btn btn-link p-0 m-0 d-inline align-baseline", onClick (NavigateTo drawPath) ]
                             [ text (translate translations "draw" ++ " " ++ draw.label ++ ": " ++ draw.startsAt) ]
                         ]
                     , li
@@ -3328,8 +3328,11 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                                 text ""
 
                               else
-                                small [ class "ml-3" ]
-                                    [ button [ class "btn btn-link", onClick (NavigateTo gamePath) ] [ text game.name ]
+                                button
+                                    [ class "btn btn-link p-0 m-0 d-inline align-baseline"
+                                    , onClick (NavigateTo gamePath)
+                                    ]
+                                    [ small [ class "ml-3" ] [ text game.name ]
                                     ]
                             ]
                          ]
@@ -3619,7 +3622,12 @@ viewReportScoringAnalysis translations scoringHilight event teams =
             [ class "d-flex justify-content-between" ]
             [ h4 [ class "mb-3" ] [ text (translate translations "scoring_analysis") ]
             , if isForGame then
-                button [ class "btn btn-link", onClick (NavigateTo fullReportUrl) ] [ small [] [ text (translate translations "full_report" ++ " →") ] ]
+                button
+                    [ class "btn btn-link"
+                    , onClick (NavigateTo fullReportUrl)
+                    ]
+                    [ small [] [ text (translate translations "full_report" ++ " →") ]
+                    ]
 
               else
                 text ""
@@ -3848,10 +3856,10 @@ viewTeamScoringAnalysis event team =
         [ tr []
             [ td [ rowspan 2 ]
                 [ button
-                    [ class "d-block mt-3 btn btn-link"
+                    [ class "d-block mt-3 btn btn-link mb-0 p-0"
                     , onClick (NavigateTo (teamUrl event.id team))
                     ]
-                    [ text team.name ]
+                    [ span [ class "small" ] [ text team.name ] ]
                 ]
             , td [ rowspan 2, class "text-center" ] [ div [ class "mt-3" ] [ text (String.fromInt (List.length games)) ] ]
             , td [ rowspan 2, class "text-center" ] [ div [ class "mt-3" ] [ text (String.fromInt (List.length endsFor)) ] ]
@@ -3955,7 +3963,7 @@ viewReportScoringAnalysisByHammer translations event =
                     in
                     tr []
                         [ td []
-                            [ button [ class "btn btn-link", onClick (NavigateTo (teamUrl event.id team)) ] [ text team.name ] ]
+                            [ button [ class "btn btn-link p-0 m-0", onClick (NavigateTo (teamUrl event.id team)) ] [ text team.name ] ]
                         , td [ class "text-right" ]
                             [ text (String.fromInt gamesCount) ]
                         , td [ class "text-right" ]
@@ -4123,7 +4131,7 @@ viewReportCompetitionMatrix translations event =
                                             gamePath =
                                                 gameUrl event.id game
                                         in
-                                        button [ class "btn btn-link", onClick (NavigateTo gamePath) ] [ text score ]
+                                        button [ class "btn btn-link p-0 m-0", onClick (NavigateTo gamePath) ] [ text score ]
 
                                     Nothing ->
                                         text ""
