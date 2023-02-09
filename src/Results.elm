@@ -54,7 +54,6 @@ type Route
 type NestedEventRoute
     = DetailsRoute
     | RegistrationsRoute
-    | SparesRoute
     | DrawsRoute
     | DrawRoute Int
     | GameRoute String
@@ -163,7 +162,6 @@ type alias Event =
     , sheetNames : List String
     , teams : List Team
     , registrations : List Registration
-    , spares : List Spare
     , stages : List Stage
     , draws : List Draw
     }
@@ -493,7 +491,6 @@ decodeEvent =
         |> optional "sheet_names" (list string) []
         |> optional "teams" (list decodeTeam) []
         |> optional "registrations" (list decodeRegistration) []
-        |> optional "spares" (list decodeSpare) []
         |> optional "stages" (list decodeStage) []
         |> optional "draws" (list decodeDraw) []
 
@@ -779,33 +776,30 @@ matchRoute defaultEventSection =
 matchNestedEventRoute : Maybe String -> Parser (NestedEventRoute -> a) a
 matchNestedEventRoute defaultEventSection =
     Url.Parser.oneOf
-        [ Url.Parser.map
-            (case defaultEventSection of
-                Just "registrations" ->
-                    RegistrationsRoute
-
-                Just "spares" ->
-                    SparesRoute
-
-                Just "draws" ->
-                    DrawsRoute
-
-                Just "stages" ->
-                    StagesRoute
-
-                Just "teams" ->
-                    TeamsRoute
-
-                Just "reports" ->
-                    ReportsRoute
-
-                _ ->
-                    DetailsRoute
-            )
-            Url.Parser.top
+        -- [ Url.Parser.map
+        --     (case defaultEventSection of
+        --         Just "registrations" ->
+        --             RegistrationsRoute
+        --
+        --         Just "draws" ->
+        --             DrawsRoute
+        --
+        --         Just "stages" ->
+        --             StagesRoute
+        --
+        --         Just "teams" ->
+        --             TeamsRoute
+        --
+        --         Just "reports" ->
+        --             ReportsRoute
+        --
+        --         _ ->
+        --             DetailsRoute
+        --     )
+        --     Url.Parser.top
+        [ Url.Parser.map DetailsRoute Url.Parser.top
         , Url.Parser.map DetailsRoute (Url.Parser.s "details")
         , Url.Parser.map RegistrationsRoute (Url.Parser.s "registrations")
-        , Url.Parser.map SparesRoute (Url.Parser.s "spares")
         , Url.Parser.map DrawsRoute (Url.Parser.s "draws")
         , Url.Parser.map StagesRoute (Url.Parser.s "stages")
         , Url.Parser.map TeamsRoute (Url.Parser.s "teams")
@@ -843,17 +837,17 @@ toRoute defaultEventSection hash =
 
 drawUrl : Int -> Draw -> String
 drawUrl eventId draw =
-    "#/events/" ++ String.fromInt eventId ++ "/draws/" ++ String.fromInt draw.id
+    "/events/" ++ String.fromInt eventId ++ "/draws/" ++ String.fromInt draw.id
 
 
 gameUrl : Int -> Game -> String
 gameUrl eventId game =
-    "#/events/" ++ String.fromInt eventId ++ "/games/" ++ game.id
+    "/events/" ++ String.fromInt eventId ++ "/games/" ++ game.id
 
 
 teamUrl : Int -> Team -> String
 teamUrl eventId team =
-    "#/events/" ++ String.fromInt eventId ++ "/teams/" ++ String.fromInt team.id
+    "/events/" ++ String.fromInt eventId ++ "/teams/" ++ String.fromInt team.id
 
 
 stageUrl : Int -> Stage -> String
@@ -865,7 +859,7 @@ stageUrl eventId stage =
         stageIdStr =
             String.fromInt stage.id
     in
-    "#/events/" ++ String.fromInt eventId ++ "/stages/" ++ String.fromInt stage.id
+    "/events/" ++ String.fromInt eventId ++ "/stages/" ++ String.fromInt stage.id
 
 
 translate : WebData (List Translation) -> String -> String
@@ -968,7 +962,19 @@ init flags_ =
                         eventRouteMaybe =
                             case flags.eventId of
                                 Just eventId ->
-                                    "#/events/" ++ String.fromInt eventId ++ "/draws"
+                                    let
+                                        section =
+                                            case flags.defaultEventSection of
+                                                Nothing ->
+                                                    "details"
+
+                                                Just "" ->
+                                                    "details"
+
+                                                Just defaultEventSection ->
+                                                    defaultEventSection
+                                    in
+                                    "#/events/" ++ String.fromInt eventId ++ "/" ++ section
 
                                 Nothing ->
                                     ""
@@ -1206,9 +1212,6 @@ eventSections excludeEventSections event =
                 hasRegistrations =
                     not (List.isEmpty event.registrations)
 
-                hasSpares =
-                    not (List.isEmpty event.spares)
-
                 hasDraws =
                     not (List.isEmpty event.draws)
 
@@ -1224,9 +1227,6 @@ eventSections excludeEventSections event =
             case section of
                 "registrations" ->
                     hasRegistrations
-
-                "spares" ->
-                    hasSpares
 
                 "draws" ->
                     hasDraws
@@ -1244,7 +1244,7 @@ eventSections excludeEventSections event =
                 _ ->
                     True
     in
-    [ "details", "registrations", "spares", "draws", "stages", "teams", "reports" ]
+    [ "details", "registrations", "draws", "stages", "teams", "reports" ]
         |> List.filter included
         |> List.filter hasData
 
@@ -1257,9 +1257,6 @@ eventSectionForRoute route =
 
         RegistrationsRoute ->
             "registrations"
-
-        SparesRoute ->
-            "spares"
 
         DrawsRoute ->
             "draws"
@@ -1804,7 +1801,7 @@ viewReloadButton { flags, hash, fullScreen, reloadIn, event } =
                             -- Only if the event is active, end scores are enabled, and we're on a route / screen that is meaningfull to reload.
                             (event_.state == EventStateActive)
                                 && event_.endScoresEnabled
-                                && not (List.member nestedRoute [ DetailsRoute, SparesRoute, TeamsRoute, ReportsRoute ])
+                                && not (List.member nestedRoute [ DetailsRoute, TeamsRoute, ReportsRoute ])
                     in
                     if reloadEnabled then
                         button
@@ -2131,9 +2128,6 @@ viewEvent { flags, translations, scoringHilight, fullScreen } nestedRoute event 
             RegistrationsRoute ->
                 viewRegistrations translations event.registrations
 
-            SparesRoute ->
-                viewSpares translations event.spares
-
             DrawsRoute ->
                 viewDrawSchedule translations scoringHilight event
 
@@ -2394,106 +2388,6 @@ viewRegistrations translations registrations =
         ]
 
 
-viewSpares : WebData (List Translation) -> List Spare -> Html Msg
-viewSpares translations spares =
-    let
-        hasPositions =
-            List.any (\s -> not (List.isEmpty s.positions)) spares
-
-        hasNotes =
-            List.any (\s -> s.notes /= Nothing) spares
-
-        hasEmails =
-            List.any (\s -> s.email /= Nothing) spares
-
-        hasPhones =
-            List.any (\s -> s.phone /= Nothing) spares
-
-        viewSpare spare =
-            let
-                positionsToString =
-                    if List.isEmpty spare.positions then
-                        "-"
-
-                    else
-                        String.join ", " spare.positions
-            in
-            tr []
-                [ td [] [ text (Maybe.withDefault "-" spare.curlerName) ]
-                , if hasPositions then
-                    td [] [ text positionsToString ]
-
-                  else
-                    text ""
-                , if hasNotes then
-                    td [] [ text (Maybe.withDefault "-" spare.notes) ]
-
-                  else
-                    text ""
-                , if hasEmails then
-                    td []
-                        [ case spare.email of
-                            Just email ->
-                                a [ href ("mailto:" ++ email) ] [ text email ]
-
-                            Nothing ->
-                                text "-"
-                        ]
-
-                  else
-                    text ""
-                , if hasPhones then
-                    td []
-                        [ case spare.phone of
-                            Just phone ->
-                                a [ href ("tel:" ++ phone) ] [ text phone ]
-
-                            Nothing ->
-                                text "-"
-                        ]
-
-                  else
-                    text ""
-                ]
-    in
-    div []
-        [ if List.isEmpty spares then
-            p [] [ text (translate translations "no_spares") ]
-
-          else
-            div [ class "table-responsive" ]
-                [ table [ class "table" ]
-                    [ thead []
-                        [ tr []
-                            [ th [ style "border-top" "none", style "min-width" "150px" ] [ text (translate translations "curler") ]
-                            , if hasPositions then
-                                th [ style "border-top" "none", style "min-width" "130px" ] [ text (translate translations "position") ]
-
-                              else
-                                text ""
-                            , if hasNotes then
-                                th [ style "border-top" "none", style "min-width" "250px" ] [ text (translate translations "notes") ]
-
-                              else
-                                text ""
-                            , if hasEmails then
-                                th [ style "border-top" "none", style "min-width" "150px" ] [ text (translate translations "email") ]
-
-                              else
-                                text ""
-                            , if hasPhones then
-                                th [ style "border-top" "none", style "min-width" "150px" ] [ text (translate translations "phone") ]
-
-                              else
-                                text ""
-                            ]
-                        ]
-                    , tbody [] (List.map viewSpare spares)
-                    ]
-                ]
-        ]
-
-
 viewDrawSchedule : WebData (List Translation) -> Maybe ScoringHilight -> Event -> Html Msg
 viewDrawSchedule translations scoringHilight event =
     let
@@ -2513,7 +2407,7 @@ viewDrawSchedule translations scoringHilight event =
         drawLink : Draw -> String -> Html Msg
         drawLink draw label =
             if event.endScoresEnabled then
-                button [ class "btn btn-link", onClick (NavigateTo (drawUrl event.id draw)) ] [ text label ]
+                button [ class "btn btn-link p-0 m-0", onClick (NavigateTo (drawUrl event.id draw)) ] [ text label ]
 
             else
                 text label
@@ -2581,7 +2475,7 @@ viewDrawSchedule translations scoringHilight event =
             in
             if event.endScoresEnabled then
                 button
-                    [ class ("btn btn-link " ++ stateClass)
+                    [ class ("btn btn-link p-0 m-0 " ++ stateClass)
                     , title gameNameWithResult
                     , onClick (NavigateTo (gameUrl event.id game))
                     ]
@@ -2670,7 +2564,7 @@ viewTeams translations event =
             tr []
                 [ td []
                     [ if teamHasDetails team then
-                        button [ class "btn btn-link", onClick (NavigateTo (teamUrl event.id team)) ] [ text team.name ]
+                        button [ class "btn btn-link p-0 m-0", onClick (NavigateTo (teamUrl event.id team)) ] [ text team.name ]
 
                       else
                         -- No point in linking to team details if there are no more details.
@@ -2758,7 +2652,7 @@ viewStages translations event onStage =
                         [ td []
                             [ if teamHasDetails teamResult.team then
                                 button
-                                    [ class "btn btn-link"
+                                    [ class "btn btn-link p-0 m-0"
                                     , onClick (NavigateTo (teamUrl event.id teamResult.team))
                                     ]
                                     [ text teamResult.team.name ]
@@ -3023,22 +2917,22 @@ viewReports translations event =
     in
     ul []
         [ if hasAttendance then
-            li [] [ button [ class "btn btn-link", onClick (NavigateTo attendanceLink) ] [ text (translate translations "attendance") ] ]
+            li [] [ button [ class "btn btn-link p-0 m-0", onClick (NavigateTo attendanceLink) ] [ text (translate translations "attendance") ] ]
 
           else
             text ""
-        , li [] [ button [ class "btn btn-link", onClick (NavigateTo competitionMatrixLink) ] [ text (translate translations "competition_matrix") ] ]
+        , li [] [ button [ class "btn btn-link p-0 m-0", onClick (NavigateTo competitionMatrixLink) ] [ text (translate translations "competition_matrix") ] ]
         , if event.endScoresEnabled then
-            li [] [ button [ class "btn btn-link", onClick (NavigateTo scoringAnalysisLink) ] [ text (translate translations "scoring_analysis") ] ]
+            li [] [ button [ class "btn btn-link p-0 m-0", onClick (NavigateTo scoringAnalysisLink) ] [ text (translate translations "scoring_analysis") ] ]
 
           else
             text ""
         , if event.endScoresEnabled then
-            li [] [ button [ class "btn btn-link", onClick (NavigateTo scoringAnalysisByHammerLink) ] [ text (translate translations "scoring_analysis_by_hammer") ] ]
+            li [] [ button [ class "btn btn-link p-0 m-0", onClick (NavigateTo scoringAnalysisByHammerLink) ] [ text (translate translations "scoring_analysis_by_hammer") ] ]
 
           else
             text ""
-        , li [] [ button [ class "btn btn-link", onClick (NavigateTo teamRostersLink) ] [ text (translate translations "team_rosters") ] ]
+        , li [] [ button [ class "btn btn-link p-0 m-0", onClick (NavigateTo teamRostersLink) ] [ text (translate translations "team_rosters") ] ]
         ]
 
 
@@ -3537,7 +3431,7 @@ viewTeam translations event team =
                                     in
                                     case resultText of
                                         Just t ->
-                                            button [ class "btn btn-link", onClick (NavigateTo gamePath) ] [ text t ]
+                                            button [ class "btn btn-link p-0 m-0", onClick (NavigateTo gamePath) ] [ text t ]
 
                                         Nothing ->
                                             text "-"
@@ -3545,7 +3439,7 @@ viewTeam translations event team =
                                 gameScoreLabel =
                                     case gameScore game of
                                         Just score ->
-                                            button [ class "btn btn-link", onClick (NavigateTo gamePath) ] [ text score ]
+                                            button [ class "btn btn-link p-0 m-0", onClick (NavigateTo gamePath) ] [ text score ]
 
                                         Nothing ->
                                             text ""
@@ -3562,14 +3456,14 @@ viewTeam translations event team =
                                                 oppoPath =
                                                     teamUrl event.id oppo
                                             in
-                                            button [ class "btn btn-link", onClick (NavigateTo oppoPath) ] [ text oppo.name ]
+                                            button [ class "btn btn-link m-0 p-0", onClick (NavigateTo oppoPath) ] [ text oppo.name ]
 
                                         Nothing ->
                                             text ""
                             in
                             tr []
-                                [ td [] [ button [ class "btn btn-link", onClick (NavigateTo drawPath) ] [ text draw.label ] ]
-                                , td [] [ button [ class "btn btn-link", onClick (NavigateTo drawPath) ] [ text draw.startsAt ] ]
+                                [ td [] [ button [ class "btn btn-link p-0 m-0", onClick (NavigateTo drawPath) ] [ text draw.label ] ]
+                                , td [] [ button [ class "btn btn-link p-0 m-0", onClick (NavigateTo drawPath) ] [ text draw.startsAt ] ]
                                 , td [] [ resultLabel ]
                                 , td [] [ gameScoreLabel ]
                                 , td [] [ opponentLabel ]
@@ -3623,7 +3517,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
             [ h4 [ class "mb-3" ] [ text (translate translations "scoring_analysis") ]
             , if isForGame then
                 button
-                    [ class "btn btn-link"
+                    [ class "btn btn-link p-0 m-0"
                     , onClick (NavigateTo fullReportUrl)
                     ]
                     [ small [] [ text (translate translations "full_report" ++ " →") ]
