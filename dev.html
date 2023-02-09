@@ -29,15 +29,23 @@
           registration: true, // Set to false if you don't want prices and the add to cart / register / waitlist buttons.
           // excludeEventSections: ["details", "registrations", "spares"], // Event sections you don't want to show up. Possible values: "details", "registrations", "spares", "draws", "stages", "teams", "reports"
           // defaultEventSection: "draws", // If you want a default event section other than the details view. Possible values: "registrations", "spares", "draws", "stages", "teams", "reports"
-          // eventId: 3742, // If you only want to show one specific event, enter it's ID here.
+          eventId: 3742, // If you only want to show one specific event, enter it's ID here.
           lang: "en", // Options are "en" or "fr". Defaults to "en" if nothing is passed.
-          host: document.location.host, // REQUIRED - DON'T MODIFY. Let's us make slight behavioural changes when hosted offsite versus within your curling.io site.
+          host: "demo.curling.io", //document.location.host, // REQUIRED - DON'T MODIFY. Let's us make slight behavioural changes when hosted offsite versus within your curling.io site.
           hash: document.location.hash, // REQUIRED - DON'T MODIFY. This will allow users to bookmark and share specific event links.
         }
       }
     )
+
+    // REQUIRED - DON'T MODIFY
+    scoring.ports.navigateTo.subscribe(function(newHash) {
+      // console.log("navigate to", newHash)
+      document.location.hash = newHash
+    })
+
     // REQUIRED - DON'T MODIFY
     addEventListener("hashchange", (event) => {
+      // console.log("navigated to", newHash)
       scoring.ports.hashChangeReceiver.send(location.hash)
     })
   </script>

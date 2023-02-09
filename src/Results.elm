@@ -1572,6 +1572,7 @@ drawWithGameId id draws =
 
 type Msg
     = Tick Time.Posix
+    | NavigateTo String
     | ToggleFullScreen
     | HashChanged Bool String
     | Reload
@@ -1594,6 +1595,9 @@ update msg model =
                     max 0 (model.reloadIn - 1)
             in
             ( { model | reloadIn = newReloadIn }, Cmd.none )
+
+        NavigateTo newHash ->
+            ( model, navigateTo newHash )
 
         ToggleFullScreen ->
             ( { model | fullScreen = not model.fullScreen }, Cmd.none )
@@ -1908,12 +1912,12 @@ viewItems { flags, fullScreen, itemFilter, translations } items =
                         newPath =
                             case flags.section of
                                 ProductsSection ->
-                                    "#/products/" ++ String.fromInt item.id
+                                    "/products/" ++ String.fromInt item.id
 
                                 _ ->
-                                    "#/events/" ++ String.fromInt item.id
+                                    "/events/" ++ String.fromInt item.id
                       in
-                      a [ href newPath ] [ text item.name ]
+                      button [ class "btn btn-default", onClick (NavigateTo newPath), class "btn btn-default" ] [ text item.name ]
                     , small [ class "d-block" ] [ text (Maybe.withDefault "" item.summary) ]
                     ]
                  , td [] [ text (Maybe.withDefault "" item.occursOn) ]
@@ -2102,12 +2106,14 @@ viewEvent { flags, translations, scoringHilight, fullScreen } nestedRoute event 
                     "#/events/" ++ String.fromInt event.id ++ "/" ++ eventSection
             in
             li [ class "nav-item" ]
-                [ a
+                [ button
                     [ classList
                         [ ( "nav-link", True )
+                        , ( "btn", True )
+                        , ( "btn-link", True )
                         , ( "active", isActiveRoute )
                         ]
-                    , href newPath
+                    , onClick (NavigateTo newPath)
                     ]
                     [ text (translate translations eventSection) ]
                 ]
@@ -2507,7 +2513,7 @@ viewDrawSchedule translations scoringHilight event =
         drawLink : Draw -> String -> Html Msg
         drawLink draw label =
             if event.endScoresEnabled then
-                a [ href (drawUrl event.id draw) ] [ text label ]
+                button [ class "btn btn-link", onClick (NavigateTo (drawUrl event.id draw)) ] [ text label ]
 
             else
                 text label
@@ -2574,10 +2580,10 @@ viewDrawSchedule translations scoringHilight event =
                             game.name
             in
             if event.endScoresEnabled then
-                a
-                    [ href (gameUrl event.id game)
-                    , class stateClass
+                button
+                    [ class ("btn btn-link " ++ stateClass)
                     , title gameNameWithResult
+                    , onClick (NavigateTo (gameUrl event.id game))
                     ]
                     [ text game.name ]
 
@@ -2664,7 +2670,7 @@ viewTeams translations event =
             tr []
                 [ td []
                     [ if teamHasDetails team then
-                        a [ href (teamUrl event.id team) ] [ text team.name ]
+                        button [ class "btn btn-link", onClick (NavigateTo (teamUrl event.id team)) ] [ text team.name ]
 
                       else
                         -- No point in linking to team details if there are no more details.
@@ -2725,10 +2731,12 @@ viewStages translations event onStage =
 
         viewStageLink stage =
             li [ class "nav-item" ]
-                [ a
-                    [ href (stageUrl event.id stage)
+                [ button
+                    [ onClick (NavigateTo (stageUrl event.id stage))
                     , classList
                         [ ( "nav-link", True )
+                        , ( "btn", True )
+                        , ( "btn-link", True )
                         , ( "active", stage.id == onStage.id )
                         ]
                     ]
@@ -2749,8 +2757,9 @@ viewStages translations event onStage =
                     tr []
                         [ td []
                             [ if teamHasDetails teamResult.team then
-                                a
-                                    [ href (teamUrl event.id teamResult.team)
+                                button
+                                    [ class "btn btn-link"
+                                    , onClick (NavigateTo (teamUrl event.id teamResult.team))
                                     ]
                                     [ text teamResult.team.name ]
 
@@ -2875,12 +2884,12 @@ viewStages translations event onStage =
                                             , style "background-color" "rgba(0, 0, 0, 0.3)"
                                             , style "z-index" "200"
                                             ]
-                                            [ a
-                                                [ class "d-block flex-fill"
+                                            [ button
+                                                [ class "d-block flex-fill btn btn-link"
                                                 , style "padding-left" "3px"
                                                 , style "color" "white"
                                                 , style "overflow" "hidden"
-                                                , href (gameUrl event.id game)
+                                                , onClick (NavigateTo (gameUrl event.id game))
                                                 ]
                                                 [ text game.name ]
                                             ]
@@ -2998,38 +3007,38 @@ viewReports translations event =
             (List.map .attendance event.draws |> List.sum) > 0
 
         attendanceLink =
-            "#/events/" ++ String.fromInt event.id ++ "/reports/attendance"
+            "/events/" ++ String.fromInt event.id ++ "/reports/attendance"
 
         scoringAnalysisLink =
-            "#/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis"
+            "/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis"
 
         scoringAnalysisByHammerLink =
-            "#/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis_by_hammer"
+            "/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis_by_hammer"
 
         teamRostersLink =
-            "#/events/" ++ String.fromInt event.id ++ "/reports/team_rosters"
+            "/events/" ++ String.fromInt event.id ++ "/reports/team_rosters"
 
         competitionMatrixLink =
-            "#/events/" ++ String.fromInt event.id ++ "/reports/competition_matrix"
+            "/events/" ++ String.fromInt event.id ++ "/reports/competition_matrix"
     in
     ul []
         [ if hasAttendance then
-            li [] [ a [ href attendanceLink ] [ text (translate translations "attendance") ] ]
+            li [] [ button [ class "btn btn-link", onClick (NavigateTo attendanceLink) ] [ text (translate translations "attendance") ] ]
 
           else
             text ""
-        , li [] [ a [ href competitionMatrixLink ] [ text (translate translations "competition_matrix") ] ]
+        , li [] [ button [ class "btn btn-link", onClick (NavigateTo competitionMatrixLink) ] [ text (translate translations "competition_matrix") ] ]
         , if event.endScoresEnabled then
-            li [] [ a [ href scoringAnalysisLink ] [ text (translate translations "scoring_analysis") ] ]
+            li [] [ button [ class "btn btn-link", onClick (NavigateTo scoringAnalysisLink) ] [ text (translate translations "scoring_analysis") ] ]
 
           else
             text ""
         , if event.endScoresEnabled then
-            li [] [ a [ href scoringAnalysisByHammerLink ] [ text (translate translations "scoring_analysis_by_hammer") ] ]
+            li [] [ button [ class "btn btn-link", onClick (NavigateTo scoringAnalysisByHammerLink) ] [ text (translate translations "scoring_analysis_by_hammer") ] ]
 
           else
             text ""
-        , li [] [ a [ href teamRostersLink ] [ text (translate translations "team_rosters") ] ]
+        , li [] [ button [ class "btn btn-link", onClick (NavigateTo teamRostersLink) ] [ text (translate translations "team_rosters") ] ]
         ]
 
 
@@ -3233,7 +3242,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                 label
 
             else
-                a [ href gamePath ] [ label ]
+                button [ class "btn btn-link", onClick (NavigateTo gamePath) ] [ label ]
 
         viewGameHilight =
             case scoringHilight of
@@ -3289,8 +3298,8 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
             nav [ attribute "aria-label" "breadcrumb" ]
                 [ ol [ class "breadcrumb" ]
                     [ li [ class "breadcrumb-item" ]
-                        [ a
-                            [ href drawPath ]
+                        [ button
+                            [ class "btn btn-link", onClick (NavigateTo drawPath) ]
                             [ text (translate translations "draw" ++ " " ++ draw.label ++ ": " ++ draw.startsAt) ]
                         ]
                     , li
@@ -3320,7 +3329,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
 
                               else
                                 small [ class "ml-3" ]
-                                    [ a [ href gamePath ] [ text game.name ]
+                                    [ button [ class "btn btn-link", onClick (NavigateTo gamePath) ] [ text game.name ]
                                     ]
                             ]
                          ]
@@ -3525,7 +3534,7 @@ viewTeam translations event team =
                                     in
                                     case resultText of
                                         Just t ->
-                                            a [ href gamePath ] [ text t ]
+                                            button [ class "btn btn-link", onClick (NavigateTo gamePath) ] [ text t ]
 
                                         Nothing ->
                                             text "-"
@@ -3533,7 +3542,7 @@ viewTeam translations event team =
                                 gameScoreLabel =
                                     case gameScore game of
                                         Just score ->
-                                            a [ href gamePath ] [ text score ]
+                                            button [ class "btn btn-link", onClick (NavigateTo gamePath) ] [ text score ]
 
                                         Nothing ->
                                             text ""
@@ -3550,14 +3559,14 @@ viewTeam translations event team =
                                                 oppoPath =
                                                     teamUrl event.id oppo
                                             in
-                                            a [ href oppoPath ] [ text oppo.name ]
+                                            button [ class "btn btn-link", onClick (NavigateTo oppoPath) ] [ text oppo.name ]
 
                                         Nothing ->
                                             text ""
                             in
                             tr []
-                                [ td [] [ a [ href drawPath ] [ text draw.label ] ]
-                                , td [] [ a [ href drawPath ] [ text draw.startsAt ] ]
+                                [ td [] [ button [ class "btn btn-link", onClick (NavigateTo drawPath) ] [ text draw.label ] ]
+                                , td [] [ button [ class "btn btn-link", onClick (NavigateTo drawPath) ] [ text draw.startsAt ] ]
                                 , td [] [ resultLabel ]
                                 , td [] [ gameScoreLabel ]
                                 , td [] [ opponentLabel ]
@@ -3610,7 +3619,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
             [ class "d-flex justify-content-between" ]
             [ h4 [ class "mb-3" ] [ text (translate translations "scoring_analysis") ]
             , if isForGame then
-                a [ href fullReportUrl ] [ small [] [ text (translate translations "full_report" ++ " →") ] ]
+                button [ class "btn btn-link", onClick (NavigateTo fullReportUrl) ] [ small [] [ text (translate translations "full_report" ++ " →") ] ]
 
               else
                 text ""
@@ -3838,9 +3847,9 @@ viewTeamScoringAnalysis event team =
     tbody []
         [ tr []
             [ td [ rowspan 2 ]
-                [ a
-                    [ class "d-block mt-3"
-                    , href (teamUrl event.id team)
+                [ button
+                    [ class "d-block mt-3 btn btn-link"
+                    , onClick (NavigateTo (teamUrl event.id team))
                     ]
                     [ text team.name ]
                 ]
@@ -3946,7 +3955,7 @@ viewReportScoringAnalysisByHammer translations event =
                     in
                     tr []
                         [ td []
-                            [ a [ href (teamUrl event.id team) ] [ text team.name ] ]
+                            [ button [ class "btn btn-link", onClick (NavigateTo (teamUrl event.id team)) ] [ text team.name ] ]
                         , td [ class "text-right" ]
                             [ text (String.fromInt gamesCount) ]
                         , td [ class "text-right" ]
@@ -4114,7 +4123,7 @@ viewReportCompetitionMatrix translations event =
                                             gamePath =
                                                 gameUrl event.id game
                                         in
-                                        a [ href gamePath ] [ text score ]
+                                        button [ class "btn btn-link", onClick (NavigateTo gamePath) ] [ text score ]
 
                                     Nothing ->
                                         text ""
@@ -4202,6 +4211,9 @@ viewReport translations scoringHilight event report =
 
 
 -- PORTS
+
+
+port navigateTo : String -> Cmd msg
 
 
 port hashChangeReceiver : (String -> msg) -> Sub msg

@@ -51,8 +51,15 @@
       }
     )
 
-    // REQUIRED - DO NOT MODIFY. This allows us to detect navigation changes within the widget.
+    // REQUIRED - DON'T MODIFY
+    scoring.ports.navigateTo.subscribe(function(newHash) {
+      // console.log("navigate to", newHash)
+      document.location.hash = newHash
+    })
+
+    // REQUIRED - DON'T MODIFY
     addEventListener("hashchange", (event) => {
+      // console.log("navigated to", newHash)
       scoring.ports.hashChangeReceiver.send(location.hash)
     })
   </script>
