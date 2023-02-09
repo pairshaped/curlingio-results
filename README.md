@@ -7,6 +7,8 @@ Embeddable javscript widget to display a curling club's leagues, competitions, a
 
 For leagues and competitions it will display brakcets, standings, schedule, scores, end scores, and shot by shot results as relevant.
 
+See the example.html file in this directory for an example of how you can include this widgets on your own club website.
+
 
 ## Installing Dependencies
 
