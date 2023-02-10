@@ -238,15 +238,6 @@ type alias Lineup =
     }
 
 
-type alias Spare =
-    { curlerName : Maybe String
-    , positions : List String
-    , notes : Maybe String
-    , email : Maybe String
-    , phone : Maybe String
-    }
-
-
 type alias Stage =
     { id : Int
     , parentId : Maybe Int
@@ -578,16 +569,6 @@ decodeRegistration =
         |> optional "skip_name" (nullable string) Nothing
         |> optional "position" (nullable string) Nothing
         |> optional "lineup" (nullable decodeLineup) Nothing
-
-
-decodeSpare : Decoder Spare
-decodeSpare =
-    Decode.succeed Spare
-        |> optional "curler_name" (nullable string) Nothing
-        |> optional "positions" (list string) []
-        |> optional "notes" (nullable string) Nothing
-        |> optional "email" (nullable string) Nothing
-        |> optional "phone" (nullable string) Nothing
 
 
 decodeStage : Decoder Stage
