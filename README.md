@@ -9,6 +9,10 @@ For leagues and competitions it will display brakcets, standings, schedule, scor
 
 See the example.html file in this directory for an example of how you can include this widgets on your own club website.
 
+## Using the widget on your club's website
+
+Please see the [example.html file](example.html) for detailed instructions on how to embed this widget on your curling club's website.
+
 
 ## Installing Dependencies
 
