@@ -1895,7 +1895,7 @@ viewItems { flags, fullScreen, itemFilter, translations } items =
                                 _ ->
                                     "/events/" ++ String.fromInt item.id
                       in
-                      button [ class "btn btn-default", onClick (NavigateTo newPath), class "btn btn-default" ] [ text item.name ]
+                      button [ class "btn btn-link p-0 m-0", onClick (NavigateTo newPath), class "btn btn-default" ] [ text item.name ]
                     , small [ class "d-block" ] [ text (Maybe.withDefault "" item.summary) ]
                     ]
                  , td [] [ text (Maybe.withDefault "" item.occursOn) ]

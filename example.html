@@ -7,7 +7,7 @@
   <link rel="icon" href="data:;base64,iVBORwOKGO=" />
 
   <!-- REQUIRED. This script tag is required to load the widget. -->
-  <script src="dev.js"></script>
+  <script src="https://pairshaped.github.io/curlingio-results/prod.min.js"></script>
 
   <!-- REQUIRED. This stylesheet is required to layout the components. You can instead load your own customized version of bootstrap 4 though, for example one that came with your wordpress theme. -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
@@ -28,7 +28,7 @@
   <div class="container py-4">
 
     <!-- REQUIRED. This is the div the widget replaces. The ID of this div must match the getElemenetById below that's passed to the node. If you change the ID here, make sure you also change it down there. -->
-    <div id="results"></div>
+    <div id="curlingio_results"></div>
 
   </div>
 
@@ -36,14 +36,14 @@
     // REQUIRED. This is how we initialize the widget. You have several options you can configure. Read them over for more information.
     var scoring = Elm.Results.init(
       {
-        node: document.getElementById("results"), // REQUIRED. Must match the ID of the div we're replacing, which is "results" in this example.
+        node: document.getElementById("curlingio_results"), // REQUIRED. Must match the ID of the div we're replacing, which is "results" in this example.
         flags: {
           apiKey: "FV7HeT0-f_M", // REQUIRED. This is your club's read only API key (doesn't need to be secure / hidden). You can find this in Curling I/O under your Club's Settings section (look in the top right dropdown menu).
           section: "leagues", // OPTIONAL. Can be "leagues", "competition", or "products". Will default to "leagues" if omitted or an invalid value is passed.
-          registration: true, // OPTIONAL. Set to false if you don't want prices and the add to cart / register / waitlist buttons.
-          // excludeEventSections: ["details", "registrations", "spares"], // OPTIONAL. Event sections you don't want to show up. Possible values: "details", "registrations", "spares", "draws", "stages", "teams", "reports"
-          // defaultEventSection: "draws", // OPTIONAL. If you want a default event section other than the details view. Possible values: "registrations", "spares", "draws", "stages", "teams", "reports"
+          registration: true, // OPTIONAL. Set to false if you don't want prices and the add to cart / register / waitlist buttons to show up.
           // eventId: 3742, // OPTIONAL. If you only want to show one specific event, enter it's ID here.
+          // excludeEventSections: ["details", "registrations"], // OPTIONAL. Event sections you don't want to show up. Possible values: "details", "registrations", "draws", "stages", "teams", "reports"
+          // defaultEventSection: "draws", // OPTIONAL. If you want a default event section other than the details view. Possible values: "registrations", "spares", "draws", "stages", "teams", "reports"
           lang: "en", // OPTIONAL. Options are "en" or "fr". Defaults to "en" if nothing is passed. If your using wordpress, it should expose a 2 letter language code that can be passed here.
           host: document.location.host, // REQUIRED - DO NOT MODIFY. Let's us make slight behavioural changes when hosted offsite versus within your curling.io site.
           hash: document.location.hash, // REQUIRED - DO NOT MODIFY. This will allow users to bookmark and share specific event links.
@@ -51,15 +51,13 @@
       }
     )
 
-    // REQUIRED - DON'T MODIFY
+    // REQUIRED - DO NOT MODIFY. Used for navigation to hopfully prevent third party script interference.
     scoring.ports.navigateTo.subscribe(function(newHash) {
-      // console.log("navigate to", newHash)
       document.location.hash = newHash
     })
 
-    // REQUIRED - DON'T MODIFY
+    // REQUIRED - DO NOT MODIFY. Used for navigation.
     addEventListener("hashchange", (event) => {
-      // console.log("navigated to", newHash)
       scoring.ports.hashChangeReceiver.send(location.hash)
     })
   </script>
