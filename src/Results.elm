@@ -1207,6 +1207,9 @@ eventSections excludeEventSections event =
 
                 hasCompletedGames =
                     List.any (\g -> g.state == GameComplete) (gamesFromDraws event.draws)
+
+                hasEndScores =
+                    event.endScoresEnabled
             in
             case section of
                 "registrations" ->
@@ -3415,7 +3418,11 @@ viewTeam translations event team =
                                     in
                                     case resultText of
                                         Just t ->
-                                            button [ class "btn btn-link p-0 m-0", onClick (NavigateTo gamePath) ] [ text t ]
+                                            if event.endScoresEnabled then
+                                                button [ class "btn btn-link p-0 m-0", onClick (NavigateTo gamePath) ] [ text t ]
+
+                                            else
+                                                text t
 
                                         Nothing ->
                                             text "-"
@@ -3423,7 +3430,11 @@ viewTeam translations event team =
                                 gameScoreLabel =
                                     case gameScore game of
                                         Just score ->
-                                            button [ class "btn btn-link p-0 m-0", onClick (NavigateTo gamePath) ] [ text score ]
+                                            if event.endScoresEnabled then
+                                                button [ class "btn btn-link p-0 m-0", onClick (NavigateTo gamePath) ] [ text score ]
+
+                                            else
+                                                text score
 
                                         Nothing ->
                                             text ""
@@ -3446,8 +3457,20 @@ viewTeam translations event team =
                                             text ""
                             in
                             tr []
-                                [ td [] [ button [ class "btn btn-link p-0 m-0", onClick (NavigateTo drawPath) ] [ text draw.label ] ]
-                                , td [] [ button [ class "btn btn-link p-0 m-0", onClick (NavigateTo drawPath) ] [ text draw.startsAt ] ]
+                                [ td []
+                                    [ if event.endScoresEnabled then
+                                        button [ class "btn btn-link p-0 m-0", onClick (NavigateTo drawPath) ] [ text draw.label ]
+
+                                      else
+                                        text draw.label
+                                    ]
+                                , td []
+                                    [ if event.endScoresEnabled then
+                                        button [ class "btn btn-link p-0 m-0", onClick (NavigateTo drawPath) ] [ text draw.startsAt ]
+
+                                      else
+                                        text draw.startsAt
+                                    ]
                                 , td [] [ resultLabel ]
                                 , td [] [ gameScoreLabel ]
                                 , td [] [ opponentLabel ]
@@ -4020,12 +4043,16 @@ viewReportCompetitionMatrix translations event =
             in
             div [ class "table-responsive mt-3" ]
                 [ h5 [] [ text stage.name ]
-                , table [ class "table table-bordered" ]
-                    ([ tr []
-                        ([ td [] [] ] ++ List.map viewTeamColumn teams)
-                     ]
-                        ++ List.map viewTeamRow teams
-                    )
+                , if not (List.isEmpty games) then
+                    table [ class "table table-bordered" ]
+                        ([ tr []
+                            ([ td [] [] ] ++ List.map viewTeamColumn teams)
+                         ]
+                            ++ List.map viewTeamRow teams
+                        )
+
+                  else
+                    p [] [ text "-" ]
                 ]
     in
     div []
