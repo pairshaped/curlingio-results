@@ -197,7 +197,7 @@ type alias Team =
 
 type alias TeamCurler =
     { curlerId : Int
-    , position : TeamPosition
+    , position : Maybe TeamPosition
     , skip : Bool
     , name : String
     , delivery : Maybe RockDelivery
@@ -542,7 +542,7 @@ decodeTeamCurler =
     in
     Decode.succeed TeamCurler
         |> required "curler_id" int
-        |> required "position" decodeTeamPosition
+        |> optional "position" (nullable decodeTeamPosition) Nothing
         |> optional "skip" bool False
         |> required "name" string
         |> optional "delivery" (nullable decodeDelivery) Nothing
@@ -899,24 +899,27 @@ sideResultToString translations result =
         )
 
 
-teamPositionToString : WebData (List Translation) -> TeamPosition -> String
+teamPositionToString : WebData (List Translation) -> Maybe TeamPosition -> String
 teamPositionToString translations position =
     translate translations
         (case position of
-            TeamFourth ->
+            Just TeamFourth ->
                 "fourth"
 
-            TeamThird ->
+            Just TeamThird ->
                 "third"
 
-            TeamSecond ->
+            Just TeamSecond ->
                 "second"
 
-            TeamFirst ->
+            Just TeamFirst ->
                 "first"
 
-            TeamAlternate ->
+            Just TeamAlternate ->
                 "alternate"
+
+            Nothing ->
+                ""
         )
 
 
