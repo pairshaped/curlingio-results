@@ -1349,8 +1349,8 @@ teamResultsForGames stage teams games =
                                 |> List.sum
 
                         ScoresRanking ->
-                            List.map (\side -> side.endScores) (sides teamResult.team)
-                                |> List.concat
+                            List.map (\side -> side.score) (sides teamResult.team)
+                                |> List.filterMap identity
                                 |> List.sum
                                 |> toFloat
             }
