@@ -1023,10 +1023,10 @@ baseUrl { host, lang } =
             -- Development
             "http://api.curling.test:3000/" ++ Maybe.withDefault "en" lang
 
-        productionUrl =
-            -- Production without caching
-            "https://api.curling.io/" ++ Maybe.withDefault "en" lang
-
+        -- productionUrl =
+        --     -- Production without caching
+        --     "https://api.curling.io/" ++ Maybe.withDefault "en" lang
+        --
         productionCachedUrl =
             -- Production cached via CDN (Fastly)
             "https://api-curlingio.global.ssl.fastly.net/" ++ Maybe.withDefault "en" lang
@@ -1035,9 +1035,9 @@ baseUrl { host, lang } =
         Just h ->
             if String.contains "localhost" h || String.contains ".curling.test" h then
                 devUrl
-
-            else if String.contains ".curling.io" h then
-                productionUrl
+                --
+                -- else if String.contains ".curling.io" h then
+                --     productionUrl
 
             else
                 productionCachedUrl
