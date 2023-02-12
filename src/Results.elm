@@ -251,6 +251,7 @@ type alias Stage =
     , pointsPerEnd : List Float
     , tiebreaker : Tiebreaker
     , groups : Maybe (List Group)
+    , teamIds : List Int
     }
 
 
@@ -653,6 +654,7 @@ decodeStage =
         |> optional "points_per_end" decodePointsPerEnd []
         |> optional "tiebreaker" decodeTiebreaker TiebreakerNone
         |> optional "groups" (nullable (list decodeGroup)) Nothing
+        |> optional "team_ids" (list int) []
 
 
 decodeDraw : Decoder Draw
@@ -1291,29 +1293,32 @@ teamsWithGames teams games =
     List.filter teamHasGames teams
 
 
-teamResultsForGames : Stage -> List Team -> List Game -> List TeamResult
-teamResultsForGames stage teams games =
+teamResultsFor : Stage -> List Stage -> List Team -> List Game -> List TeamResult
+teamResultsFor onStage allStages allTeams allGames =
     let
-        sides team =
-            List.filter (\g -> g.state == GameComplete) games
+        includedStages =
+            List.filter (\stage -> stage.id == onStage.id || stage.parentId == Just onStage.id) allStages
+
+        gamesByStage stage =
+            List.filter (\g -> g.stageId == stage.id) allGames
+
+        sidesByTeamAndStage team stage =
+            List.filter (\g -> g.state == GameComplete) (gamesByStage stage)
                 |> List.map .sides
                 |> List.concat
                 |> List.filter (\side -> side.teamId == Just team.id)
 
-        gamesPlayed team =
-            List.length (sides team)
-
-        results team =
-            sides team
+        resultsByTeamAndStage team stage =
+            sidesByTeamAndStage team stage
                 |> List.map (\side -> side.result)
                 |> List.filterMap identity
 
-        wins team =
-            results team
+        winsByTeamAndStage team stage =
+            resultsByTeamAndStage team stage
                 |> List.filter (\result -> result == SideResultWon)
                 |> List.length
 
-        losses team =
+        lossesByTeamAndStage team stage =
             let
                 isLoss result =
                     (result == SideResultLost)
@@ -1321,52 +1326,70 @@ teamResultsForGames stage teams games =
                         || (result == SideResultForfeited)
                         || (result == SideResultTimePenalized)
             in
-            results team
+            resultsByTeamAndStage team stage
                 |> List.filter isLoss
                 |> List.length
 
-        ties team =
-            results team
+        tiesByTeamAndStage team stage =
+            resultsByTeamAndStage team stage
                 |> List.filter (\result -> result == SideResultTied)
                 |> List.length
 
-        assignPoints teamResult =
-            { teamResult
-                | points =
-                    case stage.rankingMethod of
-                        PointsRanking ->
-                            (toFloat (wins teamResult.team) * stage.pointsPerWin)
-                                + (toFloat (ties teamResult.team) * stage.pointsPerTie)
-                                + (toFloat (losses teamResult.team) * stage.pointsPerLoss)
+        pointsByTeamAndStage team stage =
+            case stage.rankingMethod of
+                PointsRanking ->
+                    (toFloat (winsByTeamAndStage team stage) * stage.pointsPerWin)
+                        + (toFloat (tiesByTeamAndStage team stage) * stage.pointsPerTie)
+                        + (toFloat (lossesByTeamAndStage team stage) * stage.pointsPerLoss)
 
-                        SkinsRanking ->
-                            let
-                                pointsPerEnd index score =
-                                    if score > 0 then
-                                        List.Extra.getAt index stage.pointsPerEnd
-                                            |> Maybe.withDefault 0.0
+                SkinsRanking ->
+                    let
+                        pointsPerEnd index score =
+                            if score > 0 then
+                                List.Extra.getAt index stage.pointsPerEnd
+                                    |> Maybe.withDefault 0.0
 
-                                    else
-                                        0.0
-                            in
-                            List.map (\side -> side.endScores) (sides teamResult.team)
-                                |> List.map (\endScores -> List.indexedMap pointsPerEnd endScores)
-                                |> List.concat
-                                |> List.sum
+                            else
+                                0.0
+                    in
+                    List.map (\side -> side.endScores) (sidesByTeamAndStage team stage)
+                        |> List.map (\endScores -> List.indexedMap pointsPerEnd endScores)
+                        |> List.concat
+                        |> List.sum
 
-                        ScoresRanking ->
-                            List.map (\side -> side.score) (sides teamResult.team)
-                                |> List.filterMap identity
-                                |> List.sum
-                                |> toFloat
-            }
+                ScoresRanking ->
+                    List.map (\side -> side.score) (sidesByTeamAndStage team stage)
+                        |> List.filterMap identity
+                        |> List.sum
+                        |> toFloat
+
+        gamesPlayed team =
+            let
+                gamesPlayedByStage stage =
+                    List.length (sidesByTeamAndStage team stage)
+            in
+            List.map gamesPlayedByStage includedStages
+                |> List.sum
+
+        wins team =
+            List.map (winsByTeamAndStage team) includedStages
+                |> List.sum
+
+        losses team =
+            List.map (lossesByTeamAndStage team) includedStages
+                |> List.sum
+
+        ties team =
+            List.map (tiesByTeamAndStage team) includedStages
+                |> List.sum
+
+        points team =
+            List.map (pointsByTeamAndStage team) includedStages
+                |> List.sum
     in
-    List.map (\team -> TeamResult team 0 0 0 0 0) teams
-        |> List.map (\teamResult -> { teamResult | gamesPlayed = gamesPlayed teamResult.team })
-        |> List.map (\teamResult -> { teamResult | wins = wins teamResult.team })
-        |> List.map (\teamResult -> { teamResult | losses = losses teamResult.team })
-        |> List.map (\teamResult -> { teamResult | ties = ties teamResult.team })
-        |> List.map assignPoints
+    List.map (\id -> List.Extra.find (\team -> team.id == id) allTeams) onStage.teamIds
+        |> List.filterMap identity
+        |> List.map (\team -> TeamResult team (gamesPlayed team) (wins team) (losses team) (ties team) (points team))
 
 
 teamResultsRankedByPoints : List TeamResult -> List TeamResult
@@ -2627,8 +2650,7 @@ viewStages translations event onStage =
         viewRoundRobin =
             let
                 teamResults =
-                    List.filter (\g -> g.stageId == onStage.id) games
-                        |> teamResultsForGames onStage teams
+                    teamResultsFor onStage event.stages event.teams (gamesFromDraws event.draws)
                         |> teamResultsRankedByPoints
 
                 hasTies =
