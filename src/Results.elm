@@ -4050,11 +4050,15 @@ viewReportCompetitionMatrix translations event =
                             td [ class "text-center" ]
                                 [ case gameScore game of
                                     Just score ->
-                                        let
-                                            gamePath =
-                                                gameUrl event.id game
-                                        in
-                                        button [ class "btn btn-link p-0 m-0", onClick (NavigateTo gamePath) ] [ text score ]
+                                        if event.endScoresEnabled then
+                                            let
+                                                gamePath =
+                                                    gameUrl event.id game
+                                            in
+                                            button [ class "btn btn-link p-0 m-0", onClick (NavigateTo gamePath) ] [ text score ]
+
+                                        else
+                                            text score
 
                                     Nothing ->
                                         text ""
