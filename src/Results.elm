@@ -960,7 +960,7 @@ init flags_ =
                                                 Just defaultEventSection ->
                                                     defaultEventSection
                                     in
-                                    "#/events/" ++ String.fromInt eventId ++ "/" ++ section
+                                    "/events/" ++ String.fromInt eventId ++ "/" ++ section
 
                                 Nothing ->
                                     ""
@@ -1128,6 +1128,19 @@ getTranslations flags =
     RemoteData.Http.get url GotTranslations decodeTranslations
 
 
+itemsSectionName : ItemsSection -> String
+itemsSectionName section =
+    case section of
+        LeaguesSection ->
+            "leagues"
+
+        CompetitionsSection ->
+            "competitions"
+
+        ProductsSection ->
+            "products"
+
+
 getItems : Flags -> ItemFilter -> Cmd Msg
 getItems flags itemFilter =
     let
@@ -1147,16 +1160,7 @@ getItems flags itemFilter =
 
         url =
             baseClubUrl flags
-                ++ (case flags.section of
-                        LeaguesSection ->
-                            "leagues"
-
-                        CompetitionsSection ->
-                            "competitions"
-
-                        ProductsSection ->
-                            "products"
-                   )
+                ++ itemsSectionName flags.section
                 ++ params
     in
     RemoteData.Http.get url GotItems decodeItems
@@ -2110,7 +2114,7 @@ viewEvent { flags, translations, scoringHilight, fullScreen } nestedRoute event 
                     eventSection == eventSectionForRoute nestedRoute
 
                 newPath =
-                    "#/events/" ++ String.fromInt event.id ++ "/" ++ eventSection
+                    "/events/" ++ String.fromInt event.id ++ "/" ++ eventSection
             in
             li [ class "nav-item" ]
                 [ button
@@ -2129,7 +2133,16 @@ viewEvent { flags, translations, scoringHilight, fullScreen } nestedRoute event 
         [ h3 [ class "mb-3 d-none d-md-block" ] [ text event.name ]
         , h6 [ class "mb-3 d-md-none" ] [ text event.name ]
         , ul [ class "nav nav-pills d-print-none mb-3" ]
-            (List.map viewNavItem (eventSections flags.excludeEventSections event))
+            (List.map viewNavItem (eventSections flags.excludeEventSections event)
+                ++ (if flags.eventId == Nothing then
+                        [ li [ class "nav-item", style "margin-left" "auto" ]
+                            [ button [ class "btn btn-link", onClick (NavigateTo "/events") ] [ text (translate translations (itemsSectionName flags.section) ++ " »") ] ]
+                        ]
+
+                    else
+                        []
+                   )
+            )
         , h4 [ class "d-none d-print-block" ] [ text (translate translations (eventSectionForRoute nestedRoute)) ]
         , case nestedRoute of
             DetailsRoute ->
@@ -3537,7 +3550,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
             List.length teams == 2
 
         fullReportUrl =
-            "#/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis"
+            "/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis"
     in
     div
         [ class "table-responsive" ]
