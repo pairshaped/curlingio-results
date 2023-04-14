@@ -932,7 +932,7 @@ deliveryToString translations delivery =
             translate translations "right"
 
         Just RockDeliveryLeft ->
-            translate translations "right"
+            translate translations "left"
 
         Nothing ->
             "-"
