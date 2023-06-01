@@ -1447,14 +1447,24 @@ sheetNameForGame event game =
             ""
 
 
-gameScore : Game -> Maybe String
-gameScore game =
+gameScore : Game -> Maybe ( Int, Int ) -> Maybe String
+gameScore game orderByTeamIds =
     let
+        sides =
+            -- If we passed team ids to order by, use them. Otherwise just use the default side positions.
+            case orderByTeamIds of
+                Just teamIds ->
+                    [ List.Extra.find (\side -> side.teamId == Just (Tuple.first teamIds)) game.sides
+                    , List.Extra.find (\side -> side.teamId == Just (Tuple.second teamIds)) game.sides
+                    ]
+                        |> List.filterMap identity
+
+                Nothing ->
+                    game.sides
+
         intScores =
-            List.map (\s -> s.score) game.sides
+            List.map (\s -> s.score) sides
                 |> List.filterMap identity
-                |> List.sort
-                |> List.reverse
 
         strScores =
             List.map String.fromInt intScores
@@ -1464,6 +1474,9 @@ gameScore game =
                 GameComplete ->
                     if Maybe.withDefault 0 (List.head intScores) > Maybe.withDefault 0 (List.Extra.getAt 1 intScores) then
                         String.join " > " strScores
+
+                    else if Maybe.withDefault 0 (List.head intScores) < Maybe.withDefault 0 (List.Extra.getAt 1 intScores) then
+                        String.join " < " strScores
 
                     else
                         String.join " = " strScores
@@ -3457,6 +3470,10 @@ viewTeam translations event team =
                         viewTeamGame : Game -> Html Msg
                         viewTeamGame game =
                             let
+                                opponent =
+                                    List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
+                                        |> Maybe.andThen (findTeamForSide event.teams)
+
                                 drawPath =
                                     drawUrl event.id draw
 
@@ -3494,23 +3511,23 @@ viewTeam translations event team =
                                             text "-"
 
                                 gameScoreLabel =
-                                    case gameScore game of
-                                        Just score ->
-                                            if event.endScoresEnabled then
-                                                button [ class "btn btn-link p-0 m-0", onClick (NavigateTo gamePath) ] [ text score ]
+                                    case opponent of
+                                        Just oppo ->
+                                            case gameScore game (Just ( team.id, oppo.id )) of
+                                                Just score ->
+                                                    if event.endScoresEnabled then
+                                                        button [ class "btn btn-link p-0 m-0", onClick (NavigateTo gamePath) ] [ text score ]
 
-                                            else
-                                                text score
+                                                    else
+                                                        text score
+
+                                                Nothing ->
+                                                    text ""
 
                                         Nothing ->
                                             text ""
 
                                 opponentLabel =
-                                    let
-                                        opponent =
-                                            List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
-                                                |> Maybe.andThen (findTeamForSide event.teams)
-                                    in
                                     case opponent of
                                         Just oppo ->
                                             let
@@ -4088,7 +4105,7 @@ viewReportCompetitionMatrix translations event =
                     case matchingGame of
                         Just game ->
                             td [ class "text-center" ]
-                                [ case gameScore game of
+                                [ case gameScore game (Just ( teamA.id, teamB.id )) of
                                     Just score ->
                                         if event.endScoresEnabled then
                                             let
