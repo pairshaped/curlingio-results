@@ -86,12 +86,13 @@ type alias Flags =
     { host : Maybe String
     , hash : Maybe String
     , lang : Maybe String
-    , apiKey : String
+    , subdomain : String
     , section : ItemsSection
     , registration : Bool
     , excludeEventSections : List String
     , defaultEventSection : Maybe String
     , eventId : Maybe Int
+    , loggedInCurlerIds : List Int
     }
 
 
@@ -375,12 +376,13 @@ decodeFlags =
         |> optional "host" (nullable string) Nothing
         |> optional "hash" (nullable string) Nothing
         |> optional "lang" (nullable string) Nothing
-        |> required "apiKey" string
+        |> required "subdomain" string
         |> optional "section" decodeSection LeaguesSection
         |> optional "registration" bool False
         |> optional "excludeEventSections" (list string) []
         |> optional "defaultEventSection" (nullable string) Nothing
         |> optional "eventId" (nullable int) Nothing
+        |> optional "loggedInCurlerIds" (list int) []
 
 
 decodeTranslations : Decoder (List Translation)
@@ -845,19 +847,14 @@ stageUrl eventId stage =
     "/events/" ++ String.fromInt eventId ++ "/stages/" ++ String.fromInt stage.id
 
 
-translate : WebData (List Translation) -> String -> String
-translate translationsData key =
+translate : List Translation -> String -> String
+translate translations key =
     -- Translates the passed key to the current labels (server determines locale by url).
-    case translationsData of
-        Success translations ->
-            case List.Extra.find (\translation -> String.toLower translation.key == String.toLower key) translations of
-                Just translation ->
-                    translation.label
+    case List.Extra.find (\translation -> String.toLower translation.key == String.toLower key) translations of
+        Just translation ->
+            translation.label
 
-                Nothing ->
-                    key
-
-        _ ->
+        Nothing ->
             key
 
 
@@ -874,7 +871,7 @@ colorNameToRGB color =
             color
 
 
-sideResultToString : WebData (List Translation) -> Maybe SideResult -> String
+sideResultToString : List Translation -> Maybe SideResult -> String
 sideResultToString translations result =
     translate translations
         (case result of
@@ -901,7 +898,7 @@ sideResultToString translations result =
         )
 
 
-teamPositionToString : WebData (List Translation) -> Maybe TeamPosition -> String
+teamPositionToString : List Translation -> Maybe TeamPosition -> String
 teamPositionToString translations position =
     translate translations
         (case position of
@@ -925,7 +922,7 @@ teamPositionToString translations position =
         )
 
 
-deliveryToString : WebData (List Translation) -> Maybe RockDelivery -> String
+deliveryToString : List Translation -> Maybe RockDelivery -> String
 deliveryToString translations delivery =
     case delivery of
         Just RockDeliveryRight ->
@@ -990,7 +987,7 @@ init flags_ =
         Err error ->
             let
                 flags =
-                    Flags Nothing Nothing Nothing "" LeaguesSection False [] Nothing Nothing
+                    Flags Nothing Nothing Nothing "" LeaguesSection False [] Nothing Nothing []
             in
             ( Model flags "" False NotAsked NotAsked (ItemFilter 1 0 "") NotAsked NotAsked Nothing (Just (Decode.errorToString error)) 0
             , Cmd.none
@@ -1048,7 +1045,29 @@ baseUrl { host, lang } =
 
 baseClubUrl : Flags -> String
 baseClubUrl flags =
-    baseUrl flags ++ "/clubs/" ++ flags.apiKey ++ "/"
+    baseUrl flags ++ "/clubs/" ++ flags.subdomain ++ "/"
+
+
+baseClubSubdomainUrl : Flags -> String
+baseClubSubdomainUrl { subdomain, lang, host } =
+    let
+        devUrl =
+            -- Development
+            "http://" ++ subdomain ++ ".curling.test:3000/" ++ Maybe.withDefault "en" lang
+
+        productionUrl =
+            "https://" ++ subdomain ++ ".curling.io/" ++ Maybe.withDefault "en" lang
+    in
+    case host of
+        Just h ->
+            if String.contains "localhost" h || String.contains ".curling.test" h then
+                devUrl
+
+            else
+                productionUrl
+
+        Nothing ->
+            productionUrl
 
 
 getItemsMaybe : Model -> String -> Bool -> ( WebData (List Item), Cmd Msg )
@@ -1701,10 +1720,6 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    let
-        viewLoading =
-            viewNotReady model.fullScreen (translate model.translations "Loading")
-    in
     div
         (List.append
             [ id "curlingio__results"
@@ -1757,40 +1772,57 @@ view model =
                 viewNotReady model.fullScreen errorMsg
 
             Nothing ->
-                case toRoute model.flags.defaultEventSection model.hash of
-                    ItemsRoute ->
-                        case model.items of
-                            Success items ->
-                                viewItems model items
+                case model.translations of
+                    Success translations ->
+                        viewRoute model translations
 
-                            Failure error ->
-                                viewFetchError model (errorMessage error)
+                    Failure error ->
+                        viewFetchError model (errorMessage error)
 
-                            _ ->
-                                viewLoading
-
-                    ProductRoute id ->
-                        case model.product of
-                            Success product ->
-                                viewProduct model.fullScreen model.translations product
-
-                            Failure error ->
-                                viewFetchError model (errorMessage error)
-
-                            _ ->
-                                viewLoading
-
-                    EventRoute id nestedRoute ->
-                        case model.event of
-                            Success event ->
-                                viewEvent model nestedRoute event
-
-                            Failure error ->
-                                viewFetchError model (errorMessage error)
-
-                            _ ->
-                                viewLoading
+                    _ ->
+                        viewNotReady model.fullScreen "Loading..."
         ]
+
+
+viewRoute : Model -> List Translation -> Html Msg
+viewRoute model translations =
+    let
+        viewLoading =
+            viewNotReady model.fullScreen "Loading..."
+    in
+    case toRoute model.flags.defaultEventSection model.hash of
+        ItemsRoute ->
+            case model.items of
+                Success items ->
+                    viewItems model translations items
+
+                Failure error ->
+                    viewFetchError model (errorMessage error)
+
+                _ ->
+                    viewLoading
+
+        ProductRoute id ->
+            case model.product of
+                Success product ->
+                    viewProduct model.fullScreen translations product
+
+                Failure error ->
+                    viewFetchError model (errorMessage error)
+
+                _ ->
+                    viewLoading
+
+        EventRoute id nestedRoute ->
+            case model.event of
+                Success event ->
+                    viewEvent model translations nestedRoute event
+
+                Failure error ->
+                    viewFetchError model (errorMessage error)
+
+                _ ->
+                    viewLoading
 
 
 viewReloadButton : Model -> Html Msg
@@ -1866,8 +1898,8 @@ viewFetchError { fullScreen, hash } message =
         ]
 
 
-viewItems : Model -> List Item -> Html Msg
-viewItems { flags, fullScreen, itemFilter, translations } items =
+viewItems : Model -> List Translation -> List Item -> Html Msg
+viewItems { flags, fullScreen, itemFilter } translations items =
     let
         viewPaging =
             div [ class "d-flex" ]
@@ -2018,7 +2050,7 @@ viewItems { flags, fullScreen, itemFilter, translations } items =
         ]
 
 
-viewNoDataForRoute : WebData (List Translation) -> Html Msg
+viewNoDataForRoute : List Translation -> Html Msg
 viewNoDataForRoute translations =
     div [] [ text (translate translations "no_data_for_route") ]
 
@@ -2045,7 +2077,7 @@ viewSponsor sponsor =
         ]
 
 
-viewProduct : Bool -> WebData (List Translation) -> Product -> Html Msg
+viewProduct : Bool -> List Translation -> Product -> Html Msg
 viewProduct fullScreen translations product =
     div [ classList [ ( "p-3", fullScreen ) ] ]
         [ h3 [ class "mb-3 d-none d-md-block" ] [ text product.name ]
@@ -2093,8 +2125,8 @@ viewProduct fullScreen translations product =
         ]
 
 
-viewEvent : Model -> NestedEventRoute -> Event -> Html Msg
-viewEvent { flags, translations, scoringHilight, fullScreen } nestedRoute event =
+viewEvent : Model -> List Translation -> NestedEventRoute -> Event -> Html Msg
+viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
     let
         viewNavItem eventSection =
             let
@@ -2192,7 +2224,7 @@ viewEvent { flags, translations, scoringHilight, fullScreen } nestedRoute event 
             TeamRoute id ->
                 case List.Extra.find (\t -> t.id == id) event.teams of
                     Just team ->
-                        viewTeam translations event team
+                        viewTeam translations flags event team
 
                     Nothing ->
                         viewNoDataForRoute translations
@@ -2205,7 +2237,7 @@ viewEvent { flags, translations, scoringHilight, fullScreen } nestedRoute event 
         ]
 
 
-viewDetails : WebData (List Translation) -> Event -> Html Msg
+viewDetails : List Translation -> Event -> Html Msg
 viewDetails translations event =
     div []
         [ case event.sponsor of
@@ -2287,7 +2319,7 @@ viewDetails translations event =
         ]
 
 
-viewRegistrations : WebData (List Translation) -> List Registration -> Html Msg
+viewRegistrations : List Translation -> List Registration -> Html Msg
 viewRegistrations translations registrations =
     let
         hasCurlers =
@@ -2400,7 +2432,7 @@ viewRegistrations translations registrations =
         ]
 
 
-viewDraws : WebData (List Translation) -> Maybe ScoringHilight -> Event -> Html Msg
+viewDraws : List Translation -> Maybe ScoringHilight -> Event -> Html Msg
 viewDraws translations scoringHilight event =
     let
         isDrawActive : Draw -> Bool
@@ -2582,7 +2614,7 @@ viewDraws translations scoringHilight event =
         ]
 
 
-viewTeams : WebData (List Translation) -> Event -> Html Msg
+viewTeams : List Translation -> Event -> Html Msg
 viewTeams translations event =
     let
         hasCoaches =
@@ -2648,7 +2680,7 @@ viewTeams translations event =
         ]
 
 
-viewStages : WebData (List Translation) -> Event -> Stage -> Html Msg
+viewStages : List Translation -> Event -> Stage -> Html Msg
 viewStages translations event onStage =
     let
         teams =
@@ -2939,7 +2971,7 @@ viewStages translations event onStage =
 -- REPORTS
 
 
-viewReports : WebData (List Translation) -> Event -> Html Msg
+viewReports : List Translation -> Event -> Html Msg
 viewReports translations event =
     let
         hasAttendance =
@@ -2981,7 +3013,7 @@ viewReports translations event =
         ]
 
 
-viewDraw : WebData (List Translation) -> Maybe ScoringHilight -> Event -> Draw -> Html Msg
+viewDraw : List Translation -> Maybe ScoringHilight -> Event -> Draw -> Html Msg
 viewDraw translations scoringHilight event draw =
     let
         viewDrawSheet gameId =
@@ -3016,7 +3048,7 @@ viewDraw translations scoringHilight event draw =
         )
 
 
-viewGame : WebData (List Translation) -> Maybe ScoringHilight -> Event -> String -> Bool -> Draw -> Game -> Html Msg
+viewGame : List Translation -> Maybe ScoringHilight -> Event -> String -> Bool -> Draw -> Game -> Html Msg
 viewGame translations scoringHilight event sheetLabel detailed draw game =
     let
         maxNumberOfEnds =
@@ -3298,8 +3330,8 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
         ]
 
 
-viewTeam : WebData (List Translation) -> Event -> Team -> Html Msg
-viewTeam translations event team =
+viewTeam : List Translation -> Flags -> Event -> Team -> Html Msg
+viewTeam translations flags event team =
     let
         hasDraws =
             not (List.isEmpty event.draws)
@@ -3318,7 +3350,14 @@ viewTeam translations event team =
                 hasPhotoUrl =
                     List.any (\c -> c.photoUrl /= Nothing) team.lineup
 
+                hasLoggedInCurler =
+                    List.any (\c -> List.member c.curlerId flags.loggedInCurlerIds) team.lineup
+
                 viewTeamCurler curler =
+                    let
+                        isLoggedInCurler =
+                            List.member curler.curlerId flags.loggedInCurlerIds
+                    in
                     div [ class "col-12 col-md-6 col-lg-4 col-xl-3 mb-4" ]
                         [ div [ class "card" ]
                             [ if hasPhotoUrl then
@@ -3360,6 +3399,18 @@ viewTeam translations event team =
                                         text ""
                                     , if hasClubCity then
                                         small [ class "d-block" ] [ text (Maybe.withDefault "-" curler.clubCity) ]
+
+                                      else
+                                        text ""
+                                    , if hasLoggedInCurler then
+                                        small [ class "d-block" ]
+                                            [ if isLoggedInCurler then
+                                                a [ href (baseClubSubdomainUrl flags ++ "/curlers") ]
+                                                    [ text (translate translations "edit_curler") ]
+
+                                              else
+                                                text "-"
+                                            ]
 
                                       else
                                         text ""
@@ -3571,7 +3622,7 @@ viewTeam translations event team =
         ]
 
 
-viewReportScoringAnalysis : WebData (List Translation) -> Maybe ScoringHilight -> Event -> List Team -> Html Msg
+viewReportScoringAnalysis : List Translation -> Maybe ScoringHilight -> Event -> List Team -> Html Msg
 viewReportScoringAnalysis translations scoringHilight event teams =
     let
         isHilighted onHilight =
@@ -3860,7 +3911,7 @@ viewTeamScoringAnalysis event team =
         ]
 
 
-viewReportScoringAnalysisByHammer : WebData (List Translation) -> Event -> Html Msg
+viewReportScoringAnalysisByHammer : List Translation -> Event -> Html Msg
 viewReportScoringAnalysisByHammer translations event =
     let
         games : List Game
@@ -3998,7 +4049,7 @@ viewReportScoringAnalysisByHammer translations event =
         ]
 
 
-viewReportTeamRosters : WebData (List Translation) -> List Team -> Html Msg
+viewReportTeamRosters : List Translation -> List Team -> Html Msg
 viewReportTeamRosters translations teams =
     let
         hasDelivery =
@@ -4044,7 +4095,7 @@ viewReportTeamRosters translations teams =
         ]
 
 
-viewReportCompetitionMatrix : WebData (List Translation) -> Event -> Html Msg
+viewReportCompetitionMatrix : List Translation -> Event -> Html Msg
 viewReportCompetitionMatrix translations event =
     let
         viewStageMatrix stage =
@@ -4127,7 +4178,7 @@ viewReportCompetitionMatrix translations event =
         )
 
 
-viewReportAttendance : WebData (List Translation) -> List Draw -> Html Msg
+viewReportAttendance : List Translation -> List Draw -> Html Msg
 viewReportAttendance translations draws =
     let
         viewAttendanceRow idx draw =
@@ -4162,7 +4213,7 @@ viewReportAttendance translations draws =
         ]
 
 
-viewReport : WebData (List Translation) -> Maybe ScoringHilight -> Event -> String -> Html Msg
+viewReport : List Translation -> Maybe ScoringHilight -> Event -> String -> Html Msg
 viewReport translations scoringHilight event report =
     case report of
         "attendance" ->

@@ -42,7 +42,7 @@
       {
         node: document.getElementById("curlingio_results"), // REQUIRED. Must match the ID of the div we're replacing, which is "results" in this example.
         flags: {
-          apiKey: "FV7HeT0-f_M", // REQUIRED. This is your club's read only API key (doesn't need to be secure / hidden). You can find this in Curling I/O under your Club's Settings section (look in the top right dropdown menu).
+          subdomain: "demo", // REQUIRED. This is your club's Curling I/O subdomain. For example, if your Curling I/O URL begins with "demo.curling.io" then the "demo" part would be your subdomain.
           section: "leagues", // OPTIONAL. Can be "leagues", "competition", or "products". Will default to "leagues" if omitted or an invalid value is passed.
           registration: true, // OPTIONAL. Set to false if you don't want prices and the add to cart / register / waitlist buttons to show up.
           // eventId: 3742, // OPTIONAL. If you only want to show one specific event, enter it's ID here.
