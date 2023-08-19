@@ -86,7 +86,8 @@ type alias Flags =
     { host : Maybe String
     , hash : Maybe String
     , lang : Maybe String
-    , subdomain : String
+    , apiKey : Maybe String
+    , subdomain : Maybe String
     , section : ItemsSection
     , registration : Bool
     , excludeEventSections : List String
@@ -376,7 +377,8 @@ decodeFlags =
         |> optional "host" (nullable string) Nothing
         |> optional "hash" (nullable string) Nothing
         |> optional "lang" (nullable string) Nothing
-        |> required "subdomain" string
+        |> optional "apiKey" (nullable string) Nothing
+        |> optional "subdomain" (nullable string) Nothing
         |> optional "section" decodeSection LeaguesSection
         |> optional "registration" bool False
         |> optional "excludeEventSections" (list string) []
@@ -987,7 +989,7 @@ init flags_ =
         Err error ->
             let
                 flags =
-                    Flags Nothing Nothing Nothing "" LeaguesSection False [] Nothing Nothing []
+                    Flags Nothing Nothing Nothing Nothing Nothing LeaguesSection False [] Nothing Nothing []
             in
             ( Model flags "" False NotAsked NotAsked (ItemFilter 1 0 "") NotAsked NotAsked Nothing (Just (Decode.errorToString error)) 0
             , Cmd.none
@@ -1043,22 +1045,35 @@ baseUrl { host, lang } =
             productionCachedUrl
 
 
+clubId : Flags -> String
+clubId { apiKey, subdomain } =
+    case ( apiKey, subdomain ) of
+        ( _, Just subdomain_ ) ->
+            subdomain_
+
+        ( Just apiKey_, _ ) ->
+            apiKey_
+
+        _ ->
+            ""
+
+
 baseClubUrl : Flags -> String
 baseClubUrl flags =
-    baseUrl flags ++ "/clubs/" ++ flags.subdomain ++ "/"
+    baseUrl flags ++ "/clubs/" ++ clubId flags ++ "/"
 
 
 baseClubSubdomainUrl : Flags -> String
-baseClubSubdomainUrl { subdomain, lang, host } =
+baseClubSubdomainUrl flags =
     let
         devUrl =
             -- Development
-            "http://" ++ subdomain ++ ".curling.test:3000/" ++ Maybe.withDefault "en" lang
+            "http://" ++ clubId flags ++ ".curling.test:3000/" ++ Maybe.withDefault "en" flags.lang
 
         productionUrl =
-            "https://" ++ subdomain ++ ".curling.io/" ++ Maybe.withDefault "en" lang
+            "https://" ++ clubId flags ++ ".curling.io/" ++ Maybe.withDefault "en" flags.lang
     in
-    case host of
+    case flags.host of
         Just h ->
             if String.contains "localhost" h || String.contains ".curling.test" h then
                 devUrl
