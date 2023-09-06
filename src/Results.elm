@@ -11,6 +11,7 @@ import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import List.Extra
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
+import Task
 import Time
 import Url
 import Url.Parser exposing ((</>), Parser)
@@ -282,7 +283,14 @@ type alias Draw =
     , label : String
     , attendance : Int
     , drawSheets : List (Maybe String)
+    , status : DrawStatus
     }
+
+
+type DrawStatus
+    = DrawFinished
+    | DrawStarted
+    | DrawPending
 
 
 type alias Group =
@@ -664,12 +672,33 @@ decodeStage =
 
 decodeDraw : Decoder Draw
 decodeDraw =
+    let
+        decodeDrawStatus : Decoder DrawStatus
+        decodeDrawStatus =
+            string
+                |> Decode.andThen
+                    (\str ->
+                        case String.toLower str of
+                            "finished" ->
+                                Decode.succeed DrawFinished
+
+                            "started" ->
+                                Decode.succeed DrawStarted
+
+                            "pending" ->
+                                Decode.succeed DrawPending
+
+                            _ ->
+                                Decode.succeed DrawFinished
+                    )
+    in
     Decode.succeed Draw
         |> required "id" int
         |> required "starts_at" string
         |> required "label" string
         |> optional "attendance" int 0
         |> required "draw_sheets" (list (nullable string))
+        |> required "status" decodeDrawStatus
 
 
 decodeGame : Decoder Game
