@@ -89,6 +89,7 @@ type alias Flags =
     , lang : Maybe String
     , apiKey : Maybe String
     , subdomain : Maybe String
+    , fullScreenToggle : Bool
     , section : ItemsSection
     , registration : Bool
     , excludeEventSections : List String
@@ -387,6 +388,7 @@ decodeFlags =
         |> optional "lang" (nullable string) Nothing
         |> optional "apiKey" (nullable string) Nothing
         |> optional "subdomain" (nullable string) Nothing
+        |> optional "fullScreenToggle" bool False
         |> optional "section" decodeSection LeaguesSection
         |> optional "registration" bool False
         |> optional "excludeEventSections" (list string) []
@@ -1018,7 +1020,7 @@ init flags_ =
         Err error ->
             let
                 flags =
-                    Flags Nothing Nothing Nothing Nothing Nothing LeaguesSection False [] Nothing Nothing []
+                    Flags Nothing Nothing Nothing Nothing Nothing False LeaguesSection False [] Nothing Nothing []
             in
             ( Model flags "" False NotAsked NotAsked (ItemFilter 1 0 "") NotAsked NotAsked Nothing (Just (Decode.errorToString error)) 0
             , Cmd.none
@@ -1802,32 +1804,36 @@ view model =
             )
         )
         [ viewReloadButton model
-        , div
-            [ style "cursor" "pointer"
-            , style "position" "absolute"
-            , style "top"
-                (if model.fullScreen then
-                    "10px"
+        , if model.flags.fullScreenToggle then
+            div
+                [ style "cursor" "pointer"
+                , style "position" "absolute"
+                , style "top"
+                    (if model.fullScreen then
+                        "10px"
 
-                 else
-                    "0"
-                )
-            , style "right"
-                (if model.fullScreen then
-                    "10px"
+                     else
+                        "0"
+                    )
+                , style "right"
+                    (if model.fullScreen then
+                        "10px"
 
-                 else
-                    "0"
-                )
-            , onClick ToggleFullScreen
-            , class "d-print-none"
-            ]
-            [ if model.fullScreen then
-                svgExitFullScreen
+                     else
+                        "0"
+                    )
+                , onClick ToggleFullScreen
+                , class "d-print-none"
+                ]
+                [ if model.fullScreen then
+                    svgExitFullScreen
 
-              else
-                svgFullScreen
-            ]
+                  else
+                    svgFullScreen
+                ]
+
+          else
+            text ""
         , case model.errorMsg of
             Just errorMsg ->
                 viewNotReady model.fullScreen errorMsg
