@@ -287,12 +287,6 @@ type alias Draw =
     }
 
 
-type DrawStatus
-    = DrawFinished
-    | DrawStarted
-    | DrawPending
-
-
 type alias Group =
     { id : Int
     , name : String
@@ -673,26 +667,6 @@ decodeStage =
 
 decodeDraw : Decoder Draw
 decodeDraw =
-    let
-        decodeDrawStatus : Decoder DrawStatus
-        decodeDrawStatus =
-            string
-                |> Decode.andThen
-                    (\str ->
-                        case String.toLower str of
-                            "finished" ->
-                                Decode.succeed DrawFinished
-
-                            "started" ->
-                                Decode.succeed DrawStarted
-
-                            "pending" ->
-                                Decode.succeed DrawPending
-
-                            _ ->
-                                Decode.succeed DrawFinished
-                    )
-    in
     Decode.succeed Draw
         |> required "id" int
         |> required "starts_at" string
