@@ -1647,7 +1647,8 @@ drawWithGameId draws id =
 
 
 type Msg
-    = Tick Time.Posix
+    = NoOp
+    | Tick Time.Posix
     | NavigateTo String
     | ToggleFullScreen
     | HashChanged Bool String
@@ -1665,6 +1666,9 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        NoOp ->
+            ( model, Cmd.none )
+
         Tick _ ->
             let
                 newReloadIn =
@@ -2892,6 +2896,15 @@ viewStages translations event onStage =
                                                        )
                                                 )
                                                 [ text label ]
+
+                                        -- Only link if the game has been scheduled
+                                        gameHasBeenScheduled =
+                                            case drawWithGameId event.draws game.id of
+                                                Just _ ->
+                                                    True
+
+                                                Nothing ->
+                                                    False
                                     in
                                     div
                                         [ class "d-flex justify-content-center"
@@ -2912,13 +2925,19 @@ viewStages translations event onStage =
                                             , style "z-index" "200"
                                             ]
                                             [ button
-                                                [ class "d-block flex-fill btn btn-link p-0 m-0"
-                                                , style "font-size" "12px"
-                                                , style "padding-left" "3px"
-                                                , style "color" "white"
-                                                , style "overflow" "hidden"
-                                                , onClick (NavigateTo (gameUrl event.id game))
-                                                ]
+                                                ([ class "d-block flex-fill btn p-0 m-0"
+                                                 , style "font-size" "12px"
+                                                 , style "padding-left" "3px"
+                                                 , style "color" "white"
+                                                 , style "overflow" "hidden"
+                                                 ]
+                                                    ++ (if gameHasBeenScheduled then
+                                                            [ onClick (NavigateTo (gameUrl event.id game)) ]
+
+                                                        else
+                                                            [ style "cursor" "default" ]
+                                                       )
+                                                )
                                                 [ text game.name ]
                                             ]
                                         , div [] (List.indexedMap viewSide game.sides)
@@ -4203,8 +4222,8 @@ viewReportCompetitionMatrix translations event =
                                 [ case gameScore game (Just ( teamA.id, teamB.id )) of
                                     Just score ->
                                         if event.endScoresEnabled then
-                                            -- Only link if the game has been scheduled
                                             let
+                                                -- Only link if the game has been scheduled
                                                 gameHasBeenScheduled =
                                                     case drawWithGameId event.draws game.id of
                                                         Just _ ->
