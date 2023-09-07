@@ -284,7 +284,6 @@ type alias Draw =
     , label : String
     , attendance : Int
     , drawSheets : List (Maybe String)
-    , status : DrawStatus
     }
 
 
@@ -700,7 +699,6 @@ decodeDraw =
         |> required "label" string
         |> optional "attendance" int 0
         |> required "draw_sheets" (list (nullable string))
-        |> required "status" decodeDrawStatus
 
 
 decodeGame : Decoder Game
