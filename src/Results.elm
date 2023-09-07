@@ -4203,11 +4203,24 @@ viewReportCompetitionMatrix translations event =
                                 [ case gameScore game (Just ( teamA.id, teamB.id )) of
                                     Just score ->
                                         if event.endScoresEnabled then
+                                            -- Only link if the game has been scheduled
                                             let
+                                                gameHasBeenScheduled =
+                                                    case drawWithGameId event.draws game.id of
+                                                        Just _ ->
+                                                            True
+
+                                                        Nothing ->
+                                                            False
+
                                                 gamePath =
                                                     gameUrl event.id game
                                             in
-                                            button [ class "btn btn-link p-0 m-0", onClick (NavigateTo gamePath) ] [ text score ]
+                                            if gameHasBeenScheduled then
+                                                button [ class "btn btn-link p-0 m-0", onClick (NavigateTo gamePath) ] [ text score ]
+
+                                            else
+                                                text score
 
                                         else
                                             text score
