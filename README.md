@@ -28,10 +28,21 @@ You'll want to include the bootstrap 4 styles if they aren't already being inclu
 
 ```
 <style>
-  .btn:focus, .btn:active {
+  #curlingio__results {
+    padding: 5px;
+  }
+  #curlingio__results .btn:focus, #curlingio__results .btn:active {
     outline: none !important;
     box-shadow: none !important;
     -webkit-box-shadow: none !important;
+  }
+  #curlingio__results .btn-link {
+    color: #007bff !important;
+    background-color: transparent !important;
+  }
+  #curlingio__results .btn-primary {
+    color: white !important;
+    background-color: #007bff !important;
   }
 </style>
 ```
