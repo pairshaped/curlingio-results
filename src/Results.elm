@@ -269,6 +269,7 @@ type RankingMethod
     = PointsRanking
     | SkinsRanking
     | ScoresRanking
+    | WinsRanking
 
 
 type Tiebreaker
@@ -606,6 +607,9 @@ decodeStage =
 
                             "scores" ->
                                 Decode.succeed ScoresRanking
+
+                            "wins" ->
+                                Decode.succeed WinsRanking
 
                             _ ->
                                 Decode.succeed PointsRanking
@@ -1379,6 +1383,9 @@ teamResultsFor onStage allStages allTeams allGames =
                     (toFloat (winsByTeamAndStage team stage) * stage.pointsPerWin)
                         + (toFloat (tiesByTeamAndStage team stage) * stage.pointsPerTie)
                         + (toFloat (lossesByTeamAndStage team stage) * stage.pointsPerLoss)
+
+                WinsRanking ->
+                    toFloat (winsByTeamAndStage team stage)
 
                 SkinsRanking ->
                     let
@@ -2748,6 +2755,9 @@ viewStages translations event onStage =
                 hasTies =
                     List.any (\teamResult -> teamResult.ties > 0) teamResults
 
+                hasPoints =
+                    onStage.rankingMethod /= WinsRanking
+
                 viewRow teamResult =
                     tr []
                         [ td []
@@ -2769,7 +2779,11 @@ viewStages translations event onStage =
 
                           else
                             text ""
-                        , td [ class "text-right" ] [ text (String.fromFloat teamResult.points) ]
+                        , if hasPoints then
+                            td [ class "text-right" ] [ text (String.fromFloat teamResult.points) ]
+
+                          else
+                            text ""
                         ]
             in
             div [ class "table-responsive" ]
@@ -2797,10 +2811,14 @@ viewStages translations event onStage =
 
                               else
                                 text ""
-                            , th [ class "text-right", style "border-top" "none" ]
-                                [ span [ class "d-none d-lg-block" ] [ text (translate translations "points") ]
-                                , span [ class "d-lg-none" ] [ text "P" ]
-                                ]
+                            , if hasPoints then
+                                th [ class "text-right", style "border-top" "none" ]
+                                    [ span [ class "d-none d-lg-block" ] [ text (translate translations "points") ]
+                                    , span [ class "d-lg-none" ] [ text "P" ]
+                                    ]
+
+                              else
+                                text ""
                             ]
                         ]
                     , tbody [] (List.map viewRow teamResults)
