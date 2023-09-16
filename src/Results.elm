@@ -113,6 +113,7 @@ type alias ItemFilter =
     { page : Int
     , seasonDelta : Int
     , search : String
+    , seasonSearchOpen : Bool
     }
 
 
@@ -981,7 +982,7 @@ init flags_ =
                             hash
 
                 newModel =
-                    Model flags newHash False NotAsked NotAsked (ItemFilter 1 0 "") NotAsked NotAsked Nothing Nothing timeBetweenReloads
+                    Model flags newHash False NotAsked NotAsked (ItemFilter 1 0 "" False) NotAsked NotAsked Nothing Nothing timeBetweenReloads
             in
             ( newModel
             , Cmd.batch
@@ -997,7 +998,7 @@ init flags_ =
                 flags =
                     Flags Nothing Nothing Nothing Nothing Nothing LeaguesSection False [] Nothing Nothing []
             in
-            ( Model flags "" False NotAsked NotAsked (ItemFilter 1 0 "") NotAsked NotAsked Nothing (Just (Decode.errorToString error)) 0
+            ( Model flags "" False NotAsked NotAsked (ItemFilter 1 0 "" False) NotAsked NotAsked Nothing (Just (Decode.errorToString error)) 0
             , Cmd.none
             )
 
@@ -1633,8 +1634,9 @@ type Msg
     | GotTranslations (WebData (List Translation))
     | GotItems (WebData (List Item))
     | IncrementPageBy Int
+    | ToggleSeasonSearch
     | UpdateSearch String
-    | UpdateSeasonDelta String
+    | UpdateSeasonDelta Int
     | AddToCart String
     | GotEvent (WebData Event)
     | GotProduct (WebData Product)
@@ -1720,10 +1722,17 @@ update msg model =
             in
             ( { model | itemFilter = updatedItemFilter model.itemFilter }, Cmd.none )
 
-        UpdateSeasonDelta val ->
+        ToggleSeasonSearch ->
             let
                 updatedItemFilter itemFilter =
-                    { itemFilter | seasonDelta = Maybe.withDefault 0 (String.toInt val) }
+                    { itemFilter | seasonSearchOpen = not itemFilter.seasonSearchOpen }
+            in
+            ( { model | itemFilter = updatedItemFilter model.itemFilter }, Cmd.none )
+
+        UpdateSeasonDelta seasonDelta ->
+            let
+                updatedItemFilter itemFilter =
+                    { itemFilter | seasonDelta = seasonDelta }
 
                 updatedModel =
                     { model | itemFilter = updatedItemFilter model.itemFilter }
@@ -1936,7 +1945,68 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                 ]
 
         viewSeasonDropDown =
-            el [] (text "season")
+            let
+                times =
+                    [ ( 1, "next_season" )
+                    , ( 0, "this_season" )
+                    , ( -1, "Last_season" )
+                    , ( -2, "two_seasons_ago" )
+                    , ( -3, "three_seasons_ago" )
+                    ]
+
+                seasonOption ( delta, label ) =
+                    el
+                        [ Element.width Element.fill
+                        , Element.padding 10
+                        , Events.onClick (UpdateSeasonDelta delta)
+                        , if delta == itemFilter.seasonDelta then
+                            Background.color theme.grey
+
+                          else
+                            Background.color theme.white
+                        ]
+                        (text (translate translations label))
+
+                seasonOptions =
+                    if itemFilter.seasonSearchOpen then
+                        column
+                            [ Element.width Element.fill
+                            , Border.width 1
+                            , Border.color theme.grey
+                            , Background.color theme.white
+                            ]
+                            (List.map seasonOption times)
+
+                    else
+                        Element.none
+
+                seasonSelected =
+                    List.filter (\time -> Tuple.first time == itemFilter.seasonDelta) times
+                        |> List.map Tuple.second
+                        |> List.head
+                        |> Maybe.withDefault "this_season"
+                        |> translate translations
+            in
+            row
+                [ Element.width (Element.px 184)
+                , Element.padding 10
+                , Border.width 1
+                , Border.color theme.grey
+                , Element.pointer
+                , Events.onClick ToggleSeasonSearch
+                , Element.below seasonOptions
+                ]
+                [ el [] (text seasonSelected)
+                , el [ Element.alignRight ]
+                    (text
+                        (if itemFilter.seasonSearchOpen then
+                            "▼"
+
+                         else
+                            "►"
+                        )
+                    )
+                ]
 
         filteredItems =
             case String.trim itemFilter.search of
@@ -1958,16 +2028,17 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                     List.filter matches items
     in
     column [ Element.spacing 10 ]
-        [ row []
-            [ Input.text []
+        [ row [ Element.spacing 20 ]
+            [ Input.text [ Element.padding 10 ]
                 { placeholder = Just (Input.placeholder [] (text (translate translations "search")))
                 , text = itemFilter.search
                 , onChange = UpdateSearch
                 , label = Input.labelHidden ""
                 }
+            , viewSeasonDropDown
             ]
         , if List.isEmpty filteredItems then
-            text ""
+            Element.none
 
           else
             let
