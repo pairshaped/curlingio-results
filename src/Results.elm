@@ -1,14 +1,16 @@
 port module Results exposing (init)
 
 import Browser
+import Browser.Navigation as Navigation
 import CustomSvg exposing (..)
-import Element exposing (Element, alignRight, centerY, column, el, fill, height, layout, none, padding, rgb255, row, spacing, text, width)
+import Element exposing (Element, column, el, row, text)
 import Element.Background as Background
 import Element.Border as Border
+import Element.Events as Events
 import Element.Font as Font
+import Element.Input as Input exposing (button)
+import Element.Region as Region
 import Html exposing (Html)
-import Html.Attributes exposing (class, classList, disabled, href, id, style)
-import Html.Events exposing (onClick)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
@@ -1622,7 +1624,8 @@ drawWithGameId draws id =
 
 
 type Msg
-    = Tick Time.Posix
+    = NoOp
+    | Tick Time.Posix
     | NavigateTo String
     | ToggleFullScreen
     | HashChanged Bool String
@@ -1632,6 +1635,7 @@ type Msg
     | IncrementPageBy Int
     | UpdateSearch String
     | UpdateSeasonDelta String
+    | AddToCart String
     | GotEvent (WebData Event)
     | GotProduct (WebData Product)
     | ToggleScoringHilight ScoringHilight
@@ -1640,6 +1644,9 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        NoOp ->
+            ( model, Cmd.none )
+
         Tick _ ->
             let
                 newReloadIn =
@@ -1723,6 +1730,9 @@ update msg model =
             in
             ( updatedModel, getItems model.flags updatedModel.itemFilter )
 
+        AddToCart url ->
+            ( model, Navigation.load url )
+
         GotEvent response ->
             ( { model | event = response, reloadIn = timeBetweenReloads }
             , Cmd.none
@@ -1747,12 +1757,47 @@ update msg model =
 
 
 
+-- COLORS
+
+
+theme =
+    { primary = Element.rgb255 0 123 255
+    , primaryFocused = Element.rgb255 0 103 235
+    , secondary = Element.rgb255 108 117 125
+    , secondaryFocused = Element.rgb255 128 137 155
+    , white = Element.rgb255 255 255 255
+    , grey = Element.rgb255 225 225 225
+    }
+
+
+
 -- VIEWS
+
+
+viewButton textColor bgColor bgColorFocused content msg =
+    button
+        [ Background.color bgColor
+        , Font.color textColor
+        , Element.paddingXY 8 8
+        , Border.rounded 4
+        , Element.focused [ Background.color bgColorFocused ]
+        ]
+        { onPress = Just msg
+        , label = text content
+        }
+
+
+viewButtonPrimary content msg =
+    viewButton theme.white theme.primary theme.primaryFocused content msg
+
+
+viewButtonSecondary content msg =
+    viewButton theme.white theme.secondary theme.secondaryFocused content msg
 
 
 view : Model -> Html Msg
 view model =
-    layout [ width fill, height fill ] <|
+    Element.layout [ Element.width Element.fill, Element.height Element.fill, Font.size 16 ] <|
         column []
             [ viewReloadButton model
             , case model.errorMsg of
@@ -1774,72 +1819,293 @@ view model =
 
 viewRoute : Model -> List Translation -> Element Msg
 viewRoute model translations =
-    none
+    let
+        viewLoading =
+            viewNotReady model.fullScreen "Loading..."
+    in
+    case toRoute model.flags.defaultEventSection model.hash of
+        ItemsRoute ->
+            case model.items of
+                Success items ->
+                    viewItems model translations items
+
+                Failure error ->
+                    viewFetchError model (errorMessage error)
+
+                _ ->
+                    viewLoading
+
+        ProductRoute id ->
+            case model.product of
+                Success product ->
+                    viewProduct model.fullScreen translations product
+
+                Failure error ->
+                    viewFetchError model (errorMessage error)
+
+                _ ->
+                    viewLoading
+
+        EventRoute id nestedRoute ->
+            case model.event of
+                Success event ->
+                    viewEvent model translations nestedRoute event
+
+                Failure error ->
+                    viewFetchError model (errorMessage error)
+
+                _ ->
+                    viewLoading
 
 
 viewReloadButton : Model -> Element Msg
 viewReloadButton { flags, hash, fullScreen, reloadIn, event } =
-    none
+    case toRoute flags.defaultEventSection hash of
+        EventRoute _ nestedRoute ->
+            case event of
+                Success event_ ->
+                    let
+                        reloadEnabled =
+                            -- Only if the event is active, end scores are enabled, and we're on a route / screen that is meaningfull to reload.
+                            (event_.state == EventStateActive)
+                                && event_.endScoresEnabled
+                                && not (List.member nestedRoute [ DetailsRoute, TeamsRoute, ReportsRoute ])
+                    in
+                    if reloadEnabled then
+                        if reloadIn <= 0 then
+                            viewButtonPrimary "Reload" Reload
+
+                        else
+                            viewButtonPrimary ("Reload in " ++ String.fromInt reloadIn ++ "s") NoOp
+
+                    else
+                        text ""
+
+                _ ->
+                    text ""
+
+        _ ->
+            text ""
 
 
 viewNotReady : Bool -> String -> Element Msg
 viewNotReady fullScreen message =
-    none
+    el [] (text message)
 
 
 viewFetchError : Model -> String -> Element Msg
 viewFetchError { fullScreen, hash } message =
-    none
+    row
+        []
+        [ column [ Element.spacing 10 ]
+            [ el [] (text message)
+            , viewButtonPrimary "Reload" Reload
+            ]
+        ]
 
 
 viewItems : Model -> List Translation -> List Item -> Element Msg
 viewItems { flags, fullScreen, itemFilter } translations items =
-    none
+    let
+        viewPaging =
+            let
+                viewPageButton content msg =
+                    button
+                        [ Font.size 14
+                        , Element.paddingXY 8 8
+                        , Border.rounded 3
+                        , Font.color theme.white
+                        , Background.color theme.primary
+                        , Element.focused [ Background.color theme.primaryFocused ]
+                        ]
+                        { onPress = Just msg
+                        , label = text content
+                        }
+            in
+            row []
+                [ if List.length items >= 10 then
+                    viewPageButton "Next >" (IncrementPageBy 1)
+
+                  else
+                    Element.none
+                , if itemFilter.page > 1 then
+                    viewPageButton "< Previous" (IncrementPageBy -1)
+
+                  else
+                    Element.none
+                ]
+
+        viewSeasonDropDown =
+            el [] (text "season")
+
+        filteredItems =
+            case String.trim itemFilter.search of
+                "" ->
+                    items
+
+                _ ->
+                    let
+                        matches item =
+                            String.contains itemFilter.search (String.toLower item.name)
+                                || (case item.location of
+                                        Just location ->
+                                            String.contains itemFilter.search (String.toLower location)
+
+                                        Nothing ->
+                                            False
+                                   )
+                    in
+                    List.filter matches items
+    in
+    column [ Element.spacing 10 ]
+        [ row []
+            [ Input.text []
+                { placeholder = Just (Input.placeholder [] (text (translate translations "search")))
+                , text = itemFilter.search
+                , onChange = UpdateSearch
+                , label = Input.labelHidden ""
+                }
+            ]
+        , if List.isEmpty filteredItems then
+            text ""
+
+          else
+            let
+                viewItemName item =
+                    let
+                        newPath =
+                            case flags.section of
+                                ProductsSection ->
+                                    "/products/" ++ String.fromInt item.id
+
+                                _ ->
+                                    "/events/" ++ String.fromInt item.id
+                    in
+                    column [ Element.spacingXY 0 5, Element.paddingXY 10 15, Border.color theme.grey, Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 } ]
+                        [ el [ Font.color theme.primary, Element.pointer, Events.onClick (NavigateTo newPath) ] (text item.name)
+                        , el [ Font.size 13 ] (text (Maybe.withDefault "" item.summary))
+                        ]
+
+                viewItemCell content =
+                    el [ Element.paddingXY 10 24, Border.color theme.grey, Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 } ] content
+
+                viewItemOccursOn item =
+                    viewItemCell (el [ Element.centerX ] (text (Maybe.withDefault "" item.occursOn)))
+
+                viewItemPrice item =
+                    if flags.registration then
+                        viewItemCell (el [ Element.alignRight ] (text (Maybe.withDefault "" item.price)))
+
+                    else
+                        Element.none
+
+                viewItemRegister item =
+                    if flags.registration then
+                        case item.noRegistrationMessage of
+                            Just msg ->
+                                case item.addToCartUrl of
+                                    Just url ->
+                                        viewItemCell (el [ Font.color theme.primary, Element.alignRight ] (text msg))
+
+                                    Nothing ->
+                                        viewItemCell (text msg)
+
+                            Nothing ->
+                                case ( item.addToCartUrl, item.addToCartText ) of
+                                    ( Just addToCartUrl, Just addToCartText ) ->
+                                        el
+                                            [ Element.paddingXY 10 17, Border.color theme.grey, Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 } ]
+                                            (button
+                                                [ Background.color theme.primary
+                                                , Font.color theme.white
+                                                , Font.size 14
+                                                , Element.alignRight
+                                                , Element.paddingXY 8 8
+                                                , Border.rounded 3
+                                                , Element.focused [ Background.color theme.primaryFocused ]
+                                                ]
+                                                { onPress = Just (AddToCart addToCartUrl)
+                                                , label = text addToCartText
+                                                }
+                                            )
+
+                                    _ ->
+                                        viewItemCell (text "")
+
+                    else
+                        Element.none
+            in
+            row
+                []
+                [ Element.table [ Element.spacingXY 0 15 ]
+                    { data = filteredItems
+                    , columns =
+                        [ { header = Element.none
+                          , width = Element.fill
+                          , view = viewItemName
+                          }
+                        , { header = Element.none
+                          , width = Element.fill
+                          , view = viewItemOccursOn
+                          }
+                        , { header = Element.none
+                          , width = Element.fill
+                          , view = viewItemPrice
+                          }
+                        , { header = Element.none
+                          , width = Element.fill
+                          , view = viewItemRegister
+                          }
+                        ]
+                    }
+                ]
+        , viewPaging
+        ]
 
 
 viewNoDataForRoute : List Translation -> Element Msg
 viewNoDataForRoute translations =
-    none
+    Element.none
 
 
 viewSponsor : Sponsor -> Element Msg
 viewSponsor sponsor =
-    none
+    Element.none
 
 
 viewProduct : Bool -> List Translation -> Product -> Element Msg
 viewProduct fullScreen translations product =
-    none
+    Element.none
 
 
 viewEvent : Model -> List Translation -> NestedEventRoute -> Event -> Element Msg
 viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
-    none
+    Element.none
 
 
 viewDetails : List Translation -> Event -> Element Msg
 viewDetails translations event =
-    none
+    Element.none
 
 
 viewRegistrations : List Translation -> List Registration -> Element Msg
 viewRegistrations translations registrations =
-    none
+    Element.none
 
 
 viewDraws : List Translation -> Maybe ScoringHilight -> Event -> Element Msg
 viewDraws translations scoringHilight event =
-    none
+    Element.none
 
 
 viewTeams : List Translation -> Event -> Element Msg
 viewTeams translations event =
-    none
+    Element.none
 
 
 viewStages : List Translation -> Event -> Stage -> Element Msg
 viewStages translations event onStage =
-    none
+    Element.none
 
 
 
@@ -1848,57 +2114,57 @@ viewStages translations event onStage =
 
 viewReports : List Translation -> Event -> Element Msg
 viewReports translations event =
-    none
+    Element.none
 
 
 viewDraw : List Translation -> Maybe ScoringHilight -> Event -> Draw -> Element Msg
 viewDraw translations scoringHilight event draw =
-    none
+    Element.none
 
 
 viewGame : List Translation -> Maybe ScoringHilight -> Event -> String -> Bool -> Draw -> Game -> Element Msg
 viewGame translations scoringHilight event sheetLabel detailed draw game =
-    none
+    Element.none
 
 
 viewTeam : List Translation -> Flags -> Event -> Team -> Element Msg
 viewTeam translations flags event team =
-    none
+    Element.none
 
 
 viewReportScoringAnalysis : List Translation -> Maybe ScoringHilight -> Event -> List Team -> Element Msg
 viewReportScoringAnalysis translations scoringHilight event teams =
-    none
+    Element.none
 
 
 viewTeamScoringAnalysis : Event -> Team -> Element Msg
 viewTeamScoringAnalysis event team =
-    none
+    Element.none
 
 
 viewReportScoringAnalysisByHammer : List Translation -> Event -> Element Msg
 viewReportScoringAnalysisByHammer translations event =
-    none
+    Element.none
 
 
 viewReportTeamRosters : List Translation -> List Team -> Element Msg
 viewReportTeamRosters translations teams =
-    none
+    Element.none
 
 
 viewReportCompetitionMatrix : List Translation -> Event -> Element Msg
 viewReportCompetitionMatrix translations event =
-    none
+    Element.none
 
 
 viewReportAttendance : List Translation -> List Draw -> Element Msg
 viewReportAttendance translations draws =
-    none
+    Element.none
 
 
 viewReport : List Translation -> Maybe ScoringHilight -> Event -> String -> Element Msg
 viewReport translations scoringHilight event report =
-    none
+    Element.none
 
 
 
