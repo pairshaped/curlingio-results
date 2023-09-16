@@ -1776,6 +1776,7 @@ theme =
     , secondaryFocused = Element.rgb255 128 137 155
     , white = Element.rgb255 255 255 255
     , grey = Element.rgb255 225 225 225
+    , defaultText = Element.rgb255 33 37 41
     }
 
 
@@ -1806,7 +1807,29 @@ viewButtonSecondary content msg =
 
 view : Model -> Html Msg
 view model =
-    Element.layout [ Element.width Element.fill, Element.height Element.fill, Font.size 16 ] <|
+    Element.layout
+        [ Element.width Element.fill
+        , Element.height Element.fill
+        , Font.size 16
+        , Font.color theme.defaultText
+        , Font.family
+            [ Font.typeface "-apple-system"
+            , Font.typeface "BlinkMacSystemFont"
+            , Font.typeface "Segoe UI"
+            , Font.typeface "Roboto"
+            , Font.typeface "Helvetica Neue"
+            , Font.typeface "Arial"
+            , Font.typeface "Noto Sans"
+            , Font.typeface "Noto Sans"
+            , Font.typeface "Liberation Sans"
+            , Font.typeface "Apple Color Emoji"
+            , Font.typeface "Segoe UI Emoji"
+            , Font.typeface "Segoe UI Symbol"
+            , Font.typeface "Noto Color Emoji"
+            , Font.sansSerif
+            ]
+        ]
+    <|
         column []
             [ viewReloadButton model
             , case model.errorMsg of
@@ -2136,17 +2159,75 @@ viewItems { flags, fullScreen, itemFilter } translations items =
 
 viewNoDataForRoute : List Translation -> Element Msg
 viewNoDataForRoute translations =
-    Element.none
+    el [] (text (translate translations "no_data_for_route"))
 
 
 viewSponsor : Sponsor -> Element Msg
 viewSponsor sponsor =
-    Element.none
+    column [ Element.spacing 10 ]
+        [ case sponsor.url of
+            Just url ->
+                el [ Element.pointer, Events.onClick (NavigateTo url) ]
+                    (Element.image [] { src = sponsor.logoUrl, description = Maybe.withDefault "" sponsor.name })
+
+            Nothing ->
+                Element.image [] { src = sponsor.logoUrl, description = Maybe.withDefault "" sponsor.name }
+        , case sponsor.name of
+            Just name ->
+                el [ Element.alignRight ] (text name)
+
+            Nothing ->
+                Element.none
+        ]
 
 
 viewProduct : Bool -> List Translation -> Product -> Element Msg
 viewProduct fullScreen translations product =
-    Element.none
+    row [ Element.spacing 20 ]
+        [ column [ Element.spacing 20, Element.width Element.fill, Element.alignTop ]
+            [ el [ Font.size 28 ] (text product.name)
+            , case ( product.description, product.summary ) of
+                ( Just description, _ ) ->
+                    Element.paragraph [] [ text description ]
+
+                ( _, Just summary ) ->
+                    Element.paragraph [] [ text summary ]
+
+                ( Nothing, Nothing ) ->
+                    Element.none
+            , case product.totalWithTax of
+                Just totalWithTax ->
+                    column [ Element.spacing 8 ]
+                        [ el [ Font.bold ] (text (translate translations "total_with_tax"))
+                        , el [] (text totalWithTax)
+                        ]
+
+                _ ->
+                    Element.none
+            , case ( product.addToCartUrl, product.addToCartText ) of
+                ( Just addToCartUrl, Just addToCartText ) ->
+                    Element.paragraph []
+                        [ viewButtonPrimary addToCartText (AddToCart addToCartUrl)
+                        ]
+
+                _ ->
+                    Element.none
+            , if not (List.isEmpty product.potentialDiscounts) then
+                column [ Element.spacing 5 ]
+                    [ el [ Font.bold ] (text (translate translations "potential_discounts"))
+                    , column [] (List.map (\d -> el [] (text d)) product.potentialDiscounts)
+                    ]
+
+              else
+                Element.none
+            ]
+        , case product.sponsor of
+            Just sponsor ->
+                viewSponsor sponsor
+
+            Nothing ->
+                Element.none
+        ]
 
 
 viewEvent : Model -> List Translation -> NestedEventRoute -> Event -> Element Msg
