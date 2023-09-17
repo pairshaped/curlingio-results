@@ -1775,7 +1775,8 @@ theme =
     , secondary = El.rgb255 108 117 125
     , secondaryFocused = El.rgb255 128 137 155
     , white = El.rgb255 255 255 255
-    , grey = El.rgb255 225 225 225
+    , grey = El.rgb255 222 226 230
+    , greyLight = El.rgba 0 0 0 0.05
     , defaultText = El.rgb255 33 37 41
     }
 
@@ -1910,7 +1911,7 @@ viewReloadButton { flags, hash, fullScreen, reloadIn, event } =
                             button
                                 [ El.paddingXY 8 4
                                 , Border.rounded 3
-                                , Font.size 13
+                                , Font.size 14
                                 , Font.color theme.primary
                                 , El.focused [ Background.color theme.grey ]
                                 ]
@@ -1920,8 +1921,8 @@ viewReloadButton { flags, hash, fullScreen, reloadIn, event } =
 
                         else
                             el
-                                [ El.paddingXY 0 4
-                                , Font.size 13
+                                [ El.paddingXY 8 4
+                                , Font.size 14
                                 , Font.color theme.secondary
                                 ]
                                 (text ("Reload in " ++ String.fromInt reloadIn ++ "s"))
@@ -2180,7 +2181,7 @@ viewNoDataForRoute translations =
 
 viewSponsor : Sponsor -> Element Msg
 viewSponsor sponsor =
-    column [ El.spacing 10 ]
+    column [ El.spacing 10, El.alignTop ]
         [ case sponsor.url of
             Just url ->
                 el [ El.pointer, Events.onClick (NavigateTo url) ]
@@ -2261,11 +2262,11 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
             el []
                 (if isActiveRoute then
                     button
-                        [ El.padding 16
+                        [ El.paddingXY 16 12
                         , Border.rounded 4
                         , Background.color theme.primary
                         , Font.color theme.white
-                        , El.focused [ Background.color theme.primaryFocused ]
+                        , El.focused [ Background.color theme.primary ]
                         ]
                         { onPress = Just NoOp
                         , label = text (translate translations eventSection)
@@ -2273,7 +2274,7 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
 
                  else
                     button
-                        [ El.padding 16
+                        [ El.paddingXY 16 12
                         , Font.color theme.primary
                         , Border.rounded 4
                         , El.focused [ Background.color theme.white ]
@@ -2284,7 +2285,7 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
                 )
     in
     column [ El.width El.fill, El.spacing 20 ]
-        [ el [ Font.size 28 ] (text event.name)
+        [ el [ Font.size 28, Font.medium ] (text event.name)
         , row [ El.width El.fill ]
             (List.map viewNavItem (eventSections flags.excludeEventSections event)
                 ++ (if flags.eventId == Nothing then
@@ -2305,7 +2306,6 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
                         []
                    )
             )
-        , el [ Font.size 24 ] (text (translate translations (eventSectionForRoute nestedRoute)))
         , case nestedRoute of
             DetailsRoute ->
                 viewDetails translations event
@@ -2458,7 +2458,131 @@ viewDetails translations event =
 
 viewRegistrations : List Translation -> List Registration -> Element Msg
 viewRegistrations translations registrations =
-    El.none
+    let
+        hasCurlers =
+            List.any (\r -> r.curlerName /= Nothing) registrations
+
+        hasTeamNames =
+            List.any (\r -> r.teamName /= Nothing) registrations
+
+        hasSkipNames =
+            List.any (\r -> r.skipName /= Nothing) registrations
+
+        hasPositions =
+            List.any (\r -> r.position /= Nothing) registrations
+
+        hasLineups =
+            List.any (\r -> r.lineup /= Nothing) registrations
+
+        tableHeader content =
+            el [ Font.bold, Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }, Border.color theme.grey, El.padding 12 ] (text (translate translations content))
+
+        tableCell i content =
+            el
+                [ El.padding 12
+                , Background.color
+                    (if modBy 2 i == 0 then
+                        theme.greyLight
+
+                     else
+                        theme.white
+                    )
+                ]
+                (text content)
+
+        curlerColumn =
+            if hasCurlers then
+                Just
+                    { header = tableHeader "curler"
+                    , width = El.fill
+                    , view = \i reg -> tableCell i (Maybe.withDefault "-" reg.curlerName)
+                    }
+
+            else
+                Nothing
+
+        teamColumn =
+            if hasTeamNames then
+                Just
+                    { header = tableHeader "team"
+                    , width = El.fill
+                    , view = \i reg -> tableCell i (Maybe.withDefault "-" reg.teamName)
+                    }
+
+            else
+                Nothing
+
+        skipColumn =
+            if hasSkipNames then
+                Just
+                    { header = tableHeader "skip"
+                    , width = El.fill
+                    , view = \i reg -> tableCell i (Maybe.withDefault "-" reg.skipName)
+                    }
+
+            else
+                Nothing
+
+        positionColumn =
+            if hasPositions then
+                Just
+                    { header = tableHeader "position"
+                    , width = El.fill
+                    , view =
+                        \i reg ->
+                            tableCell i
+                                (case reg.position of
+                                    Just pos ->
+                                        translate translations pos
+
+                                    Nothing ->
+                                        "-"
+                                )
+                    }
+
+            else
+                Nothing
+
+        lineupColumn =
+            if hasLineups then
+                Just
+                    { header = tableHeader "lineup"
+                    , width = El.fill
+                    , view =
+                        \i reg ->
+                            tableCell i
+                                (case reg.lineup of
+                                    Just lineup ->
+                                        [ lineup.first
+                                        , lineup.second
+                                        , lineup.third
+                                        , lineup.fourth
+                                        , lineup.alternate
+                                        ]
+                                            |> List.filterMap identity
+                                            |> String.join ", "
+
+                                    Nothing ->
+                                        "-"
+                                )
+                    }
+
+            else
+                Nothing
+
+        tableColumns =
+            List.filterMap identity [ curlerColumn, teamColumn, skipColumn, positionColumn, lineupColumn ]
+    in
+    el [ El.width El.fill ]
+        (if List.isEmpty registrations then
+            El.paragraph [] [ text (translate translations "no_registrations") ]
+
+         else
+            El.indexedTable []
+                { data = registrations
+                , columns = tableColumns
+                }
+        )
 
 
 viewDraws : List Translation -> Maybe ScoringHilight -> Event -> Element Msg
