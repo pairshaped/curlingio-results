@@ -3,7 +3,7 @@ port module Results exposing (init)
 import Browser
 import Browser.Navigation as Navigation
 import CustomSvg exposing (..)
-import Element exposing (Element, column, el, row, text)
+import Element as El exposing (Element, column, el, row, text)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
@@ -1770,13 +1770,13 @@ update msg model =
 
 
 theme =
-    { primary = Element.rgb255 0 123 255
-    , primaryFocused = Element.rgb255 0 103 235
-    , secondary = Element.rgb255 108 117 125
-    , secondaryFocused = Element.rgb255 128 137 155
-    , white = Element.rgb255 255 255 255
-    , grey = Element.rgb255 225 225 225
-    , defaultText = Element.rgb255 33 37 41
+    { primary = El.rgb255 0 123 255
+    , primaryFocused = El.rgb255 0 103 235
+    , secondary = El.rgb255 108 117 125
+    , secondaryFocused = El.rgb255 128 137 155
+    , white = El.rgb255 255 255 255
+    , grey = El.rgb255 225 225 225
+    , defaultText = El.rgb255 33 37 41
     }
 
 
@@ -1788,9 +1788,9 @@ viewButton textColor bgColor bgColorFocused content msg =
     button
         [ Background.color bgColor
         , Font.color textColor
-        , Element.paddingXY 8 8
+        , El.paddingXY 12 10
         , Border.rounded 4
-        , Element.focused [ Background.color bgColorFocused ]
+        , El.focused [ Background.color bgColorFocused ]
         ]
         { onPress = Just msg
         , label = text content
@@ -1807,9 +1807,9 @@ viewButtonSecondary content msg =
 
 view : Model -> Html Msg
 view model =
-    Element.layout
-        [ Element.width Element.fill
-        , Element.height Element.fill
+    El.layout
+        [ El.width El.fill
+        , El.height El.fill
         , Font.size 16
         , Font.color theme.defaultText
         , Font.family
@@ -1831,8 +1831,8 @@ view model =
         ]
     <|
         row
-            [ Element.width Element.fill
-            , Element.inFront (el [ Element.alignRight ] (viewReloadButton model))
+            [ El.width El.fill
+            , El.inFront (el [ El.alignRight ] (viewReloadButton model))
             ]
             [ case model.errorMsg of
                 Just errorMsg ->
@@ -1908,11 +1908,11 @@ viewReloadButton { flags, hash, fullScreen, reloadIn, event } =
                     if reloadEnabled then
                         if reloadIn <= 0 then
                             button
-                                [ Element.paddingXY 8 4
+                                [ El.paddingXY 8 4
                                 , Border.rounded 3
                                 , Font.size 13
                                 , Font.color theme.primary
-                                , Element.focused [ Background.color theme.grey ]
+                                , El.focused [ Background.color theme.grey ]
                                 ]
                                 { onPress = Just Reload
                                 , label = text "Reload"
@@ -1920,20 +1920,20 @@ viewReloadButton { flags, hash, fullScreen, reloadIn, event } =
 
                         else
                             el
-                                [ Element.paddingXY 0 4
+                                [ El.paddingXY 0 4
                                 , Font.size 13
                                 , Font.color theme.secondary
                                 ]
                                 (text ("Reload in " ++ String.fromInt reloadIn ++ "s"))
 
                     else
-                        Element.none
+                        El.none
 
                 _ ->
-                    Element.none
+                    El.none
 
         _ ->
-            Element.none
+            El.none
 
 
 viewNotReady : Bool -> String -> Element Msg
@@ -1945,7 +1945,7 @@ viewFetchError : Model -> String -> Element Msg
 viewFetchError { fullScreen, hash } message =
     row
         []
-        [ column [ Element.spacing 10 ]
+        [ column [ El.spacing 10 ]
             [ el [] (text message)
             , viewButtonPrimary "Reload" Reload
             ]
@@ -1960,11 +1960,11 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                 viewPageButton content msg =
                     button
                         [ Font.size 14
-                        , Element.paddingXY 8 8
+                        , El.padding 8
                         , Border.rounded 3
                         , Font.color theme.white
                         , Background.color theme.primary
-                        , Element.focused [ Background.color theme.primaryFocused ]
+                        , El.focused [ Background.color theme.primaryFocused ]
                         ]
                         { onPress = Just msg
                         , label = text content
@@ -1975,12 +1975,12 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                     viewPageButton "Next >" (IncrementPageBy 1)
 
                   else
-                    Element.none
+                    El.none
                 , if itemFilter.page > 1 then
                     viewPageButton "< Previous" (IncrementPageBy -1)
 
                   else
-                    Element.none
+                    El.none
                 ]
 
         viewSeasonDropDown =
@@ -1995,8 +1995,8 @@ viewItems { flags, fullScreen, itemFilter } translations items =
 
                 seasonOption ( delta, label ) =
                     el
-                        [ Element.width Element.fill
-                        , Element.padding 10
+                        [ El.width El.fill
+                        , El.padding 10
                         , Events.onClick (UpdateSeasonDelta delta)
                         , if delta == itemFilter.seasonDelta then
                             Background.color theme.grey
@@ -2009,7 +2009,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                 seasonOptions =
                     if itemFilter.seasonSearchOpen then
                         column
-                            [ Element.width Element.fill
+                            [ El.width El.fill
                             , Border.width 1
                             , Border.color theme.grey
                             , Background.color theme.white
@@ -2017,7 +2017,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                             (List.map seasonOption times)
 
                     else
-                        Element.none
+                        El.none
 
                 seasonSelected =
                     List.filter (\time -> Tuple.first time == itemFilter.seasonDelta) times
@@ -2027,16 +2027,16 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                         |> translate translations
             in
             row
-                [ Element.width (Element.px 184)
-                , Element.padding 10
+                [ El.width (El.px 184)
+                , El.padding 10
                 , Border.width 1
                 , Border.color theme.grey
-                , Element.pointer
+                , El.pointer
                 , Events.onClick ToggleSeasonSearch
-                , Element.below seasonOptions
+                , El.below seasonOptions
                 ]
                 [ el [] (text seasonSelected)
-                , el [ Element.alignRight ]
+                , el [ El.alignRight ]
                     (text
                         (if itemFilter.seasonSearchOpen then
                             "▼"
@@ -2066,9 +2066,9 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                     in
                     List.filter matches items
     in
-    column [ Element.spacing 10 ]
-        [ row [ Element.spacing 20 ]
-            [ Input.text [ Element.padding 10 ]
+    column [ El.spacing 10, El.width El.fill ]
+        [ row [ El.spacing 20 ]
+            [ Input.text [ El.width (El.px 200), El.padding 10 ]
                 { placeholder = Just (Input.placeholder [] (text (translate translations "search")))
                 , text = itemFilter.search
                 , onChange = UpdateSearch
@@ -2077,7 +2077,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
             , viewSeasonDropDown
             ]
         , if List.isEmpty filteredItems then
-            Element.none
+            el [ El.padding 10 ] (text "No results found.")
 
           else
             let
@@ -2091,23 +2091,23 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                                 _ ->
                                     "/events/" ++ String.fromInt item.id
                     in
-                    column [ Element.spacingXY 0 5, Element.paddingXY 10 15, Border.color theme.grey, Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 } ]
-                        [ el [ Font.color theme.primary, Element.pointer, Events.onClick (NavigateTo newPath) ] (text item.name)
+                    column [ El.spacingXY 0 5, El.paddingXY 10 15, Border.color theme.grey, Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 } ]
+                        [ el [ Font.color theme.primary, El.pointer, Events.onClick (NavigateTo newPath) ] (text item.name)
                         , el [ Font.size 13 ] (text (Maybe.withDefault "" item.summary))
                         ]
 
                 viewItemCell content =
-                    el [ Element.paddingXY 10 24, Border.color theme.grey, Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 } ] content
+                    el [ El.paddingXY 10 24, Border.color theme.grey, Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 } ] content
 
                 viewItemOccursOn item =
-                    viewItemCell (el [ Element.centerX ] (text (Maybe.withDefault "" item.occursOn)))
+                    viewItemCell (el [ El.centerX ] (text (Maybe.withDefault "" item.occursOn)))
 
                 viewItemPrice item =
                     if flags.registration then
-                        viewItemCell (el [ Element.alignRight ] (text (Maybe.withDefault "" item.price)))
+                        viewItemCell (el [ El.alignRight ] (text (Maybe.withDefault "" item.price)))
 
                     else
-                        Element.none
+                        El.none
 
                 viewItemRegister item =
                     if flags.registration then
@@ -2115,7 +2115,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                             Just msg ->
                                 case item.addToCartUrl of
                                     Just url ->
-                                        viewItemCell (el [ Font.color theme.primary, Element.alignRight ] (text msg))
+                                        viewItemCell (el [ Font.color theme.primary, El.alignRight ] (text msg))
 
                                     Nothing ->
                                         viewItemCell (text msg)
@@ -2124,15 +2124,15 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                                 case ( item.addToCartUrl, item.addToCartText ) of
                                     ( Just addToCartUrl, Just addToCartText ) ->
                                         el
-                                            [ Element.paddingXY 10 17, Border.color theme.grey, Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 } ]
+                                            [ El.paddingXY 10 17, Border.color theme.grey, Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 } ]
                                             (button
                                                 [ Background.color theme.primary
                                                 , Font.color theme.white
                                                 , Font.size 14
-                                                , Element.alignRight
-                                                , Element.paddingXY 8 8
+                                                , El.alignRight
+                                                , El.padding 8
                                                 , Border.rounded 3
-                                                , Element.focused [ Background.color theme.primaryFocused ]
+                                                , El.focused [ Background.color theme.primaryFocused ]
                                                 ]
                                                 { onPress = Just (AddToCart addToCartUrl)
                                                 , label = text addToCartText
@@ -2143,27 +2143,27 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                                         viewItemCell (text "")
 
                     else
-                        Element.none
+                        El.none
             in
             row
                 []
-                [ Element.table [ Element.spacingXY 0 15 ]
+                [ El.table [ El.spacingXY 0 15 ]
                     { data = filteredItems
                     , columns =
-                        [ { header = Element.none
-                          , width = Element.fill
+                        [ { header = El.none
+                          , width = El.fill
                           , view = viewItemName
                           }
-                        , { header = Element.none
-                          , width = Element.fill
+                        , { header = El.none
+                          , width = El.fill
                           , view = viewItemOccursOn
                           }
-                        , { header = Element.none
-                          , width = Element.fill
+                        , { header = El.none
+                          , width = El.fill
                           , view = viewItemPrice
                           }
-                        , { header = Element.none
-                          , width = Element.fill
+                        , { header = El.none
+                          , width = El.fill
                           , view = viewItemRegister
                           }
                         ]
@@ -2180,69 +2180,69 @@ viewNoDataForRoute translations =
 
 viewSponsor : Sponsor -> Element Msg
 viewSponsor sponsor =
-    column [ Element.spacing 10 ]
+    column [ El.spacing 10 ]
         [ case sponsor.url of
             Just url ->
-                el [ Element.pointer, Events.onClick (NavigateTo url) ]
-                    (Element.image [] { src = sponsor.logoUrl, description = Maybe.withDefault "" sponsor.name })
+                el [ El.pointer, Events.onClick (NavigateTo url) ]
+                    (El.image [] { src = sponsor.logoUrl, description = Maybe.withDefault "" sponsor.name })
 
             Nothing ->
-                Element.image [] { src = sponsor.logoUrl, description = Maybe.withDefault "" sponsor.name }
+                El.image [] { src = sponsor.logoUrl, description = Maybe.withDefault "" sponsor.name }
         , case sponsor.name of
             Just name ->
-                el [ Element.alignRight ] (text name)
+                el [ El.alignRight ] (text name)
 
             Nothing ->
-                Element.none
+                El.none
         ]
 
 
 viewProduct : Bool -> List Translation -> Product -> Element Msg
 viewProduct fullScreen translations product =
-    row [ Element.spacing 20 ]
-        [ column [ Element.spacing 20, Element.width Element.fill, Element.alignTop ]
+    row [ El.spacing 20 ]
+        [ column [ El.spacing 20, El.width El.fill, El.alignTop ]
             [ el [ Font.size 28 ] (text product.name)
             , case ( product.description, product.summary ) of
                 ( Just description, _ ) ->
-                    Element.paragraph [] [ text description ]
+                    El.paragraph [] [ text description ]
 
                 ( _, Just summary ) ->
-                    Element.paragraph [] [ text summary ]
+                    El.paragraph [] [ text summary ]
 
                 ( Nothing, Nothing ) ->
-                    Element.none
+                    El.none
             , case product.totalWithTax of
                 Just totalWithTax ->
-                    column [ Element.spacing 8 ]
+                    column [ El.spacing 8 ]
                         [ el [ Font.bold ] (text (translate translations "total_with_tax"))
                         , el [] (text totalWithTax)
                         ]
 
                 _ ->
-                    Element.none
+                    El.none
             , case ( product.addToCartUrl, product.addToCartText ) of
                 ( Just addToCartUrl, Just addToCartText ) ->
-                    Element.paragraph []
+                    El.paragraph []
                         [ viewButtonPrimary addToCartText (AddToCart addToCartUrl)
                         ]
 
                 _ ->
-                    Element.none
+                    El.none
             , if not (List.isEmpty product.potentialDiscounts) then
-                column [ Element.spacing 5 ]
+                column [ El.spacing 5 ]
                     [ el [ Font.bold ] (text (translate translations "potential_discounts"))
                     , column [] (List.map (\d -> el [] (text d)) product.potentialDiscounts)
                     ]
 
               else
-                Element.none
+                El.none
             ]
         , case product.sponsor of
             Just sponsor ->
                 viewSponsor sponsor
 
             Nothing ->
-                Element.none
+                El.none
         ]
 
 
@@ -2261,11 +2261,11 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
             el []
                 (if isActiveRoute then
                     button
-                        [ Element.padding 8
+                        [ El.padding 16
                         , Border.rounded 4
                         , Background.color theme.primary
                         , Font.color theme.white
-                        , Element.focused [ Background.color theme.primaryFocused ]
+                        , El.focused [ Background.color theme.primaryFocused ]
                         ]
                         { onPress = Just NoOp
                         , label = text (translate translations eventSection)
@@ -2273,27 +2273,27 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
 
                  else
                     button
-                        [ Element.padding 8
+                        [ El.padding 16
                         , Font.color theme.primary
                         , Border.rounded 4
-                        , Element.focused [ Background.color theme.grey ]
+                        , El.focused [ Background.color theme.white ]
                         ]
                         { onPress = Just (NavigateTo newPath)
                         , label = text (translate translations eventSection)
                         }
                 )
     in
-    column [ Element.width Element.fill, Element.spacing 20 ]
+    column [ El.width El.fill, El.spacing 20 ]
         [ el [ Font.size 28 ] (text event.name)
-        , row [ Element.width Element.fill, Element.spacing 10 ]
+        , row [ El.width El.fill ]
             (List.map viewNavItem (eventSections flags.excludeEventSections event)
                 ++ (if flags.eventId == Nothing then
-                        [ el [ Element.alignRight ]
+                        [ el [ El.alignRight ]
                             (button
-                                [ Element.padding 8
+                                [ El.padding 16
                                 , Font.color theme.primary
                                 , Border.rounded 4
-                                , Element.focused [ Background.color theme.grey ]
+                                , El.focused [ Background.color theme.white ]
                                 ]
                                 { onPress = Just (NavigateTo "/events")
                                 , label = text (translate translations (itemsSectionName flags.section) ++ " »")
@@ -2380,100 +2380,100 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
 
 viewDetails : List Translation -> Event -> Element Msg
 viewDetails translations event =
-    row [ Element.spacing 20 ]
-        [ column [ Element.spacing 20, Element.width Element.fill, Element.alignTop ]
+    row [ El.spacing 20 ]
+        [ column [ El.spacing 20, El.width El.fill, El.alignTop ]
             [ case ( event.description, event.summary ) of
                 ( Just description, _ ) ->
-                    Element.paragraph [] [ text description ]
+                    El.paragraph [] [ text description ]
 
                 ( _, Just summary ) ->
-                    Element.paragraph [] [ text summary ]
+                    El.paragraph [] [ text summary ]
 
                 ( Nothing, Nothing ) ->
-                    Element.none
+                    El.none
             , case event.totalWithTax of
                 Just totalWithTax ->
-                    column [ Element.spacing 8 ]
+                    column [ El.spacing 8 ]
                         [ el [ Font.bold ] (text (translate translations "total_with_tax"))
                         , el [] (text totalWithTax)
                         ]
 
                 _ ->
-                    Element.none
+                    El.none
             , case ( event.addToCartUrl, event.addToCartText ) of
                 ( Just addToCartUrl, Just addToCartText ) ->
-                    Element.paragraph [ Element.paddingEach { top = 10, right = 0, bottom = 20, left = 0 } ]
+                    El.paragraph [ El.paddingEach { top = 10, right = 0, bottom = 20, left = 0 } ]
                         [ viewButtonPrimary addToCartText (AddToCart addToCartUrl)
                         ]
 
                 _ ->
-                    Element.none
-            , row [ Element.width Element.fill ]
-                [ column [ Element.width Element.fill, Element.spacing 5 ]
+                    El.none
+            , row [ El.width El.fill ]
+                [ column [ El.width El.fill, El.spacing 5 ]
                     [ el [ Font.bold ] (text (translate translations "starts_on"))
                     , el [] (text event.startsOn)
                     ]
-                , column [ Element.width Element.fill, Element.spacing 5 ]
+                , column [ El.width El.fill, El.spacing 5 ]
                     [ el [ Font.bold ] (text (translate translations "ends_on"))
                     , el [] (text event.endsOn)
                     ]
                 ]
-            , row [ Element.width Element.fill ]
-                [ column [ Element.width Element.fill, Element.spacing 5 ]
+            , row [ El.width El.fill ]
+                [ column [ El.width El.fill, El.spacing 5 ]
                     [ el [ Font.bold ] (text (translate translations "registration_opens_at"))
                     , el [] (text (Maybe.withDefault "" event.registrationOpensAt))
                     ]
-                , column [ Element.width Element.fill, Element.spacing 5 ]
+                , column [ El.width El.fill, El.spacing 5 ]
                     [ el [ Font.bold ] (text (translate translations "registration_closes_at"))
                     , el [] (text (Maybe.withDefault "" event.registrationClosesAt))
                     ]
                 ]
-            , row [ Element.width Element.fill ]
-                [ column [ Element.width Element.fill, Element.spacing 5 ]
+            , row [ El.width El.fill ]
+                [ column [ El.width El.fill, El.spacing 5 ]
                     [ el [ Font.bold ] (text (translate translations "team_restriction"))
                     , el [] (text event.teamRestriction)
                     ]
-                , column [ Element.width Element.fill, Element.spacing 5 ]
+                , column [ El.width El.fill, El.spacing 5 ]
                     [ el [ Font.bold ] (text (translate translations "age_range"))
                     , el [] (text event.ageRange)
                     ]
                 ]
             , if not (List.isEmpty event.potentialDiscounts) then
-                column [ Element.width Element.fill, Element.spacing 5 ]
+                column [ El.width El.fill, El.spacing 5 ]
                     [ el [ Font.bold ] (text (translate translations "potential_discounts"))
-                    , column [ Element.spacing 5, Element.padding 5 ] (List.map (\d -> el [] (text ("• " ++ d))) event.potentialDiscounts)
+                    , column [ El.spacing 5, El.padding 5 ] (List.map (\d -> el [] (text ("• " ++ d))) event.potentialDiscounts)
                     ]
 
               else
-                Element.none
+                El.none
             ]
         , case event.sponsor of
             Just sponsor ->
                 viewSponsor sponsor
 
             Nothing ->
-                Element.none
+                El.none
         ]
 
 
 viewRegistrations : List Translation -> List Registration -> Element Msg
 viewRegistrations translations registrations =
-    Element.none
+    El.none
 
 
 viewDraws : List Translation -> Maybe ScoringHilight -> Event -> Element Msg
 viewDraws translations scoringHilight event =
-    Element.none
+    El.none
 
 
 viewTeams : List Translation -> Event -> Element Msg
 viewTeams translations event =
-    Element.none
+    El.none
 
 
 viewStages : List Translation -> Event -> Stage -> Element Msg
 viewStages translations event onStage =
-    Element.none
+    El.none
 
 
 
@@ -2482,57 +2482,57 @@ viewStages translations event onStage =
 
 viewReports : List Translation -> Event -> Element Msg
 viewReports translations event =
-    Element.none
+    El.none
 
 
 viewDraw : List Translation -> Maybe ScoringHilight -> Event -> Draw -> Element Msg
 viewDraw translations scoringHilight event draw =
-    Element.none
+    El.none
 
 
 viewGame : List Translation -> Maybe ScoringHilight -> Event -> String -> Bool -> Draw -> Game -> Element Msg
 viewGame translations scoringHilight event sheetLabel detailed draw game =
-    Element.none
+    El.none
 
 
 viewTeam : List Translation -> Flags -> Event -> Team -> Element Msg
 viewTeam translations flags event team =
-    Element.none
+    El.none
 
 
 viewReportScoringAnalysis : List Translation -> Maybe ScoringHilight -> Event -> List Team -> Element Msg
 viewReportScoringAnalysis translations scoringHilight event teams =
-    Element.none
+    El.none
 
 
 viewTeamScoringAnalysis : Event -> Team -> Element Msg
 viewTeamScoringAnalysis event team =
-    Element.none
+    El.none
 
 
 viewReportScoringAnalysisByHammer : List Translation -> Event -> Element Msg
 viewReportScoringAnalysisByHammer translations event =
-    Element.none
+    El.none
 
 
 viewReportTeamRosters : List Translation -> List Team -> Element Msg
 viewReportTeamRosters translations teams =
-    Element.none
+    El.none
 
 
 viewReportCompetitionMatrix : List Translation -> Event -> Element Msg
 viewReportCompetitionMatrix translations event =
-    Element.none
+    El.none
 
 
 viewReportAttendance : List Translation -> List Draw -> Element Msg
 viewReportAttendance translations draws =
-    Element.none
+    El.none
 
 
 viewReport : List Translation -> Maybe ScoringHilight -> Event -> String -> Element Msg
 viewReport translations scoringHilight event report =
-    Element.none
+    El.none
 
 
 
