@@ -2274,6 +2274,7 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
                  else
                     button
                         [ Element.padding 8
+                        , Font.color theme.primary
                         , Border.rounded 4
                         , Element.focused [ Background.color theme.grey ]
                         ]
@@ -2290,6 +2291,7 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
                         [ el [ Element.alignRight ]
                             (button
                                 [ Element.padding 8
+                                , Font.color theme.primary
                                 , Border.rounded 4
                                 , Element.focused [ Background.color theme.grey ]
                                 ]
@@ -2378,7 +2380,80 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
 
 viewDetails : List Translation -> Event -> Element Msg
 viewDetails translations event =
-    Element.none
+    row [ Element.spacing 20 ]
+        [ column [ Element.spacing 20, Element.width Element.fill, Element.alignTop ]
+            [ case ( event.description, event.summary ) of
+                ( Just description, _ ) ->
+                    Element.paragraph [] [ text description ]
+
+                ( _, Just summary ) ->
+                    Element.paragraph [] [ text summary ]
+
+                ( Nothing, Nothing ) ->
+                    Element.none
+            , case event.totalWithTax of
+                Just totalWithTax ->
+                    column [ Element.spacing 8 ]
+                        [ el [ Font.bold ] (text (translate translations "total_with_tax"))
+                        , el [] (text totalWithTax)
+                        ]
+
+                _ ->
+                    Element.none
+            , case ( event.addToCartUrl, event.addToCartText ) of
+                ( Just addToCartUrl, Just addToCartText ) ->
+                    Element.paragraph [ Element.paddingEach { top = 10, right = 0, bottom = 20, left = 0 } ]
+                        [ viewButtonPrimary addToCartText (AddToCart addToCartUrl)
+                        ]
+
+                _ ->
+                    Element.none
+            , row [ Element.width Element.fill ]
+                [ column [ Element.width Element.fill, Element.spacing 5 ]
+                    [ el [ Font.bold ] (text (translate translations "starts_on"))
+                    , el [] (text event.startsOn)
+                    ]
+                , column [ Element.width Element.fill, Element.spacing 5 ]
+                    [ el [ Font.bold ] (text (translate translations "ends_on"))
+                    , el [] (text event.endsOn)
+                    ]
+                ]
+            , row [ Element.width Element.fill ]
+                [ column [ Element.width Element.fill, Element.spacing 5 ]
+                    [ el [ Font.bold ] (text (translate translations "registration_opens_at"))
+                    , el [] (text (Maybe.withDefault "" event.registrationOpensAt))
+                    ]
+                , column [ Element.width Element.fill, Element.spacing 5 ]
+                    [ el [ Font.bold ] (text (translate translations "registration_closes_at"))
+                    , el [] (text (Maybe.withDefault "" event.registrationClosesAt))
+                    ]
+                ]
+            , row [ Element.width Element.fill ]
+                [ column [ Element.width Element.fill, Element.spacing 5 ]
+                    [ el [ Font.bold ] (text (translate translations "team_restriction"))
+                    , el [] (text event.teamRestriction)
+                    ]
+                , column [ Element.width Element.fill, Element.spacing 5 ]
+                    [ el [ Font.bold ] (text (translate translations "age_range"))
+                    , el [] (text event.ageRange)
+                    ]
+                ]
+            , if not (List.isEmpty event.potentialDiscounts) then
+                column [ Element.width Element.fill, Element.spacing 5 ]
+                    [ el [ Font.bold ] (text (translate translations "potential_discounts"))
+                    , column [ Element.spacing 5, Element.padding 5 ] (List.map (\d -> el [] (text ("• " ++ d))) event.potentialDiscounts)
+                    ]
+
+              else
+                Element.none
+            ]
+        , case event.sponsor of
+            Just sponsor ->
+                viewSponsor sponsor
+
+            Nothing ->
+                Element.none
+        ]
 
 
 viewRegistrations : List Translation -> List Registration -> Element Msg
