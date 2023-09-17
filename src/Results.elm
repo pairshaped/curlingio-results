@@ -1811,8 +1811,9 @@ theme =
     , secondary = El.rgb255 108 117 125
     , secondaryFocused = El.rgb255 128 137 155
     , white = El.rgb255 255 255 255
-    , grey = El.rgb255 222 226 230
+    , grey = El.rgba 0 0 0 0.1
     , greyLight = El.rgba 0 0 0 0.05
+    , greyDark = El.rgba 0 0 0 0.6
     , defaultText = El.rgb255 33 37 41
     }
 
@@ -2859,17 +2860,17 @@ viewTeams translations event =
         --             td [] [ text (Maybe.withDefault "-" team.coach) ]
         --
         --           else
-        --             text ""
+        --             El.none
         --         , if hasAffiliations then
         --             td [] [ text (Maybe.withDefault "-" team.affiliation) ]
         --
         --           else
-        --             text ""
+        --             El.none
         --         , if hasLocations then
         --             td [] [ text (Maybe.withDefault "-" team.location) ]
         --
         --           else
-        --             text ""
+        --             El.none
         --         ]
         tableHeader content =
             el
@@ -2962,7 +2963,309 @@ viewTeams translations event =
 
 viewStages : List Translation -> Event -> Stage -> Element Msg
 viewStages translations event onStage =
-    El.none
+    let
+        teams =
+            teamsWithGames event.teams onStage.games
+
+        viewStageLink stage =
+            el []
+                (button
+                    []
+                    { onPress = Just (NavigateTo (stageUrl event.id stage))
+                    , label = text stage.name
+                    }
+                )
+
+        viewRoundRobin =
+            let
+                teamResults =
+                    teamResultsFor onStage event.stages event.teams (gamesFromStages event.stages)
+                        |> teamResultsRankedByPoints
+
+                hasTies =
+                    List.any (\teamResult -> teamResult.ties > 0) teamResults
+
+                hasPoints =
+                    onStage.rankingMethod /= WinsRanking
+
+                -- viewRow teamResult =
+                --     row []
+                --         [ el []
+                --             (if teamHasDetails teamResult.team then
+                --                 button
+                --                     []
+                --                     { onPress = Just (NavigateTo (teamUrl event.id teamResult.team))
+                --                     , label = text teamResult.team.name
+                --                     }
+                --
+                --              else
+                --                 text teamResult.team.name
+                --             )
+                --         , el [ El.alignRight ] (text (String.fromInt teamResult.gamesPlayed))
+                --         , el [ El.alignRight ] (text (String.fromInt teamResult.wins))
+                --         , el [ El.alignRight ] (text (String.fromInt teamResult.losses))
+                --         , if hasTies then
+                --             el [ El.alignRight ] (text (String.fromInt teamResult.ties))
+                --
+                --           else
+                --             El.none
+                --         , if hasPoints then
+                --             el [ El.alignRight ] (text (String.fromFloat teamResult.points))
+                --
+                --           else
+                --             El.none
+                --         ]
+                tableHeader content =
+                    el
+                        [ Font.bold
+                        , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                        , Border.color theme.grey
+                        , El.paddingXY 12 16
+                        ]
+                        (text (translate translations content))
+
+                tableCell i content =
+                    el
+                        [ El.paddingXY 12 16
+                        , Background.color
+                            (if modBy 2 i == 0 then
+                                theme.greyLight
+
+                             else
+                                theme.white
+                            )
+                        ]
+                        content
+
+                teamColumn =
+                    Just
+                        { header = tableHeader "team"
+                        , width = El.fill
+                        , view = \i teamResult -> tableCell i (text teamResult.team.name)
+                        }
+
+                gamesColumn =
+                    Just
+                        { header = tableHeader "games"
+                        , width = El.fill
+                        , view = \i teamResult -> tableCell i (text (String.fromInt teamResult.gamesPlayed))
+                        }
+
+                winsColumn =
+                    Just
+                        { header = tableHeader "wins"
+                        , width = El.fill
+                        , view = \i teamResult -> tableCell i (text (String.fromInt teamResult.wins))
+                        }
+
+                lossesColumn =
+                    Just
+                        { header = tableHeader "losses"
+                        , width = El.fill
+                        , view = \i teamResult -> tableCell i (text (String.fromInt teamResult.losses))
+                        }
+
+                tiesColumn =
+                    if hasTies then
+                        Just
+                            { header = tableHeader "ties"
+                            , width = El.fill
+                            , view = \i teamResult -> tableCell i (text (String.fromInt teamResult.ties))
+                            }
+
+                    else
+                        Nothing
+
+                pointsColumn =
+                    if hasPoints then
+                        Just
+                            { header = tableHeader "points"
+                            , width = El.fill
+                            , view = \i teamResult -> tableCell i (text (String.fromFloat teamResult.points))
+                            }
+
+                    else
+                        Nothing
+
+                tableColumns =
+                    List.filterMap identity [ teamColumn, gamesColumn, winsColumn, lossesColumn, tiesColumn, pointsColumn ]
+            in
+            El.indexedTable []
+                { data = teamResults
+                , columns = tableColumns
+                }
+
+        viewBracket =
+            let
+                viewGroup group =
+                    let
+                        gamesForGroup =
+                            onStage.games
+                                |> List.filter (\g -> Maybe.map (\c -> c.groupId) g.coords == Just group.id)
+
+                        colsForGames =
+                            gamesForGroup
+                                |> List.map (\g -> Maybe.map (\coords -> coords.col + 5) g.coords |> Maybe.withDefault 0)
+                                |> List.maximum
+                                |> Maybe.withDefault 10
+
+                        rowsForGroup =
+                            gamesForGroup
+                                |> List.filter (\g -> Maybe.map (\coords -> coords.groupId == group.id) g.coords |> Maybe.withDefault False)
+                                |> List.map (\g -> Maybe.map (\coords -> coords.row + 3) g.coords |> Maybe.withDefault 4)
+                                |> List.maximum
+                                |> Maybe.withDefault 4
+
+                        viewGroupGame game =
+                            case game.coords of
+                                Just coords ->
+                                    let
+                                        viewSide position side =
+                                            let
+                                                label =
+                                                    case ( side.teamId, side.winnerId, side.loserId ) of
+                                                        ( Just id, _, _ ) ->
+                                                            case List.Extra.find (\t -> t.id == id) teams of
+                                                                Just team ->
+                                                                    team.name
+
+                                                                Nothing ->
+                                                                    "TBD"
+
+                                                        ( _, Just winnerId, _ ) ->
+                                                            "W: "
+                                                                ++ (List.Extra.find (\g -> g.id == winnerId) onStage.games
+                                                                        |> Maybe.map .name
+                                                                        |> Maybe.withDefault "TBD"
+                                                                   )
+
+                                                        ( _, _, Just loserId ) ->
+                                                            "L: "
+                                                                ++ (List.Extra.find (\g -> g.id == loserId) onStage.games
+                                                                        |> Maybe.map .name
+                                                                        |> Maybe.withDefault "TBD"
+                                                                   )
+
+                                                        _ ->
+                                                            "TBD"
+                                            in
+                                            el [] (text label)
+
+                                        -- Only link if the game has been scheduled
+                                        gameHasBeenScheduled =
+                                            case drawWithGameId event.draws game.id of
+                                                Just _ ->
+                                                    True
+
+                                                Nothing ->
+                                                    False
+                                    in
+                                    column []
+                                        [ el []
+                                            (button []
+                                                { onPress = Just (NavigateTo (gameUrl event.id game))
+                                                , label = text game.name
+                                                }
+                                            )
+                                        , column [] (List.indexedMap viewSide game.sides)
+                                        ]
+
+                                Nothing ->
+                                    El.none
+
+                        viewSvgConnectors : Html Msg
+                        viewSvgConnectors =
+                            let
+                                lineConnectors : List LineConnector
+                                lineConnectors =
+                                    let
+                                        connectors : Game -> List (Maybe LineConnector)
+                                        connectors toGame =
+                                            let
+                                                connectorForPosition : Int -> Side -> Maybe LineConnector
+                                                connectorForPosition toPosition side =
+                                                    let
+                                                        fromCoords fromGameId =
+                                                            case List.Extra.find (\g -> g.id == fromGameId) gamesForGroup of
+                                                                Just fromGame ->
+                                                                    case fromGame.coords of
+                                                                        Just coords ->
+                                                                            Just
+                                                                                ( coords.col * gridSize + 175
+                                                                                , coords.row
+                                                                                    * gridSize
+                                                                                    + 45
+                                                                                )
+
+                                                                        _ ->
+                                                                            Nothing
+
+                                                                _ ->
+                                                                    Nothing
+
+                                                        toCoords =
+                                                            case toGame.coords of
+                                                                Just coords ->
+                                                                    Just
+                                                                        ( coords.col * gridSize + 1
+                                                                        , coords.row
+                                                                            * gridSize
+                                                                            + (if toPosition == 0 then
+                                                                                32
+
+                                                                               else
+                                                                                57
+                                                                              )
+                                                                        )
+
+                                                                Nothing ->
+                                                                    Nothing
+                                                    in
+                                                    case side.winnerId of
+                                                        Just winnerId ->
+                                                            case ( fromCoords winnerId, toCoords ) of
+                                                                ( Just from, Just to ) ->
+                                                                    Just (LineConnector from to)
+
+                                                                _ ->
+                                                                    Nothing
+
+                                                        _ ->
+                                                            Nothing
+                                            in
+                                            List.indexedMap connectorForPosition toGame.sides
+                                    in
+                                    List.map connectors gamesForGroup
+                                        |> List.concat
+                                        |> List.filterMap identity
+                            in
+                            viewSvgConnector ((colsForGames + 1) * gridSize) ((rowsForGroup - 1) * gridSize) lineConnectors
+                    in
+                    column
+                        [ El.spacing 20 ]
+                        [ el [ El.padding 20 ] (text ("☷ " ++ group.name))
+                        , column []
+                            [ el [] (El.html viewSvgConnectors)
+                            , column [] (List.map viewGroupGame gamesForGroup)
+                            ]
+                        ]
+            in
+            case onStage.groups of
+                Just groups ->
+                    column [] (List.map viewGroup groups)
+
+                Nothing ->
+                    el [] (text "No groups")
+    in
+    column [ El.width El.fill ]
+        [ row [ El.spacing 15 ] (List.map viewStageLink event.stages)
+        , case onStage.stageType of
+            RoundRobin ->
+                viewRoundRobin
+
+            Bracket ->
+                viewBracket
+        ]
 
 
 
@@ -3028,7 +3331,30 @@ viewReports translations event =
 
 viewDraw : List Translation -> Maybe ScoringHilight -> Event -> Draw -> Element Msg
 viewDraw translations scoringHilight event draw =
-    El.none
+    let
+        viewDrawSheet gameId =
+            let
+                game =
+                    gamesFromStages event.stages
+                        |> List.Extra.find (\g -> Just g.id == gameId)
+
+                sheetLabel =
+                    sheetNameForGame event game
+            in
+            case game of
+                Just game_ ->
+                    viewGame translations scoringHilight event sheetLabel False draw game_
+
+                Nothing ->
+                    El.none
+    in
+    column [ El.width El.fill ]
+        ([ el
+            [ El.width El.fill, El.padding 16, Font.color theme.greyDark, Background.color theme.greyLight ]
+            (text (translate translations "draw" ++ " " ++ draw.label ++ ": " ++ draw.startsAt))
+         ]
+            ++ List.map viewDrawSheet draw.drawSheets
+        )
 
 
 viewGame : List Translation -> Maybe ScoringHilight -> Event -> String -> Bool -> Draw -> Game -> Element Msg
@@ -3039,6 +3365,32 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
 viewTeam : List Translation -> Flags -> Event -> Team -> Element Msg
 viewTeam translations flags event team =
     El.none
+
+
+viewReport : List Translation -> Maybe ScoringHilight -> Event -> String -> Element Msg
+viewReport translations scoringHilight event report =
+    case report of
+        "attendance" ->
+            viewReportAttendance translations event.draws
+
+        "scoring_analysis" ->
+            let
+                games =
+                    gamesFromStages event.stages
+            in
+            viewReportScoringAnalysis translations scoringHilight event (teamsWithGames event.teams games)
+
+        "scoring_analysis_by_hammer" ->
+            viewReportScoringAnalysisByHammer translations event
+
+        "team_rosters" ->
+            viewReportTeamRosters translations event.teams
+
+        "competition_matrix" ->
+            viewReportCompetitionMatrix translations event
+
+        _ ->
+            viewNoDataForRoute translations
 
 
 viewReportScoringAnalysis : List Translation -> Maybe ScoringHilight -> Event -> List Team -> Element Msg
@@ -3068,11 +3420,6 @@ viewReportCompetitionMatrix translations event =
 
 viewReportAttendance : List Translation -> List Draw -> Element Msg
 viewReportAttendance translations draws =
-    El.none
-
-
-viewReport : List Translation -> Maybe ScoringHilight -> Event -> String -> Element Msg
-viewReport translations scoringHilight event report =
     El.none
 
 
