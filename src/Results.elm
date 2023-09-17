@@ -2475,7 +2475,13 @@ viewRegistrations translations registrations =
             List.any (\r -> r.lineup /= Nothing) registrations
 
         tableHeader content =
-            el [ Font.bold, Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }, Border.color theme.grey, El.padding 12 ] (text (translate translations content))
+            el
+                [ Font.bold
+                , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                , Border.color theme.grey
+                , El.padding 12
+                ]
+                (text (translate translations content))
 
         tableCell i content =
             el
@@ -2793,7 +2799,129 @@ viewDraws translations scoringHilight event =
 
 viewTeams : List Translation -> Event -> Element Msg
 viewTeams translations event =
-    El.none
+    let
+        hasCoaches =
+            List.any (\t -> t.coach /= Nothing) event.teams
+
+        hasAffiliations =
+            List.any (\t -> t.affiliation /= Nothing) event.teams
+
+        hasLocations =
+            List.any (\t -> t.location /= Nothing) event.teams
+
+        -- viewTeamRow team =
+        --     tr []
+        --         [ td []
+        --             [ if teamHasDetails team then
+        --                 button [ class "btn btn-link p-0 m-0", onClick (NavigateTo (teamUrl event.id team)) ] [ text team.name ]
+        --
+        --               else
+        --                 -- No point in linking to team details if there are no more details.
+        --                 text team.name
+        --             ]
+        --         , if hasCoaches then
+        --             td [] [ text (Maybe.withDefault "-" team.coach) ]
+        --
+        --           else
+        --             text ""
+        --         , if hasAffiliations then
+        --             td [] [ text (Maybe.withDefault "-" team.affiliation) ]
+        --
+        --           else
+        --             text ""
+        --         , if hasLocations then
+        --             td [] [ text (Maybe.withDefault "-" team.location) ]
+        --
+        --           else
+        --             text ""
+        --         ]
+        tableHeader content =
+            el
+                [ Font.bold
+                , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                , Border.color theme.grey
+                , El.paddingXY 12 16
+                ]
+                (text (translate translations content))
+
+        tableCell i content =
+            el
+                [ El.paddingXY 12 16
+                , Background.color
+                    (if modBy 2 i == 0 then
+                        theme.greyLight
+
+                     else
+                        theme.white
+                    )
+                ]
+                content
+
+        teamColumn =
+            Just
+                { header = tableHeader "team"
+                , width = El.fill
+                , view =
+                    \i team ->
+                        tableCell i
+                            (if teamHasDetails team then
+                                button
+                                    [ Font.color theme.primary ]
+                                    { onPress = Just (NavigateTo (teamUrl event.id team))
+                                    , label = text team.name
+                                    }
+
+                             else
+                                text team.name
+                            )
+                }
+
+        coachColumn =
+            if hasCoaches then
+                Just
+                    { header = tableHeader "coach"
+                    , width = El.fill
+                    , view = \i team -> tableCell i (text (Maybe.withDefault "-" team.coach))
+                    }
+
+            else
+                Nothing
+
+        affiliationColumn =
+            if hasAffiliations then
+                Just
+                    { header = tableHeader "affiliation"
+                    , width = El.fill
+                    , view = \i team -> tableCell i (text (Maybe.withDefault "-" team.affiliation))
+                    }
+
+            else
+                Nothing
+
+        locationColumn =
+            if hasLocations then
+                Just
+                    { header = tableHeader "location"
+                    , width = El.fill
+                    , view = \i team -> tableCell i (text (Maybe.withDefault "-" team.location))
+                    }
+
+            else
+                Nothing
+
+        tableColumns =
+            List.filterMap identity [ teamColumn, coachColumn, affiliationColumn, locationColumn ]
+    in
+    el [ El.width El.fill ]
+        (if List.isEmpty event.teams then
+            El.paragraph [] [ text (translate translations "no_teams") ]
+
+         else
+            El.indexedTable []
+                { data = event.teams
+                , columns = tableColumns
+                }
+        )
 
 
 viewStages : List Translation -> Event -> Stage -> Element Msg
