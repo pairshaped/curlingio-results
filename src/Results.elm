@@ -2268,7 +2268,7 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
                         , Font.color theme.white
                         , El.focused [ Background.color theme.primary ]
                         ]
-                        { onPress = Just NoOp
+                        { onPress = Just (NavigateTo newPath)
                         , label = text (translate translations eventSection)
                         }
 
@@ -2587,7 +2587,208 @@ viewRegistrations translations registrations =
 
 viewDraws : List Translation -> Maybe ScoringHilight -> Event -> Element Msg
 viewDraws translations scoringHilight event =
-    El.none
+    let
+        isDrawActive : Draw -> Bool
+        isDrawActive draw =
+            let
+                findGame gameId =
+                    gamesFromStages event.stages
+                        |> List.Extra.find (\g -> Just g.id == gameId)
+
+                activeGame : Game -> Bool
+                activeGame game =
+                    List.any (\g -> g.id == game.id && g.state == GameActive) (gamesFromStages event.stages)
+            in
+            -- Are there any games in the draw that are active
+            List.map findGame draw.drawSheets
+                |> List.filterMap identity
+                |> List.filter activeGame
+                |> List.isEmpty
+                |> not
+
+        drawLink : Draw -> String -> Element Msg
+        drawLink draw label =
+            if event.endScoresEnabled then
+                button
+                    [ Font.color theme.primary ]
+                    { onPress = Just (NavigateTo (drawUrl event.id draw))
+                    , label = text label
+                    }
+
+            else
+                text label
+
+        gameLink : Game -> Element Msg
+        gameLink game =
+            let
+                stateClass =
+                    case game.state of
+                        GamePending ->
+                            "text-primary"
+
+                        GameComplete ->
+                            "text-secondary"
+
+                        GameActive ->
+                            "text-primary font-weight-bold"
+
+                gameNameWithResult =
+                    case game.state of
+                        GameComplete ->
+                            let
+                                teamNameForSide side =
+                                    findTeamForSide event.teams side
+                                        |> Maybe.map .shortName
+
+                                winningSide =
+                                    List.Extra.find (\s -> s.result == Just SideResultWon) game.sides
+
+                                losingSide =
+                                    case winningSide of
+                                        Just winningSide_ ->
+                                            List.Extra.find (\s -> s.teamId /= winningSide_.teamId) game.sides
+
+                                        Nothing ->
+                                            Nothing
+
+                                tied =
+                                    List.any (\s -> s.result == Just SideResultTied) game.sides
+
+                                sortedTeamNames =
+                                    if tied then
+                                        List.map teamNameForSide game.sides
+                                            |> List.filterMap identity
+
+                                    else
+                                        [ winningSide, losingSide ]
+                                            |> List.filterMap identity
+                                            |> List.map teamNameForSide
+                                            |> List.filterMap identity
+                            in
+                            String.join
+                                (String.toLower
+                                    (if tied then
+                                        " " ++ translate translations "tied" ++ " "
+
+                                     else
+                                        " " ++ translate translations "defeated" ++ " "
+                                    )
+                                )
+                                sortedTeamNames
+
+                        _ ->
+                            game.name
+            in
+            if event.endScoresEnabled then
+                button
+                    [ Font.color theme.primary
+                    , case game.state of
+                        GameActive ->
+                            Font.bold
+
+                        _ ->
+                            Font.regular
+                    ]
+                    { onPress = Just (NavigateTo (gameUrl event.id game))
+                    , label = text game.name
+                    }
+
+            else
+                button
+                    []
+                    { onPress = Just NoOp
+                    , label = text game.name
+                    }
+
+        tableColumns =
+            let
+                hasAttendance =
+                    List.any (\d -> d.attendance > 0) event.draws
+
+                tableHeader align content =
+                    row
+                        [ Font.bold
+                        , El.paddingXY 12 16
+                        , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                        , Border.color theme.grey
+                        ]
+                        [ el [ align ] (text (translate translations content)) ]
+
+                tableCell align isActive content =
+                    row
+                        [ El.paddingXY 12 16
+                        , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                        , Border.color theme.grey
+                        , if isActive then
+                            Background.color theme.greyLight
+
+                          else
+                            Background.color theme.white
+                        ]
+                        [ el [ align ] content ]
+
+                labelColumn =
+                    Just
+                        { header = tableHeader El.alignLeft "draw"
+                        , width = El.px 65
+                        , view = \draw -> tableCell El.alignLeft (isDrawActive draw) (drawLink draw draw.label)
+                        }
+
+                startsAtColumn =
+                    Just
+                        { header = tableHeader El.alignLeft "starts_at"
+                        , width = El.px 220
+                        , view = \draw -> tableCell El.alignLeft (isDrawActive draw) (drawLink draw draw.startsAt)
+                        }
+
+                attendanceColumn =
+                    if hasAttendance then
+                        Just
+                            { header = tableHeader El.alignLeft "attendance"
+                            , width = El.px 65
+                            , view =
+                                \draw ->
+                                    tableCell El.alignLeft (isDrawActive draw) (text (String.fromInt draw.attendance))
+                            }
+
+                    else
+                        Nothing
+
+                sheetColumn columnIndex sheetName =
+                    Just
+                        { header = tableHeader El.centerX sheetName
+                        , width = El.fill
+                        , view =
+                            \draw ->
+                                tableCell El.centerX
+                                    (isDrawActive draw)
+                                    (case List.Extra.getAt columnIndex draw.drawSheets of
+                                        Just (Just gameId) ->
+                                            case List.Extra.find (\g -> g.id == gameId) (gamesFromStages event.stages) of
+                                                Just game ->
+                                                    gameLink game
+
+                                                Nothing ->
+                                                    text "-"
+
+                                        _ ->
+                                            text "-"
+                                    )
+                        }
+            in
+            ([ labelColumn, startsAtColumn ] ++ List.indexedMap sheetColumn event.sheetNames ++ [ attendanceColumn ])
+                |> List.filterMap identity
+    in
+    el [ El.width El.fill ]
+        (if List.isEmpty event.draws then
+            El.paragraph [] [ text (translate translations "no_schedule") ]
+
+         else
+            El.table []
+                { data = event.draws
+                , columns = tableColumns
+                }
+        )
 
 
 viewTeams : List Translation -> Event -> Element Msg
