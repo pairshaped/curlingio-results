@@ -1,9 +1,10 @@
 port module Results exposing (init)
 
 import Browser
+import Browser.Events
 import Browser.Navigation as Navigation
 import CustomSvg exposing (..)
-import Element as El exposing (Element, column, el, row, text)
+import Element as El exposing (Device, Element, column, el, row, text)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
@@ -39,6 +40,7 @@ timeBetweenReloads =
 type alias Model =
     { flags : Flags
     , hash : String
+    , device : Device
     , fullScreen : Bool
     , translations : WebData (List Translation)
     , items : WebData (List Item)
@@ -91,6 +93,8 @@ type alias Translation =
 type alias Flags =
     { host : Maybe String
     , hash : Maybe String
+    , deviceWidth : Int
+    , deviceHeight : Int
     , lang : Maybe String
     , apiKey : Maybe String
     , subdomain : Maybe String
@@ -383,6 +387,8 @@ decodeFlags =
     Decode.succeed Flags
         |> optional "host" (nullable string) Nothing
         |> optional "hash" (nullable string) Nothing
+        |> optional "deviceWidth" int 1200
+        |> optional "deviceHeight" int 800
         |> optional "lang" (nullable string) Nothing
         |> optional "apiKey" (nullable string) Nothing
         |> optional "subdomain" (nullable string) Nothing
@@ -981,8 +987,14 @@ init flags_ =
                         Just hash ->
                             hash
 
+                device =
+                    El.classifyDevice
+                        { width = flags.deviceWidth
+                        , height = flags.deviceHeight
+                        }
+
                 newModel =
-                    Model flags newHash False NotAsked NotAsked (ItemFilter 1 0 "" False) NotAsked NotAsked Nothing Nothing timeBetweenReloads
+                    Model flags newHash device False NotAsked NotAsked (ItemFilter 1 0 "" False) NotAsked NotAsked Nothing Nothing timeBetweenReloads
             in
             ( newModel
             , Cmd.batch
@@ -996,9 +1008,15 @@ init flags_ =
         Err error ->
             let
                 flags =
-                    Flags Nothing Nothing Nothing Nothing Nothing LeaguesSection False [] Nothing Nothing []
+                    Flags Nothing Nothing 1200 800 Nothing Nothing Nothing LeaguesSection False [] Nothing Nothing []
+
+                device =
+                    El.classifyDevice
+                        { width = flags.deviceWidth
+                        , height = flags.deviceHeight
+                        }
             in
-            ( Model flags "" False NotAsked NotAsked (ItemFilter 1 0 "" False) NotAsked NotAsked Nothing (Just (Decode.errorToString error)) 0
+            ( Model flags "" device False NotAsked NotAsked (ItemFilter 1 0 "" False) NotAsked NotAsked Nothing (Just (Decode.errorToString error)) 0
             , Cmd.none
             )
 
@@ -1627,6 +1645,7 @@ drawWithGameId draws id =
 type Msg
     = NoOp
     | Tick Time.Posix
+    | SetDevice Int Int
     | NavigateTo String
     | ToggleFullScreen
     | HashChanged Bool String
@@ -1655,6 +1674,16 @@ update msg model =
                     max 0 (model.reloadIn - 1)
             in
             ( { model | reloadIn = newReloadIn }, Cmd.none )
+
+        SetDevice width height ->
+            let
+                device =
+                    El.classifyDevice
+                        { width = width
+                        , height = height
+                        }
+            in
+            ( { model | device = device }, Cmd.none )
 
         NavigateTo newHash ->
             ( model, navigateTo newHash )
@@ -3058,6 +3087,7 @@ subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
         [ hashChangeReceiver (HashChanged False)
+        , Browser.Events.onResize (\values -> SetDevice values)
         , Time.every 1000 Tick
         ]
 
