@@ -1830,9 +1830,11 @@ view model =
             ]
         ]
     <|
-        column []
-            [ viewReloadButton model
-            , case model.errorMsg of
+        row
+            [ Element.width Element.fill
+            , Element.inFront (el [ Element.alignRight ] (viewReloadButton model))
+            ]
+            [ case model.errorMsg of
                 Just errorMsg ->
                     viewNotReady model.fullScreen errorMsg
 
@@ -1905,19 +1907,33 @@ viewReloadButton { flags, hash, fullScreen, reloadIn, event } =
                     in
                     if reloadEnabled then
                         if reloadIn <= 0 then
-                            viewButtonPrimary "Reload" Reload
+                            button
+                                [ Element.paddingXY 8 4
+                                , Border.rounded 3
+                                , Font.size 13
+                                , Font.color theme.primary
+                                , Element.focused [ Background.color theme.grey ]
+                                ]
+                                { onPress = Just Reload
+                                , label = text "Reload"
+                                }
 
                         else
-                            viewButtonPrimary ("Reload in " ++ String.fromInt reloadIn ++ "s") NoOp
+                            el
+                                [ Element.paddingXY 0 4
+                                , Font.size 13
+                                , Font.color theme.secondary
+                                ]
+                                (text ("Reload in " ++ String.fromInt reloadIn ++ "s"))
 
                     else
-                        text ""
+                        Element.none
 
                 _ ->
-                    text ""
+                    Element.none
 
         _ ->
-            text ""
+            Element.none
 
 
 viewNotReady : Bool -> String -> Element Msg
@@ -2232,7 +2248,132 @@ viewProduct fullScreen translations product =
 
 viewEvent : Model -> List Translation -> NestedEventRoute -> Event -> Element Msg
 viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
-    Element.none
+    let
+        viewNavItem eventSection =
+            let
+                isActiveRoute =
+                    -- TODO: This needs a bit of work. I don't like the string pattern matching, would prefer patterning on toRoute result.
+                    eventSection == eventSectionForRoute nestedRoute
+
+                newPath =
+                    "/events/" ++ String.fromInt event.id ++ "/" ++ eventSection
+            in
+            el []
+                (if isActiveRoute then
+                    button
+                        [ Element.padding 8
+                        , Border.rounded 4
+                        , Background.color theme.primary
+                        , Font.color theme.white
+                        , Element.focused [ Background.color theme.primaryFocused ]
+                        ]
+                        { onPress = Just NoOp
+                        , label = text (translate translations eventSection)
+                        }
+
+                 else
+                    button
+                        [ Element.padding 8
+                        , Border.rounded 4
+                        , Element.focused [ Background.color theme.grey ]
+                        ]
+                        { onPress = Just (NavigateTo newPath)
+                        , label = text (translate translations eventSection)
+                        }
+                )
+    in
+    column [ Element.width Element.fill, Element.spacing 20 ]
+        [ el [ Font.size 28 ] (text event.name)
+        , row [ Element.width Element.fill, Element.spacing 10 ]
+            (List.map viewNavItem (eventSections flags.excludeEventSections event)
+                ++ (if flags.eventId == Nothing then
+                        [ el [ Element.alignRight ]
+                            (button
+                                [ Element.padding 8
+                                , Border.rounded 4
+                                , Element.focused [ Background.color theme.grey ]
+                                ]
+                                { onPress = Just (NavigateTo "/events")
+                                , label = text (translate translations (itemsSectionName flags.section) ++ " »")
+                                }
+                            )
+                        ]
+
+                    else
+                        []
+                   )
+            )
+        , el [ Font.size 24 ] (text (translate translations (eventSectionForRoute nestedRoute)))
+        , case nestedRoute of
+            DetailsRoute ->
+                viewDetails translations event
+
+            RegistrationsRoute ->
+                viewRegistrations translations event.registrations
+
+            DrawsRoute ->
+                viewDraws translations scoringHilight event
+
+            DrawRoute drawId ->
+                case List.Extra.find (\d -> d.id == drawId) event.draws of
+                    Just draw ->
+                        viewDraw translations scoringHilight event draw
+
+                    Nothing ->
+                        viewNoDataForRoute translations
+
+            GameRoute gameId ->
+                let
+                    findDraw =
+                        drawWithGameId event.draws gameId
+
+                    findGame =
+                        findGameById event.stages gameId
+                in
+                case ( findDraw, findGame ) of
+                    ( Just draw, Just game ) ->
+                        let
+                            sheetLabel =
+                                sheetNameForGame event (Just game)
+                        in
+                        viewGame translations scoringHilight event sheetLabel True draw game
+
+                    _ ->
+                        viewNoDataForRoute translations
+
+            StagesRoute ->
+                case List.head event.stages of
+                    Just stage ->
+                        viewStages translations event stage
+
+                    Nothing ->
+                        viewNoDataForRoute translations
+
+            StageRoute id ->
+                case List.Extra.find (\s -> s.id == id) event.stages of
+                    Just stage ->
+                        viewStages translations event stage
+
+                    Nothing ->
+                        viewNoDataForRoute translations
+
+            TeamsRoute ->
+                viewTeams translations event
+
+            TeamRoute id ->
+                case List.Extra.find (\t -> t.id == id) event.teams of
+                    Just team ->
+                        viewTeam translations flags event team
+
+                    Nothing ->
+                        viewNoDataForRoute translations
+
+            ReportsRoute ->
+                viewReports translations event
+
+            ReportRoute report ->
+                viewReport translations scoringHilight event report
+        ]
 
 
 viewDetails : List Translation -> Event -> Element Msg
