@@ -2935,7 +2935,59 @@ viewStages translations event onStage =
 
 viewReports : List Translation -> Event -> Element Msg
 viewReports translations event =
-    El.none
+    let
+        hasAttendance =
+            (List.map .attendance event.draws |> List.sum) > 0
+
+        attendanceLink =
+            "/events/" ++ String.fromInt event.id ++ "/reports/attendance"
+
+        scoringAnalysisLink =
+            "/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis"
+
+        scoringAnalysisByHammerLink =
+            "/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis_by_hammer"
+
+        teamRostersLink =
+            "/events/" ++ String.fromInt event.id ++ "/reports/team_rosters"
+
+        competitionMatrixLink =
+            "/events/" ++ String.fromInt event.id ++ "/reports/competition_matrix"
+    in
+    column [ El.spacing 15, El.padding 15 ]
+        [ if hasAttendance then
+            button [ Font.color theme.primary ]
+                { onPress = Just (NavigateTo attendanceLink)
+                , label = text ("• " ++ translate translations "attendance")
+                }
+
+          else
+            El.none
+        , button [ Font.color theme.primary ]
+            { onPress = Just (NavigateTo competitionMatrixLink)
+            , label = text ("• " ++ translate translations "competition_matrix")
+            }
+        , if event.endScoresEnabled then
+            button [ Font.color theme.primary ]
+                { onPress = Just (NavigateTo scoringAnalysisLink)
+                , label = text ("• " ++ translate translations "scoring_analysis")
+                }
+
+          else
+            El.none
+        , if event.endScoresEnabled then
+            button [ Font.color theme.primary ]
+                { onPress = Just (NavigateTo scoringAnalysisByHammerLink)
+                , label = text ("• " ++ translate translations "scoring_analysis_by_hammer")
+                }
+
+          else
+            El.none
+        , button [ Font.color theme.primary ]
+            { onPress = Just (NavigateTo teamRostersLink)
+            , label = text ("• " ++ translate translations "team_rosters")
+            }
+        ]
 
 
 viewDraw : List Translation -> Maybe ScoringHilight -> Event -> Draw -> Element Msg
