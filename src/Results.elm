@@ -276,6 +276,7 @@ type StageType
 
 type RankingMethod
     = PointsRanking
+    | WinsRanking
     | SkinsRanking
     | ScoresRanking
 
@@ -611,6 +612,9 @@ decodeStage =
                 |> Decode.andThen
                     (\str ->
                         case String.toLower str of
+                            "wins" ->
+                                Decode.succeed WinsRanking
+
                             "skins" ->
                                 Decode.succeed SkinsRanking
 
@@ -1401,6 +1405,9 @@ teamResultsFor onStage allStages allTeams allGames =
                     (toFloat (winsByTeamAndStage team stage) * stage.pointsPerWin)
                         + (toFloat (tiesByTeamAndStage team stage) * stage.pointsPerTie)
                         + (toFloat (lossesByTeamAndStage team stage) * stage.pointsPerLoss)
+
+                WinsRanking ->
+                    toFloat (winsByTeamAndStage team stage)
 
                 SkinsRanking ->
                     let
