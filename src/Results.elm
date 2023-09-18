@@ -1811,8 +1811,9 @@ theme =
     , secondary = El.rgb255 108 117 125
     , secondaryFocused = El.rgb255 128 137 155
     , white = El.rgb255 255 255 255
-    , grey = El.rgba 0 0 0 0.1
     , greyLight = El.rgba 0 0 0 0.05
+    , grey = El.rgba 0 0 0 0.1
+    , greyMedium = El.rgba 0 0 0 0.2
     , greyDark = El.rgba 0 0 0 0.6
     , defaultText = El.rgb255 33 37 41
     }
@@ -2968,13 +2969,28 @@ viewStages translations event onStage =
             teamsWithGames event.teams onStage.games
 
         viewStageLink stage =
-            el []
-                (button
-                    []
-                    { onPress = Just (NavigateTo (stageUrl event.id stage))
-                    , label = text stage.name
-                    }
-                )
+            button
+                [ El.paddingXY 18 10
+                , El.focused [ Background.color theme.white ]
+                , Border.color theme.greyMedium
+                , Font.color
+                    (if stage.id == onStage.id then
+                        theme.defaultText
+
+                     else
+                        theme.primary
+                    )
+                , Border.widthEach
+                    (if stage.id == onStage.id then
+                        { bottom = 0, left = 1, right = 1, top = 1 }
+
+                     else
+                        { bottom = 1, left = 0, right = 0, top = 0 }
+                    )
+                ]
+                { onPress = Just (NavigateTo (stageUrl event.id stage))
+                , label = text stage.name
+                }
 
         viewRoundRobin =
             let
@@ -3258,7 +3274,7 @@ viewStages translations event onStage =
                     el [] (text "No groups")
     in
     column [ El.width El.fill ]
-        [ row [ El.spacing 15 ] (List.map viewStageLink event.stages)
+        [ row [] (List.map viewStageLink event.stages)
         , case onStage.stageType of
             RoundRobin ->
                 viewRoundRobin
