@@ -12,6 +12,7 @@ import Element.Font as Font
 import Element.Input as Input exposing (button)
 import Element.Region as Region
 import Html exposing (Html)
+import Html.Attributes exposing (style)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
@@ -1814,6 +1815,7 @@ theme =
     , greyLight = El.rgba 0 0 0 0.05
     , grey = El.rgba 0 0 0 0.1
     , greyMedium = El.rgba 0 0 0 0.2
+    , greyStrong = El.rgba 0 0 0 0.4
     , greyDark = El.rgba 0 0 0 0.6
     , defaultText = El.rgb255 33 37 41
     }
@@ -2665,17 +2667,6 @@ viewDraws translations scoringHilight event =
         gameLink : Game -> Element Msg
         gameLink game =
             let
-                stateClass =
-                    case game.state of
-                        GamePending ->
-                            "text-primary"
-
-                        GameComplete ->
-                            "text-secondary"
-
-                        GameActive ->
-                            "text-primary font-weight-bold"
-
                 gameNameWithResult =
                     case game.state of
                         GameComplete ->
@@ -3004,33 +2995,6 @@ viewStages translations event onStage =
                 hasPoints =
                     onStage.rankingMethod /= WinsRanking
 
-                -- viewRow teamResult =
-                --     row []
-                --         [ el []
-                --             (if teamHasDetails teamResult.team then
-                --                 button
-                --                     []
-                --                     { onPress = Just (NavigateTo (teamUrl event.id teamResult.team))
-                --                     , label = text teamResult.team.name
-                --                     }
-                --
-                --              else
-                --                 text teamResult.team.name
-                --             )
-                --         , el [ El.alignRight ] (text (String.fromInt teamResult.gamesPlayed))
-                --         , el [ El.alignRight ] (text (String.fromInt teamResult.wins))
-                --         , el [ El.alignRight ] (text (String.fromInt teamResult.losses))
-                --         , if hasTies then
-                --             el [ El.alignRight ] (text (String.fromInt teamResult.ties))
-                --
-                --           else
-                --             El.none
-                --         , if hasPoints then
-                --             el [ El.alignRight ] (text (String.fromFloat teamResult.points))
-                --
-                --           else
-                --             El.none
-                --         ]
                 tableHeader content =
                     el
                         [ Font.bold
@@ -3057,7 +3021,19 @@ viewStages translations event onStage =
                     Just
                         { header = tableHeader "team"
                         , width = El.fill
-                        , view = \i teamResult -> tableCell i (text teamResult.team.name)
+                        , view =
+                            \i teamResult ->
+                                tableCell i
+                                    (if teamHasDetails teamResult.team then
+                                        button
+                                            [ Font.color theme.primary ]
+                                            { onPress = Just (NavigateTo (teamUrl event.id teamResult.team))
+                                            , label = text teamResult.team.name
+                                            }
+
+                                     else
+                                        text teamResult.team.name
+                                    )
                         }
 
                 gamesColumn =
@@ -3165,7 +3141,23 @@ viewStages translations event onStage =
                                                         _ ->
                                                             "TBD"
                                             in
-                                            el [] (text label)
+                                            el
+                                                [ El.width El.fill
+                                                , El.height (El.px 25)
+                                                , El.paddingEach { left = 3, right = 0, top = 3, bottom = 0 }
+                                                , if side.result == Just SideResultWon then
+                                                    Font.bold
+
+                                                  else
+                                                    Font.regular
+                                                , if position == 0 then
+                                                    Border.widthEach { left = 0, right = 0, top = 0, bottom = 1 }
+
+                                                  else
+                                                    Border.width 0
+                                                , Border.color theme.greyMedium
+                                                ]
+                                                (text label)
 
                                         -- Only link if the game has been scheduled
                                         gameHasBeenScheduled =
@@ -3176,15 +3168,32 @@ viewStages translations event onStage =
                                                 Nothing ->
                                                     False
                                     in
-                                    column []
-                                        [ el []
-                                            (button []
-                                                { onPress = Just (NavigateTo (gameUrl event.id game))
-                                                , label = text game.name
-                                                }
-                                            )
-                                        , column [] (List.indexedMap viewSide game.sides)
-                                        ]
+                                    -- "left" (String.fromInt (coords.col * gridSize) ++ "px")
+                                    -- "top" (String.fromInt (coords.row * gridSize) ++ "px")
+                                    button []
+                                        { onPress = Just (NavigateTo (gameUrl event.id game))
+                                        , label =
+                                            column
+                                                [ El.width (El.px 178)
+                                                , Background.color theme.grey
+                                                , Border.width 1
+                                                , Border.color theme.greyMedium
+                                                , El.htmlAttribute (style "position" "absolute")
+                                                , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
+                                                , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize) ++ "px"))
+                                                ]
+                                                [ el
+                                                    [ El.width El.fill
+                                                    , El.height (El.px 20)
+                                                    , El.padding 4
+                                                    , Font.size 12
+                                                    , Font.color theme.white
+                                                    , Background.color theme.greyStrong
+                                                    ]
+                                                    (el [ El.centerX ] (text game.name))
+                                                , column [ El.width El.fill ] (List.indexedMap viewSide game.sides)
+                                                ]
+                                        }
 
                                 Nothing ->
                                     El.none
@@ -3259,10 +3268,11 @@ viewStages translations event onStage =
                     in
                     column
                         [ El.spacing 20 ]
-                        [ el [ El.padding 20 ] (text ("☷ " ++ group.name))
-                        , column []
+                        [ el [ El.paddingEach { left = 0, top = 20, right = 0, bottom = 0 }, Font.size 20, Font.medium ] (text ("☷ " ++ group.name))
+                        , column [ El.htmlAttribute (style "position" "relative") ]
                             [ el [] (El.html viewSvgConnectors)
-                            , column [] (List.map viewGroupGame gamesForGroup)
+                            , el [ El.htmlAttribute (style "position" "absolute") ]
+                                (column [ El.htmlAttribute (style "position" "relative") ] (List.map viewGroupGame gamesForGroup))
                             ]
                         ]
             in
