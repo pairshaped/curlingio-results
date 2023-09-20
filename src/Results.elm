@@ -878,17 +878,17 @@ translate translations key =
             key
 
 
-colorNameToRGB : String -> String
+colorNameToRGB : String -> El.Color
 colorNameToRGB color =
     case color of
         "red" ->
-            "rgb(204, 0, 0)"
+            El.rgb255 204 0 0
 
         "yellow" ->
-            "rgb(204, 204, 0)"
+            El.rgb255 204 204 0
 
         _ ->
-            color
+            El.rgb255 204 204 0
 
 
 sideResultToString : List Translation -> Maybe SideResult -> String
@@ -2838,32 +2838,6 @@ viewTeams translations event =
         hasLocations =
             List.any (\t -> t.location /= Nothing) event.teams
 
-        -- viewTeamRow team =
-        --     tr []
-        --         [ td []
-        --             [ if teamHasDetails team then
-        --                 button [ class "btn btn-link p-0 m-0", onClick (NavigateTo (teamUrl event.id team)) ] [ text team.name ]
-        --
-        --               else
-        --                 -- No point in linking to team details if there are no more details.
-        --                 text team.name
-        --             ]
-        --         , if hasCoaches then
-        --             td [] [ text (Maybe.withDefault "-" team.coach) ]
-        --
-        --           else
-        --             El.none
-        --         , if hasAffiliations then
-        --             td [] [ text (Maybe.withDefault "-" team.affiliation) ]
-        --
-        --           else
-        --             El.none
-        --         , if hasLocations then
-        --             td [] [ text (Maybe.withDefault "-" team.location) ]
-        --
-        --           else
-        --             El.none
-        --         ]
         tableHeader content =
             el
                 [ Font.bold
@@ -3382,18 +3356,351 @@ viewDraw translations scoringHilight event draw =
                 Nothing ->
                     El.none
     in
-    column [ El.width El.fill ]
-        ([ el
+    column [ El.width El.fill, El.spacing 20 ]
+        [ el
             [ El.width El.fill, El.padding 16, Font.color theme.greyDark, Background.color theme.greyLight ]
             (text (translate translations "draw" ++ " " ++ draw.label ++ ": " ++ draw.startsAt))
-         ]
-            ++ List.map viewDrawSheet draw.drawSheets
-        )
+        , column [ El.width El.fill, El.spacing 30 ] (List.map viewDrawSheet draw.drawSheets)
+        ]
 
 
 viewGame : List Translation -> Maybe ScoringHilight -> Event -> String -> Bool -> Draw -> Game -> Element Msg
 viewGame translations scoringHilight event sheetLabel detailed draw game =
-    El.none
+    let
+        maxNumberOfEnds =
+            List.map (\s -> List.length s.endScores) game.sides
+                |> List.maximum
+                |> Maybe.withDefault 0
+                |> max event.numberOfEnds
+
+        teamName side =
+            findTeamForSide event.teams side
+                |> Maybe.map .name
+                |> Maybe.withDefault "TBD"
+
+        wonOrTied side =
+            (side.result == Just SideResultWon)
+                || (side.result == Just SideResultTied)
+
+        viewGameCaption =
+            let
+                label =
+                    el [ Font.italic, Font.color theme.greyDark ]
+                        (case game.state of
+                            GameComplete ->
+                                let
+                                    winner =
+                                        List.Extra.find (\s -> s.result == Just SideResultWon) game.sides
+
+                                    loser =
+                                        List.Extra.find (\s -> s.result /= Just SideResultWon) game.sides
+
+                                    sideResultText result =
+                                        sideResultToString translations result
+                                in
+                                if List.any (\s -> s.result == Just SideResultTied) game.sides then
+                                    let
+                                        joinedResult =
+                                            List.map teamName game.sides
+                                                |> String.join (" " ++ sideResultText (Just SideResultTied) ++ " ")
+                                    in
+                                    text (joinedResult ++ ".")
+
+                                else
+                                    case ( winner, loser ) of
+                                        ( Just w, Just l ) ->
+                                            text (teamName w ++ " " ++ sideResultText w.result ++ ", " ++ teamName l ++ " " ++ sideResultText l.result ++ ".")
+
+                                        _ ->
+                                            text "Unknown result."
+
+                            GameActive ->
+                                text (translate translations "game_in_progress" ++ ": " ++ game.name)
+
+                            GamePending ->
+                                text (translate translations "upcoming_game" ++ ": " ++ game.name)
+                        )
+            in
+            if detailed then
+                label
+
+            else
+                button [] { onPress = Just (NavigateTo gamePath), label = label }
+
+        viewGameHilight =
+            case scoringHilight of
+                Just hilight ->
+                    button []
+                        { onPress = Just (ToggleScoringHilight hilight)
+                        , label =
+                            text
+                                (translate translations
+                                    (case hilight of
+                                        HilightHammers ->
+                                            "hammers"
+
+                                        HilightStolenEnds ->
+                                            "stolen_ends"
+
+                                        HilightBlankEnds ->
+                                            "blank_ends"
+
+                                        Hilight1PointEnds ->
+                                            "one_point_ends"
+
+                                        Hilight2PointEnds ->
+                                            "two_point_ends"
+
+                                        Hilight3PointEnds ->
+                                            "three_point_ends"
+
+                                        Hilight4PointEnds ->
+                                            "four_point_ends"
+
+                                        Hilight5PlusPointEnds ->
+                                            "five_plus_point_ends"
+                                    )
+                                )
+                        }
+
+                Nothing ->
+                    El.none
+
+        gamePath =
+            gameUrl event.id game
+
+        drawPath =
+            drawUrl event.id draw
+
+        viewEndScore : Int -> Side -> Element Msg
+        viewEndScore endNumber side =
+            let
+                hasHammer =
+                    if endNumber == 1 && side.firstHammer then
+                        True
+
+                    else
+                        case List.Extra.getAt (endNumber - 2) side.endScores of
+                            Just es ->
+                                es == 0
+
+                            Nothing ->
+                                False
+
+                endScoreStr =
+                    case List.Extra.getAt (endNumber - 1) side.endScores of
+                        Just es ->
+                            String.fromInt es
+
+                        Nothing ->
+                            "-"
+
+                endScoreInt =
+                    List.Extra.getAt (endNumber - 1) side.endScores
+                        |> Maybe.withDefault 0
+
+                stolenEnd =
+                    (endScoreInt > 0) && not hasHammer
+
+                blankEnd =
+                    case List.Extra.getAt (endNumber - 1) side.endScores of
+                        Just 0 ->
+                            True
+
+                        _ ->
+                            False
+
+                isHilighted =
+                    (scoringHilight == Just HilightHammers && hasHammer)
+                        || (scoringHilight == Just HilightStolenEnds && stolenEnd)
+                        || (scoringHilight == Just HilightBlankEnds && blankEnd)
+                        || (scoringHilight == Just Hilight1PointEnds && (endScoreInt == 1))
+                        || (scoringHilight == Just Hilight2PointEnds && (endScoreInt == 2))
+                        || (scoringHilight == Just Hilight3PointEnds && (endScoreInt == 3))
+                        || (scoringHilight == Just Hilight4PointEnds && (endScoreInt == 4))
+                        || (scoringHilight == Just Hilight5PlusPointEnds && (endScoreInt > 4))
+            in
+            el
+                [ El.paddingXY 10 15
+                , Border.widthEach { left = 0, top = 0, right = 1, bottom = 1 }
+                , Border.color theme.grey
+                , Background.color
+                    (if hasHammer && not isHilighted then
+                        theme.greyLight
+
+                     else if isHilighted then
+                        theme.secondary
+
+                     else
+                        theme.white
+                    )
+                , Font.color
+                    (if isHilighted then
+                        theme.greyLight
+
+                     else
+                        theme.defaultText
+                    )
+                , if isHilighted then
+                    Font.bold
+
+                  else
+                    Font.regular
+                ]
+                (el [ El.centerX ] (text endScoreStr))
+
+        teamColumn =
+            let
+                teamNameElement side =
+                    el
+                        [ El.paddingXY 10 12
+                        , Border.widthEach { left = 1, top = 0, right = 1, bottom = 1 }
+                        , Border.color theme.grey
+                        , Font.color
+                            (if side.firstHammer && scoringHilight == Just HilightHammers then
+                                theme.primary
+
+                             else
+                                theme.defaultText
+                            )
+                        , if wonOrTied side then
+                            Font.bold
+
+                          else
+                            Font.regular
+                        ]
+                        (el
+                            [ El.paddingXY 0 2
+                            , Border.widthEach { top = 0, right = 0, bottom = 3, left = 0 }
+                            , Border.color
+                                (colorNameToRGB
+                                    (if side.topRock then
+                                        event.topRock
+
+                                     else
+                                        event.botRock
+                                    )
+                                )
+                            ]
+                            (text
+                                (teamName side
+                                    ++ (if side.firstHammer then
+                                            " *"
+
+                                        else
+                                            ""
+                                       )
+                                )
+                            )
+                        )
+            in
+            { header =
+                row
+                    [ El.paddingXY 10 15
+                    , El.spacing 10
+                    , Border.widthEach { left = 1, top = 1, right = 1, bottom = 2 }
+                    , Border.color theme.grey
+                    , Font.bold
+                    ]
+                    [ text sheetLabel
+                    , if detailed then
+                        El.none
+
+                      else
+                        button [ Font.color theme.primary, Font.size 12 ]
+                            { onPress = Just (NavigateTo gamePath)
+                            , label = text game.name
+                            }
+                    ]
+            , width = El.fill
+            , view = teamNameElement
+            }
+
+        endColumn endNumber =
+            { header =
+                el
+                    [ El.paddingXY 10 15
+                    , Border.widthEach { left = 0, top = 1, right = 1, bottom = 2 }
+                    , Border.color theme.grey
+                    , Font.bold
+                    ]
+                    (el [ El.centerX ] (text (String.fromInt endNumber)))
+            , width = El.px 50
+            , view = viewEndScore endNumber
+            }
+
+        totalColumn =
+            { header =
+                el
+                    [ El.paddingXY 10 15
+                    , Border.widthEach { left = 0, top = 1, right = 1, bottom = 2 }
+                    , Border.color theme.grey
+                    , Font.bold
+                    ]
+                    (el [ El.centerX ] (text (translate translations "total")))
+            , width = El.px 64
+            , view =
+                \side ->
+                    el
+                        [ El.paddingXY 10 15
+                        , Border.widthEach { left = 0, top = 0, right = 1, bottom = 1 }
+                        , Border.color theme.grey
+                        , if wonOrTied side then
+                            Font.bold
+
+                          else
+                            Font.regular
+                        ]
+                        (el [ El.centerX ] (text (String.fromInt (List.sum side.endScores))))
+            }
+
+        tableColumns =
+            [ teamColumn ] ++ List.map endColumn (List.range 1 maxNumberOfEnds) ++ [ totalColumn ]
+    in
+    column [ El.width El.fill, El.spacing 10 ]
+        [ if detailed then
+            el [ El.width El.fill, El.paddingEach { top = 0, right = 0, bottom = 10, left = 0 } ]
+                (row
+                    [ El.width El.fill
+                    , El.paddingXY 10 15
+                    , El.spacing 10
+                    , Background.color theme.greyLight
+                    , Font.color theme.greyDark
+                    ]
+                    [ el []
+                        (button
+                            [ Font.color theme.primary ]
+                            { onPress = Just (NavigateTo drawPath)
+                            , label = text (translate translations "draw" ++ " " ++ draw.label ++ ": " ++ draw.startsAt)
+                            }
+                        )
+                    , el [] (text "/")
+                    , el [] (text game.name)
+                    ]
+                )
+
+          else
+            El.none
+
+        -- TABLE
+        , El.table []
+            { data = game.sides
+            , columns = tableColumns
+            }
+        , row []
+            [ viewGameCaption
+            , viewGameHilight
+            ]
+        , if detailed then
+            column [ El.paddingXY 0 10 ]
+                [ List.map (findTeamForSide event.teams) game.sides
+                    |> List.filterMap identity
+                    |> viewReportScoringAnalysis translations scoringHilight event
+                ]
+
+          else
+            El.none
+        ]
 
 
 viewTeam : List Translation -> Flags -> Event -> Team -> Element Msg
