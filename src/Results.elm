@@ -2978,6 +2978,7 @@ viewStages translations event onStage =
                      else
                         { bottom = 1, left = 0, right = 0, top = 0 }
                     )
+                , Border.rounded 3
                 ]
                 { onPress = Just (NavigateTo (stageUrl event.id stage))
                 , label = text stage.name
@@ -3190,7 +3191,7 @@ viewStages translations event onStage =
                                                     , Font.color theme.white
                                                     , Background.color theme.greyStrong
                                                     ]
-                                                    (el [ El.centerX ] (text game.name))
+                                                    (el [] (text game.name))
                                                 , column [ El.width El.fill ] (List.indexedMap viewSide game.sides)
                                                 ]
                                         }
@@ -3267,18 +3268,25 @@ viewStages translations event onStage =
                             viewSvgConnector ((colsForGames + 1) * gridSize) ((rowsForGroup - 1) * gridSize) lineConnectors
                     in
                     column
-                        [ El.spacing 20 ]
-                        [ el [ El.paddingEach { left = 0, top = 20, right = 0, bottom = 0 }, Font.size 20, Font.medium ] (text ("☷ " ++ group.name))
-                        , column [ El.htmlAttribute (style "position" "relative") ]
-                            [ el [] (El.html viewSvgConnectors)
-                            , el [ El.htmlAttribute (style "position" "absolute") ]
+                        [ El.width El.fill, El.spacing 20, El.paddingXY 0 20 ]
+                        [ el
+                            [ El.width El.fill
+                            , El.paddingEach { left = 10, top = 7, right = 0, bottom = 7 }
+                            , Background.color theme.greyLight
+                            , Font.size 20
+                            , Font.medium
+                            ]
+                            (text ("☷ " ++ group.name))
+                        , column [ El.width El.fill, El.htmlAttribute (style "position" "relative") ]
+                            [ el [ El.width El.fill ] (El.html viewSvgConnectors)
+                            , el [ El.width El.fill, El.htmlAttribute (style "position" "absolute") ]
                                 (column [ El.htmlAttribute (style "position" "relative") ] (List.map viewGroupGame gamesForGroup))
                             ]
                         ]
             in
             case onStage.groups of
                 Just groups ->
-                    column [] (List.map viewGroup groups)
+                    column [ El.width El.fill ] (List.map viewGroup groups)
 
                 Nothing ->
                     el [] (text "No groups")
