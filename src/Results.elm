@@ -3421,12 +3421,13 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                             text (translate translations "upcoming_game" ++ ": " ++ game.name)
             in
             if detailed then
-                el [ Font.italic, Font.color theme.greyDark ] label
+                el [ Font.italic, Font.color theme.greyDark, El.padding 8 ] label
 
             else
                 button
                     [ Font.color theme.primary
                     , Font.italic
+                    , El.padding 8
                     , El.focused [ Background.color theme.white ]
                     ]
                     { onPress = Just (NavigateTo gamePath), label = label }
@@ -3434,7 +3435,14 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
         viewGameHilight =
             case scoringHilight of
                 Just hilight ->
-                    button [ El.focused [ Background.color theme.white ] ]
+                    button
+                        [ El.alignRight
+                        , El.padding 8
+                        , Font.color theme.white
+                        , Border.rounded 4
+                        , Background.color theme.secondary
+                        , El.focused [ Background.color theme.secondary ]
+                        ]
                         { onPress = Just (ToggleScoringHilight hilight)
                         , label =
                             text
@@ -3540,7 +3548,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                     )
                 , Font.color
                     (if isHilighted then
-                        theme.greyLight
+                        theme.white
 
                      else
                         theme.defaultText
@@ -3698,7 +3706,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
             }
 
         -- Won / Lost Caption
-        , row []
+        , row [ El.width El.fill ]
             [ viewGameCaption
             , viewGameHilight
             ]
@@ -4251,13 +4259,22 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                     , Font.color
                         (case onPress of
                             Just _ ->
-                                theme.primary
+                                if isForGame then
+                                    theme.primary
+
+                                else
+                                    theme.defaultText
 
                             Nothing ->
                                 theme.defaultText
                         )
                     ]
-                    { onPress = onPress
+                    { onPress =
+                        if isForGame then
+                            onPress
+
+                        else
+                            Nothing
                     , label =
                         el
                             [ El.onRight
@@ -4356,7 +4373,8 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                             else
                                 tableCell El.centerX 1 (text "Against")
                   }
-                , { header = tableHeader "LSFE" El.centerX (Just (ToggleScoringHilight HilightHammers)) (Just "1")
+                , { header =
+                        tableHeader "LSFE" El.centerX (Just (ToggleScoringHilight HilightHammers)) (Just "1")
                   , width = El.px 50
                   , view =
                         \i team ->
@@ -4368,7 +4386,8 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 -- Against
                                 tableCell El.centerX 1 (text (String.fromInt (firstHammerCountAgainst team)))
                   }
-                , { header = tableHeader "SE" El.centerX (Just (ToggleScoringHilight HilightStolenEnds)) (Just "2")
+                , { header =
+                        tableHeader "SE" El.centerX (Just (ToggleScoringHilight HilightStolenEnds)) (Just "2")
                   , width = El.px 50
                   , view =
                         \i team ->
@@ -4380,7 +4399,8 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 -- Against
                                 tableCell El.centerX 1 (text (String.fromInt (stolenEndsCount team False)))
                   }
-                , { header = tableHeader "BE" El.centerX (Just (ToggleScoringHilight HilightBlankEnds)) (Just "3")
+                , { header =
+                        tableHeader "BE" El.centerX (Just (ToggleScoringHilight HilightBlankEnds)) (Just "3")
                   , width = El.px 50
                   , view =
                         \i team ->
