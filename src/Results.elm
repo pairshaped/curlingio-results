@@ -3705,7 +3705,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
 
         -- Scaring Analysis
         , if detailed then
-            column [ El.paddingXY 0 10 ]
+            column [ El.width El.fill, El.paddingXY 0 10 ]
                 [ List.map (findTeamForSide event.teams) game.sides
                     |> List.filterMap identity
                     |> viewReportScoringAnalysis translations scoringHilight event
@@ -3747,7 +3747,7 @@ viewTeam translations flags event team =
                     column
                         [ Border.width 1
                         , Border.color theme.grey
-                        , El.paddingXY 20 10
+                        , El.padding 20
                         , El.spacing 20
                         , El.width (El.px 250)
                         ]
@@ -4120,12 +4120,377 @@ viewReport translations scoringHilight event report =
 
 viewReportScoringAnalysis : List Translation -> Maybe ScoringHilight -> Event -> List Team -> Element Msg
 viewReportScoringAnalysis translations scoringHilight event teams =
-    El.none
+    let
+        rows =
+            -- TODO: Structure the data so that for and against are just rows, but when rendering we know due to missing data or a flag which is which.
+            List.Extra.interweave teams teams
 
+        isHilighted onHilight =
+            scoringHilight == Just onHilight
 
-viewTeamScoringAnalysis : Event -> Team -> Element Msg
-viewTeamScoringAnalysis event team =
-    El.none
+        isForGame =
+            List.length teams == 2
+
+        fullReportUrl =
+            "/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis"
+
+        games team =
+            let
+                participatedIn sides =
+                    List.any (\s -> s.teamId == Just team.id) sides
+            in
+            List.filter (\g -> g.state /= GamePending) (gamesFromStages event.stages)
+                |> List.filter (\g -> participatedIn g.sides)
+
+        sidesFor team =
+            List.map .sides (games team)
+                |> List.concat
+                |> List.filter (\s -> s.teamId == Just team.id)
+
+        sidesAgainst team =
+            List.map .sides (games team)
+                |> List.concat
+                |> List.filter (\s -> s.teamId /= Just team.id)
+
+        endsFor team =
+            List.map .endScores (sidesFor team)
+                |> List.concat
+
+        endsAgainst team =
+            List.map .endScores (sidesAgainst team)
+                |> List.concat
+
+        firstHammerCountFor team =
+            List.filter (\s -> s.firstHammer == True) (sidesFor team)
+                |> List.length
+
+        firstHammerCountAgainst team =
+            List.filter (\s -> s.firstHammer == True) (sidesAgainst team)
+                |> List.length
+
+        blankEndsFor team =
+            List.filter (\i -> i /= 0) (endsFor team)
+                |> List.length
+
+        blankEndsAgainst team =
+            List.filter (\i -> i == 0) (endsAgainst team)
+                |> List.length
+
+        onePointEndsFor team =
+            List.filter (\i -> i == 1) (endsFor team)
+                |> List.length
+
+        onePointEndsAgainst team =
+            List.filter (\i -> i == 1) (endsAgainst team)
+                |> List.length
+
+        twoPointEndsFor team =
+            List.filter (\i -> i == 2) (endsFor team)
+                |> List.length
+
+        twoPointEndsAgainst team =
+            List.filter (\i -> i == 2) (endsAgainst team)
+                |> List.length
+
+        threePointEndsFor team =
+            List.filter (\i -> i == 3) (endsFor team)
+                |> List.length
+
+        threePointEndsAgainst team =
+            List.filter (\i -> i == 3) (endsAgainst team)
+                |> List.length
+
+        fourPointEndsFor team =
+            List.filter (\i -> i == 4) (endsFor team)
+                |> List.length
+
+        fourPointEndsAgainst team =
+            List.filter (\i -> i == 4) (endsAgainst team)
+                |> List.length
+
+        fivePlusPointEndsFor team =
+            List.filter (\i -> i > 4) (endsFor team)
+                |> List.length
+
+        fivePlusPointEndsAgainst team =
+            List.filter (\i -> i > 4) (endsAgainst team)
+                |> List.length
+
+        totalPointsFor team =
+            List.sum (endsFor team)
+
+        totalPointsAgainst team =
+            List.sum (endsAgainst team)
+
+        averagePointsFor team =
+            -- total points divided by number of ends. We multiple by 100 then round then divide by 100 so that we get 2 decimal places.
+            toFloat (round ((toFloat (totalPointsFor team) / toFloat (List.length (endsFor team))) * 100)) / 100
+
+        averagePointsAgainst team =
+            -- see averagePointsFor
+            toFloat (round ((toFloat (totalPointsAgainst team) / toFloat (List.length (endsAgainst team))) * 100)) / 100
+
+        stolenEndsCount team for =
+            List.length (stolenEnds for (games team) team)
+
+        stolenPoints team for =
+            List.sum (stolenEnds for (games team) team)
+
+        tableHeader content align onPress sup =
+            el
+                [ El.width El.fill
+                , El.padding 10
+                , Border.width 1
+                , Border.color theme.grey
+                , Background.color theme.greyLight
+                ]
+                (button
+                    [ El.focused [ Background.color theme.white ]
+                    , align
+                    , Font.semiBold
+                    , Font.color
+                        (case onPress of
+                            Just _ ->
+                                theme.primary
+
+                            Nothing ->
+                                theme.defaultText
+                        )
+                    ]
+                    { onPress = onPress
+                    , label =
+                        el
+                            [ El.onRight
+                                (case sup of
+                                    Just sup_ ->
+                                        el [ Font.size 10 ] (text sup_)
+
+                                    Nothing ->
+                                        El.none
+                                )
+                            ]
+                            (text content)
+                    }
+                )
+
+        tableCell align bottomBorder content =
+            el
+                [ El.width El.fill
+                , El.padding 10
+                , Border.widthEach { top = 0, right = 1, bottom = bottomBorder, left = 1 }
+                , Border.color theme.grey
+                ]
+                (el [ align ] content)
+    in
+    column
+        [ El.width El.fill ]
+        [ row [ El.width El.fill, El.spacing 10, El.paddingXY 0 20, Font.size 24 ]
+            [ text (translate translations "scoring_analysis")
+            , if isForGame then
+                button [ El.alignRight, Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                    { onPress = Just (NavigateTo fullReportUrl)
+                    , label = el [ Font.size 12 ] (text (translate translations "full_report" ++ " →"))
+                    }
+
+              else
+                El.none
+            ]
+        , El.indexedTable [ El.width El.fill, Font.size 13 ]
+            { data = rows
+            , columns =
+                [ { header = tableHeader (translate translations "team") El.alignLeft Nothing Nothing
+                  , width = El.fill
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                button
+                                    [ Font.color theme.primary
+                                    , El.focused [ Background.color theme.white ]
+                                    ]
+                                    { onPress = Just (NavigateTo (teamUrl event.id team))
+                                    , label =
+                                        team.name
+                                            |> text
+                                            |> tableCell El.alignLeft 0
+                                    }
+
+                            else
+                                tableCell El.centerX 1 (text " ")
+                  }
+                , { header = tableHeader (translate translations "games") El.centerX Nothing Nothing
+                  , width = El.px 80
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                games team
+                                    |> List.length
+                                    |> String.fromInt
+                                    |> text
+                                    |> tableCell El.centerX 0
+
+                            else
+                                tableCell El.centerX 1 (text " ")
+                  }
+                , { header = tableHeader (translate translations "ends") El.centerX Nothing Nothing
+                  , width = El.px 80
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                -- It doesn't matter if we use endsFor or endsAgainst, the count is the same since these the ends they participated in, just whether it's the top or bot.
+                                endsFor team
+                                    |> List.length
+                                    |> String.fromInt
+                                    |> text
+                                    |> tableCell El.centerX 0
+
+                            else
+                                tableCell El.centerX 1 (text " ")
+                  }
+                , { header = tableHeader " " El.alignLeft Nothing Nothing
+                  , width = El.px 80
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                tableCell El.centerX 1 (text "For")
+
+                            else
+                                tableCell El.centerX 1 (text "Against")
+                  }
+                , { header = tableHeader "LSFE" El.centerX (Just (ToggleScoringHilight HilightHammers)) (Just "1")
+                  , width = El.px 50
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                -- For
+                                tableCell El.centerX 1 (text (String.fromInt (firstHammerCountFor team)))
+
+                            else
+                                -- Against
+                                tableCell El.centerX 1 (text (String.fromInt (firstHammerCountAgainst team)))
+                  }
+                , { header = tableHeader "SE" El.centerX (Just (ToggleScoringHilight HilightStolenEnds)) (Just "2")
+                  , width = El.px 50
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                -- For
+                                tableCell El.centerX 1 (text (String.fromInt (stolenEndsCount team True)))
+
+                            else
+                                -- Against
+                                tableCell El.centerX 1 (text (String.fromInt (stolenEndsCount team False)))
+                  }
+                , { header = tableHeader "BE" El.centerX (Just (ToggleScoringHilight HilightBlankEnds)) (Just "3")
+                  , width = El.px 50
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                -- For
+                                tableCell El.centerX 1 (text (String.fromInt (blankEndsFor team)))
+
+                            else
+                                -- Against
+                                tableCell El.centerX 1 (text (String.fromInt (blankEndsAgainst team)))
+                  }
+                , { header = tableHeader "1pt" El.centerX (Just (ToggleScoringHilight Hilight1PointEnds)) Nothing
+                  , width = El.px 50
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                -- For
+                                tableCell El.centerX 1 (text (String.fromInt (onePointEndsFor team)))
+
+                            else
+                                -- Against
+                                tableCell El.centerX 1 (text (String.fromInt (onePointEndsAgainst team)))
+                  }
+                , { header = tableHeader "2pt" El.centerX (Just (ToggleScoringHilight Hilight2PointEnds)) Nothing
+                  , width = El.px 50
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                -- For
+                                tableCell El.centerX 1 (text (String.fromInt (twoPointEndsFor team)))
+
+                            else
+                                -- Against
+                                tableCell El.centerX 1 (text (String.fromInt (twoPointEndsAgainst team)))
+                  }
+                , { header = tableHeader "3pt" El.centerX (Just (ToggleScoringHilight Hilight3PointEnds)) Nothing
+                  , width = El.px 50
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                -- For
+                                tableCell El.centerX 1 (text (String.fromInt (threePointEndsFor team)))
+
+                            else
+                                -- Against
+                                tableCell El.centerX 1 (text (String.fromInt (threePointEndsAgainst team)))
+                  }
+                , { header = tableHeader "4pt" El.centerX (Just (ToggleScoringHilight Hilight4PointEnds)) Nothing
+                  , width = El.px 50
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                -- For
+                                tableCell El.centerX 1 (text (String.fromInt (fourPointEndsFor team)))
+
+                            else
+                                -- Against
+                                tableCell El.centerX 1 (text (String.fromInt (fourPointEndsAgainst team)))
+                  }
+                , { header = tableHeader "5pt" El.centerX (Just (ToggleScoringHilight Hilight5PlusPointEnds)) Nothing
+                  , width = El.px 50
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                -- For
+                                tableCell El.centerX 1 (text (String.fromInt (fivePlusPointEndsFor team)))
+
+                            else
+                                -- Against
+                                tableCell El.centerX 1 (text (String.fromInt (fivePlusPointEndsAgainst team)))
+                  }
+                , { header = tableHeader "Tot" El.centerX Nothing Nothing
+                  , width = El.px 50
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                -- For
+                                tableCell El.centerX 1 (text (String.fromInt (totalPointsFor team)))
+
+                            else
+                                -- Against
+                                tableCell El.centerX 1 (text (String.fromInt (totalPointsAgainst team)))
+                  }
+                , { header = tableHeader "Avg" El.centerX Nothing Nothing
+                  , width = El.px 50
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                -- For
+                                tableCell El.centerX 1 (text (String.fromFloat (averagePointsFor team)))
+
+                            else
+                                -- Against
+                                tableCell El.centerX 1 (text (String.fromFloat (averagePointsAgainst team)))
+                  }
+                , { header = tableHeader "SP" El.centerX (Just (ToggleScoringHilight HilightStolenEnds)) (Just "4")
+                  , width = El.px 50
+                  , view =
+                        \i team ->
+                            if modBy 2 i == 0 then
+                                -- For
+                                tableCell El.centerX 1 (text (String.fromInt (stolenPoints team True)))
+
+                            else
+                                -- Against
+                                tableCell El.centerX 1 (text (String.fromInt (stolenPoints team False)))
+                  }
+                ]
+            }
+        ]
 
 
 viewReportScoringAnalysisByHammer : List Translation -> Event -> Element Msg
