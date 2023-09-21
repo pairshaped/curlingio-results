@@ -1664,7 +1664,7 @@ type Msg
     | ToggleSeasonSearch
     | UpdateSearch String
     | UpdateSeasonDelta Int
-    | AddToCart String
+    | NavigateOut String
     | GotEvent (WebData Event)
     | GotProduct (WebData Product)
     | ToggleScoringHilight ScoringHilight
@@ -1776,7 +1776,7 @@ update msg model =
             in
             ( updatedModel, getItems model.flags updatedModel.itemFilter )
 
-        AddToCart url ->
+        NavigateOut url ->
             ( model, Navigation.load url )
 
         GotEvent response ->
@@ -2175,7 +2175,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                                                 , Border.rounded 3
                                                 , El.focused [ Background.color theme.primaryFocused ]
                                                 ]
-                                                { onPress = Just (AddToCart addToCartUrl)
+                                                { onPress = Just (NavigateOut addToCartUrl)
                                                 , label = text addToCartText
                                                 }
                                             )
@@ -2264,7 +2264,7 @@ viewProduct fullScreen translations product =
             , case ( product.addToCartUrl, product.addToCartText ) of
                 ( Just addToCartUrl, Just addToCartText ) ->
                     El.paragraph []
-                        [ viewButtonPrimary addToCartText (AddToCart addToCartUrl)
+                        [ viewButtonPrimary addToCartText (NavigateOut addToCartUrl)
                         ]
 
                 _ ->
@@ -2443,7 +2443,7 @@ viewDetails translations event =
             , case ( event.addToCartUrl, event.addToCartText ) of
                 ( Just addToCartUrl, Just addToCartText ) ->
                     El.paragraph [ El.paddingEach { top = 10, right = 0, bottom = 20, left = 0 } ]
-                        [ viewButtonPrimary addToCartText (AddToCart addToCartUrl)
+                        [ viewButtonPrimary addToCartText (NavigateOut addToCartUrl)
                         ]
 
                 _ ->
@@ -2656,7 +2656,7 @@ viewDraws translations scoringHilight event =
         drawLink draw label =
             if event.endScoresEnabled then
                 button
-                    [ Font.color theme.primary ]
+                    [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
                     { onPress = Just (NavigateTo (drawUrl event.id draw))
                     , label = text label
                     }
@@ -2717,6 +2717,7 @@ viewDraws translations scoringHilight event =
             if event.endScoresEnabled then
                 button
                     [ Font.color theme.primary
+                    , El.focused [ Background.color theme.white ]
                     , case game.state of
                         GameActive ->
                             Font.bold
@@ -2730,7 +2731,7 @@ viewDraws translations scoringHilight event =
 
             else
                 button
-                    []
+                    [ El.focused [ Background.color theme.white ] ]
                     { onPress = Just NoOp
                     , label = text game.name
                     }
@@ -2869,7 +2870,7 @@ viewTeams translations event =
                         tableCell i
                             (if teamHasDetails team then
                                 button
-                                    [ Font.color theme.primary ]
+                                    [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
                                     { onPress = Just (NavigateTo (teamUrl event.id team))
                                     , label = text team.name
                                     }
@@ -3001,7 +3002,7 @@ viewStages translations event onStage =
                                 tableCell i
                                     (if teamHasDetails teamResult.team then
                                         button
-                                            [ Font.color theme.primary ]
+                                            [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
                                             { onPress = Just (NavigateTo (teamUrl event.id teamResult.team))
                                             , label = text teamResult.team.name
                                             }
@@ -3145,7 +3146,7 @@ viewStages translations event onStage =
                                     in
                                     -- "left" (String.fromInt (coords.col * gridSize) ++ "px")
                                     -- "top" (String.fromInt (coords.row * gridSize) ++ "px")
-                                    button []
+                                    button [ El.focused [ Background.color theme.white ] ]
                                         { onPress = Just (NavigateTo (gameUrl event.id game))
                                         , label =
                                             column
@@ -3303,19 +3304,19 @@ viewReports translations event =
     in
     column [ El.spacing 15, El.padding 15 ]
         [ if hasAttendance then
-            button [ Font.color theme.primary ]
+            button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
                 { onPress = Just (NavigateTo attendanceLink)
                 , label = text ("• " ++ translate translations "attendance")
                 }
 
           else
             El.none
-        , button [ Font.color theme.primary ]
+        , button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
             { onPress = Just (NavigateTo competitionMatrixLink)
             , label = text ("• " ++ translate translations "competition_matrix")
             }
         , if event.endScoresEnabled then
-            button [ Font.color theme.primary ]
+            button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
                 { onPress = Just (NavigateTo scoringAnalysisLink)
                 , label = text ("• " ++ translate translations "scoring_analysis")
                 }
@@ -3323,14 +3324,14 @@ viewReports translations event =
           else
             El.none
         , if event.endScoresEnabled then
-            button [ Font.color theme.primary ]
+            button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
                 { onPress = Just (NavigateTo scoringAnalysisByHammerLink)
                 , label = text ("• " ++ translate translations "scoring_analysis_by_hammer")
                 }
 
           else
             El.none
-        , button [ Font.color theme.primary ]
+        , button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
             { onPress = Just (NavigateTo teamRostersLink)
             , label = text ("• " ++ translate translations "team_rosters")
             }
@@ -3385,52 +3386,55 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
         viewGameCaption =
             let
                 label =
-                    el [ Font.italic, Font.color theme.greyDark ]
-                        (case game.state of
-                            GameComplete ->
+                    case game.state of
+                        GameComplete ->
+                            let
+                                winner =
+                                    List.Extra.find (\s -> s.result == Just SideResultWon) game.sides
+
+                                loser =
+                                    List.Extra.find (\s -> s.result /= Just SideResultWon) game.sides
+
+                                sideResultText result =
+                                    sideResultToString translations result
+                            in
+                            if List.any (\s -> s.result == Just SideResultTied) game.sides then
                                 let
-                                    winner =
-                                        List.Extra.find (\s -> s.result == Just SideResultWon) game.sides
-
-                                    loser =
-                                        List.Extra.find (\s -> s.result /= Just SideResultWon) game.sides
-
-                                    sideResultText result =
-                                        sideResultToString translations result
+                                    joinedResult =
+                                        List.map teamName game.sides
+                                            |> String.join (" " ++ sideResultText (Just SideResultTied) ++ " ")
                                 in
-                                if List.any (\s -> s.result == Just SideResultTied) game.sides then
-                                    let
-                                        joinedResult =
-                                            List.map teamName game.sides
-                                                |> String.join (" " ++ sideResultText (Just SideResultTied) ++ " ")
-                                    in
-                                    text (joinedResult ++ ".")
+                                text (joinedResult ++ ".")
 
-                                else
-                                    case ( winner, loser ) of
-                                        ( Just w, Just l ) ->
-                                            text (teamName w ++ " " ++ sideResultText w.result ++ ", " ++ teamName l ++ " " ++ sideResultText l.result ++ ".")
+                            else
+                                case ( winner, loser ) of
+                                    ( Just w, Just l ) ->
+                                        text (teamName w ++ " " ++ sideResultText w.result ++ ", " ++ teamName l ++ " " ++ sideResultText l.result ++ ".")
 
-                                        _ ->
-                                            text "Unknown result."
+                                    _ ->
+                                        text "Unknown result."
 
-                            GameActive ->
-                                text (translate translations "game_in_progress" ++ ": " ++ game.name)
+                        GameActive ->
+                            text (translate translations "game_in_progress" ++ ": " ++ game.name)
 
-                            GamePending ->
-                                text (translate translations "upcoming_game" ++ ": " ++ game.name)
-                        )
+                        GamePending ->
+                            text (translate translations "upcoming_game" ++ ": " ++ game.name)
             in
             if detailed then
-                label
+                el [ Font.italic, Font.color theme.greyDark ] label
 
             else
-                button [] { onPress = Just (NavigateTo gamePath), label = label }
+                button
+                    [ Font.color theme.primary
+                    , Font.italic
+                    , El.focused [ Background.color theme.white ]
+                    ]
+                    { onPress = Just (NavigateTo gamePath), label = label }
 
         viewGameHilight =
             case scoringHilight of
                 Just hilight ->
-                    button []
+                    button [ El.focused [ Background.color theme.white ] ]
                         { onPress = Just (ToggleScoringHilight hilight)
                         , label =
                             text
@@ -3600,14 +3604,18 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                     , El.spacing 10
                     , Border.widthEach { left = 1, top = 1, right = 1, bottom = 2 }
                     , Border.color theme.grey
-                    , Font.bold
+                    , Font.semiBold
                     ]
                     [ text sheetLabel
                     , if detailed then
                         El.none
 
                       else
-                        button [ Font.color theme.primary, Font.size 12 ]
+                        button
+                            [ Font.color theme.primary
+                            , Font.size 12
+                            , El.focused [ Background.color theme.white ]
+                            ]
                             { onPress = Just (NavigateTo gamePath)
                             , label = text game.name
                             }
@@ -3658,6 +3666,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
             [ teamColumn ] ++ List.map endColumn (List.range 1 maxNumberOfEnds) ++ [ totalColumn ]
     in
     column [ El.width El.fill, El.spacing 10 ]
+        -- Breadcrumb
         [ if detailed then
             el [ El.width El.fill, El.paddingEach { top = 0, right = 0, bottom = 10, left = 0 } ]
                 (row
@@ -3669,7 +3678,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                     ]
                     [ el []
                         (button
-                            [ Font.color theme.primary ]
+                            [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
                             { onPress = Just (NavigateTo drawPath)
                             , label = text (translate translations "draw" ++ " " ++ draw.label ++ ": " ++ draw.startsAt)
                             }
@@ -3682,15 +3691,19 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
           else
             El.none
 
-        -- TABLE
+        -- Table
         , El.table []
             { data = game.sides
             , columns = tableColumns
             }
+
+        -- Won / Lost Caption
         , row []
             [ viewGameCaption
             , viewGameHilight
             ]
+
+        -- Scaring Analysis
         , if detailed then
             column [ El.paddingXY 0 10 ]
                 [ List.map (findTeamForSide event.teams) game.sides
@@ -3705,7 +3718,378 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
 
 viewTeam : List Translation -> Flags -> Event -> Team -> Element Msg
 viewTeam translations flags event team =
-    El.none
+    let
+        viewTeamLineup : Element Msg
+        viewTeamLineup =
+            let
+                hasDelivery =
+                    List.any (\c -> c.delivery /= Nothing) team.lineup
+
+                hasClubName =
+                    List.any (\c -> c.clubName /= Nothing) team.lineup
+
+                hasClubCity =
+                    List.any (\c -> c.clubCity /= Nothing) team.lineup
+
+                hasPhotoUrl =
+                    List.any (\c -> c.photoUrl /= Nothing) team.lineup
+
+                hasLoggedInCurler =
+                    List.any (\c -> List.member c.curlerId flags.loggedInCurlerIds) team.lineup
+
+                viewTeamCurler : TeamCurler -> Element Msg
+                viewTeamCurler curler =
+                    let
+                        isLoggedInCurler =
+                            List.member curler.curlerId flags.loggedInCurlerIds
+                    in
+                    -- Card
+                    column
+                        [ Border.width 1
+                        , Border.color theme.grey
+                        , El.paddingXY 20 10
+                        , El.spacing 20
+                        , El.width (El.px 250)
+                        ]
+                        [ if hasPhotoUrl then
+                            el [ El.width El.fill ]
+                                (case curler.photoUrl of
+                                    Just photoUrl ->
+                                        El.image [ El.height (El.px 142), El.centerX ]
+                                            { src = photoUrl
+                                            , description = curler.name
+                                            }
+
+                                    Nothing ->
+                                        el [ El.height (El.px 150), El.centerX ] (El.html svgNoImage)
+                                )
+
+                          else
+                            El.none
+                        , column []
+                            [ el [ Font.size 18, Font.semiBold ] (text curler.name)
+                            , column [ El.spacing 5 ]
+                                [ el
+                                    [ El.paddingEach { top = 5, right = 0, bottom = 2, left = 0 }
+                                    , El.onRight
+                                        (if curler.skip then
+                                            el [ El.paddingXY 0 5, Font.size 12 ] (text (" " ++ translate translations "skip"))
+
+                                         else
+                                            El.none
+                                        )
+                                    ]
+                                    (text (teamPositionToString translations curler.position))
+                                , if hasDelivery then
+                                    -- small
+                                    el [ Font.size 12 ] (text (translate translations "delivery" ++ ": " ++ deliveryToString translations curler.delivery))
+
+                                  else
+                                    El.none
+                                , if hasClubName then
+                                    -- small
+                                    el [ Font.size 12 ] (text (Maybe.withDefault "-" curler.clubName))
+
+                                  else
+                                    El.none
+                                , if hasClubCity then
+                                    -- small
+                                    el [ Font.size 12 ] (text (Maybe.withDefault "-" curler.clubCity))
+
+                                  else
+                                    El.none
+                                , if hasLoggedInCurler then
+                                    -- small
+                                    if isLoggedInCurler then
+                                        button [ Font.size 12, Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                                            { onPress = Just (NavigateOut (baseClubSubdomainUrl flags ++ "/curlers"))
+                                            , label = text (translate translations "edit_curler")
+                                            }
+
+                                    else
+                                        El.none
+
+                                  else
+                                    El.none
+                                ]
+                            ]
+                        ]
+            in
+            El.wrappedRow [ El.spacing 30 ] (List.map viewTeamCurler team.lineup)
+
+        viewTeamInfo : Element Msg
+        viewTeamInfo =
+            let
+                hasTeamContactInfo =
+                    [ team.contactName, team.contactEmail, team.contactPhone ]
+                        |> List.filterMap identity
+                        |> List.isEmpty
+                        |> not
+
+                hasTeamOtherInfo =
+                    [ team.coach, team.affiliation, team.location ]
+                        |> List.filterMap identity
+                        |> List.isEmpty
+                        |> not
+            in
+            row [ El.width El.fill, El.spacing 20 ]
+                [ if hasTeamContactInfo then
+                    El.table [ El.width El.fill ]
+                        { data =
+                            [ { label = "contact_name", data = team.contactName }
+                            , { label = "contact_email", data = team.contactEmail }
+                            , { label = "contact_phone", data = team.contactPhone }
+                            ]
+                        , columns =
+                            [ { header = El.none
+                              , width = El.px 160
+                              , view =
+                                    \item ->
+                                        el
+                                            [ El.padding 15
+                                            , Font.semiBold
+                                            , Border.widthEach { top = 1, right = 0, bottom = 0, left = 0 }
+                                            , Border.color theme.grey
+                                            ]
+                                            (text (translate translations item.label))
+                              }
+                            , { header = El.none
+                              , width = El.fill
+                              , view =
+                                    \item ->
+                                        el
+                                            [ El.padding 15
+                                            , Border.widthEach { top = 1, right = 0, bottom = 0, left = 0 }
+                                            , Border.color theme.grey
+                                            ]
+                                            (text (Maybe.withDefault "-" item.data))
+                              }
+                            ]
+                        }
+
+                  else
+                    El.none
+                , if hasTeamOtherInfo then
+                    El.table [ El.width El.fill ]
+                        { data =
+                            [ { label = "coach", data = team.coach }
+                            , { label = "affiliation", data = team.affiliation }
+                            , { label = "location", data = team.location }
+                            ]
+                        , columns =
+                            [ { header = El.none
+                              , width = El.px 160
+                              , view =
+                                    \item ->
+                                        el
+                                            [ El.padding 15
+                                            , Font.semiBold
+                                            , Border.widthEach { top = 1, right = 0, bottom = 0, left = 0 }
+                                            , Border.color theme.grey
+                                            ]
+                                            (text (translate translations item.label))
+                              }
+                            , { header = El.none
+                              , width = El.fill
+                              , view =
+                                    \item ->
+                                        el
+                                            [ El.padding 15
+                                            , Border.widthEach { top = 1, right = 0, bottom = 0, left = 0 }
+                                            , Border.color theme.grey
+                                            ]
+                                            (text (Maybe.withDefault "-" item.data))
+                              }
+                            ]
+                        }
+
+                  else
+                    El.none
+                ]
+
+        viewTeamSchedule : Element Msg
+        viewTeamSchedule =
+            let
+                hasSideForTeam game =
+                    List.any (\s -> s.teamId == Just team.id) game.sides
+
+                drawsAndGames : List { draw : Draw, game : Game }
+                drawsAndGames =
+                    let
+                        gameForDraw draw =
+                            List.filterMap identity draw.drawSheets
+                                |> List.map (findGameById event.stages)
+                                |> List.filterMap identity
+                                |> List.filter hasSideForTeam
+                                |> List.head
+                    in
+                    event.draws
+                        |> List.map
+                            (\draw ->
+                                case gameForDraw draw of
+                                    Just g ->
+                                        Just { draw = draw, game = g }
+
+                                    Nothing ->
+                                        Nothing
+                            )
+                        |> List.filterMap identity
+
+                opponent game =
+                    List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
+                        |> Maybe.andThen (findTeamForSide event.teams)
+
+                viewTeamDrawLabel { draw, game } =
+                    if event.endScoresEnabled then
+                        tableCell
+                            (button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                                { onPress = Just (NavigateTo (drawUrl event.id draw))
+                                , label = text draw.label
+                                }
+                            )
+
+                    else
+                        tableCell (text draw.label)
+
+                viewTeamDrawStartsAt { draw, game } =
+                    if event.endScoresEnabled then
+                        tableCell
+                            (button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                                { onPress = Just (NavigateTo (drawUrl event.id draw))
+                                , label = text draw.startsAt
+                                }
+                            )
+
+                    else
+                        tableCell (text draw.startsAt)
+
+                viewTeamDrawResult { draw, game } =
+                    let
+                        resultText =
+                            let
+                                sideResultText res =
+                                    sideResultToString translations res
+                            in
+                            case game.state of
+                                GameComplete ->
+                                    List.Extra.find (\s -> s.teamId == Just team.id) game.sides
+                                        |> Maybe.map .result
+                                        |> Maybe.map sideResultText
+
+                                GameActive ->
+                                    Just (translate translations "game_in_progress")
+
+                                GamePending ->
+                                    Nothing
+                    in
+                    case resultText of
+                        Just t ->
+                            if event.endScoresEnabled then
+                                tableCell
+                                    (button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                                        { onPress = Just (NavigateTo (gameUrl event.id game))
+                                        , label = text t
+                                        }
+                                    )
+
+                            else
+                                tableCell (text t)
+
+                        Nothing ->
+                            tableCell (text "-")
+
+                viewTeamDrawScore { draw, game } =
+                    case opponent game of
+                        Just oppo ->
+                            case gameScore game (Just ( team.id, oppo.id )) of
+                                Just score ->
+                                    if event.endScoresEnabled then
+                                        tableCell
+                                            (button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                                                { onPress = Just (NavigateTo (gameUrl event.id game))
+                                                , label = text score
+                                                }
+                                            )
+
+                                    else
+                                        tableCell (text score)
+
+                                Nothing ->
+                                    tableCell (text "-")
+
+                        Nothing ->
+                            tableCell (text "-")
+
+                viewTeamDrawOpponent { draw, game } =
+                    case opponent game of
+                        Just oppo ->
+                            let
+                                oppoPath =
+                                    teamUrl event.id oppo
+                            in
+                            tableCell
+                                (button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                                    { onPress = Just (NavigateTo oppoPath)
+                                    , label = text oppo.name
+                                    }
+                                )
+
+                        Nothing ->
+                            tableCell (text "-")
+
+                tableHeader content =
+                    el
+                        [ Font.bold
+                        , El.paddingXY 12 16
+                        , Border.widthEach { bottom = 2, left = 0, right = 0, top = 0 }
+                        , Border.color theme.grey
+                        ]
+                        (text (translate translations content))
+
+                tableCell content =
+                    el
+                        [ El.paddingXY 12 16
+                        , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                        , Border.color theme.grey
+                        ]
+                        content
+            in
+            El.table [ El.width El.fill, El.spacingXY 0 15 ]
+                { data = drawsAndGames
+                , columns =
+                    [ { header = tableHeader "draw"
+                      , width = El.fill
+                      , view = viewTeamDrawLabel
+                      }
+                    , { header = tableHeader "starts_at"
+                      , width = El.fillPortion 2
+                      , view = viewTeamDrawStartsAt
+                      }
+                    , { header = tableHeader "result"
+                      , width = El.fill
+                      , view = viewTeamDrawResult
+                      }
+                    , { header = tableHeader "score"
+                      , width = El.fill
+                      , view = viewTeamDrawScore
+                      }
+                    , { header = tableHeader "opponent"
+                      , width = El.fillPortion 2
+                      , view = viewTeamDrawOpponent
+                      }
+                    ]
+                }
+    in
+    column [ El.spacing 20, El.paddingEach { top = 0, right = 0, bottom = 20, left = 0 } ]
+        [ el [ Font.size 24, Font.semiBold ] (text team.name)
+        , viewTeamLineup
+        , viewTeamInfo
+        , if not (List.isEmpty event.draws) then
+            viewTeamSchedule
+
+          else
+            El.none
+        ]
 
 
 viewReport : List Translation -> Maybe ScoringHilight -> Event -> String -> Element Msg
