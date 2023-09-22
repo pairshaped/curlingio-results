@@ -1836,7 +1836,7 @@ update msg model =
 
 
 theme =
-    { primary = El.rgb255 0 123 255
+    { primary = El.rgb255 237 25 64
     , primaryFocused = El.rgb255 0 103 235
     , secondary = El.rgb255 108 117 125
     , secondaryFocused = El.rgb255 128 137 155
