@@ -4917,7 +4917,71 @@ viewReportCompetitionMatrix translations event =
 
 viewReportAttendance : List Translation -> List Draw -> Element Msg
 viewReportAttendance translations draws =
-    El.none
+    let
+        viewAttendanceRow idx draw =
+            let
+                sumToCurrent =
+                    List.take (idx + 1) draws
+                        |> List.map (\d -> d.attendance)
+                        |> List.sum
+            in
+            row []
+                [ el [] (text draw.label)
+                , el [] (text (String.fromInt draw.attendance))
+                , el [] (text (String.fromInt sumToCurrent))
+                ]
+
+        viewHeader content =
+            el
+                [ El.padding 20
+                , Font.semiBold
+                , Border.widthEach { top = 0, right = 1, bottom = 1, left = 0 }
+                , Border.color theme.grey
+                ]
+                (text (translate translations content))
+
+        viewCell idx content =
+            el
+                [ El.padding 20
+                , Border.widthEach { top = 0, right = 1, bottom = 1, left = 0 }
+                , Border.color theme.grey
+                , Background.color
+                    (if modBy 2 idx == 0 then
+                        theme.greyLight
+
+                     else
+                        theme.white
+                    )
+                ]
+                (text content)
+    in
+    column [ El.spacing 20 ]
+        [ el [ Font.size 24 ] (text (translate translations "attendance"))
+        , El.indexedTable [ El.width El.fill, Border.widthEach { top = 1, right = 0, bottom = 0, left = 1 }, Border.color theme.grey ]
+            { data = draws
+            , columns =
+                [ { header = viewHeader "draw"
+                  , width = El.fill
+                  , view = \idx draw -> viewCell idx draw.label
+                  }
+                , { header = viewHeader "attendance"
+                  , width = El.fill
+                  , view = \idx draw -> viewCell idx (String.fromInt draw.attendance)
+                  }
+                , { header = viewHeader "total"
+                  , width = El.fill
+                  , view =
+                        \idx draw ->
+                            viewCell idx
+                                (List.take (idx + 1) draws
+                                    |> List.map (\d -> d.attendance)
+                                    |> List.sum
+                                    |> String.fromInt
+                                )
+                  }
+                ]
+            }
+        ]
 
 
 
