@@ -2480,7 +2480,7 @@ viewDetails translations event =
             , if not (List.isEmpty event.potentialDiscounts) then
                 column [ El.width El.fill, El.spacing 5 ]
                     [ el [ Font.bold ] (text (translate translations "potential_discounts"))
-                    , column [ El.spacing 5, El.padding 5 ] (List.map (\d -> el [] (text ("• " ++ d))) event.potentialDiscounts)
+                    , column [ El.spacing 5, El.paddingXY 4 5 ] (List.map (\d -> el [] (text ("• " ++ d))) event.potentialDiscounts)
                     ]
 
               else
@@ -3163,7 +3163,7 @@ viewStages translations event onStage =
                                                 [ el
                                                     [ El.width El.fill
                                                     , El.height (El.px 20)
-                                                    , El.padding 4
+                                                    , El.paddingXY 4 3
                                                     , Font.size 12
                                                     , Font.color theme.white
                                                     , Background.color
@@ -3262,7 +3262,7 @@ viewStages translations event onStage =
                             (text ("☷ " ++ group.name))
                         , column [ El.width El.fill, El.htmlAttribute (style "position" "relative") ]
                             [ el [ El.width El.fill ] (El.html viewSvgConnectors)
-                            , el [ El.width El.fill, El.htmlAttribute (style "position" "absolute") ]
+                            , el [ El.width El.fill, El.height (El.px 12), El.htmlAttribute (style "position" "absolute") ]
                                 (column [ El.htmlAttribute (style "position" "relative") ] (List.map viewGroupGame gamesForGroup))
                             ]
                         ]
