@@ -1847,6 +1847,7 @@ theme =
     , greyStrong = El.rgba 0 0 0 0.4
     , greyDark = El.rgba 0 0 0 0.6
     , defaultText = El.rgb255 33 37 41
+    , transparent = El.rgba 1 1 1 0
     }
 
 
@@ -2042,7 +2043,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                             Background.color theme.grey
 
                           else
-                            Background.color theme.white
+                            Background.color theme.transparent
                         ]
                         (text (translate translations label))
 
@@ -2316,7 +2317,7 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
                         [ El.paddingXY 16 12
                         , Font.color theme.primary
                         , Border.rounded 4
-                        , El.focused [ Background.color theme.white ]
+                        , El.focused [ Background.color theme.transparent ]
                         ]
                         { onPress = Just (NavigateTo newPath)
                         , label = text (translate translations eventSection)
@@ -2530,7 +2531,7 @@ viewRegistrations translations registrations =
                         theme.greyLight
 
                      else
-                        theme.white
+                        theme.transparent
                     )
                 ]
                 (text content)
@@ -2758,7 +2759,7 @@ viewDraws translations scoringHilight event =
                             Background.color theme.greyLight
 
                           else
-                            Background.color theme.white
+                            Background.color theme.transparent
                         ]
                         [ el [ align ] content ]
 
@@ -2855,7 +2856,7 @@ viewTeams translations event =
                         theme.greyLight
 
                      else
-                        theme.white
+                        theme.transparent
                     )
                 ]
                 content
@@ -2869,7 +2870,7 @@ viewTeams translations event =
                         tableCell i
                             (if teamHasDetails team then
                                 button
-                                    [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                                    [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                                     { onPress = Just (NavigateTo (teamUrl event.id team))
                                     , label = text team.name
                                     }
@@ -2936,7 +2937,7 @@ viewStages translations event onStage =
         viewStageLink stage =
             button
                 [ El.paddingXY 18 10
-                , El.focused [ Background.color theme.white ]
+                , El.focused [ Background.color theme.transparent ]
                 , Border.color theme.greyMedium
                 , Font.color
                     (if stage.id == onStage.id then
@@ -2987,7 +2988,7 @@ viewStages translations event onStage =
                                 theme.greyLight
 
                              else
-                                theme.white
+                                theme.transparent
                             )
                         ]
                         content
@@ -3001,7 +3002,7 @@ viewStages translations event onStage =
                                 tableCell i
                                     (if teamHasDetails teamResult.team then
                                         button
-                                            [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                                            [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                                             { onPress = Just (NavigateTo (teamUrl event.id teamResult.team))
                                             , label = text teamResult.team.name
                                             }
@@ -3143,7 +3144,7 @@ viewStages translations event onStage =
                                                 Nothing ->
                                                     False
                                     in
-                                    button [ El.focused [ Background.color theme.white ] ]
+                                    button [ El.focused [ Background.color theme.transparent ] ]
                                         { onPress =
                                             if gameHasBeenScheduled then
                                                 Just (NavigateTo (gameUrl event.id game))
@@ -3312,19 +3313,19 @@ viewReports translations event =
     in
     column [ El.spacing 15, El.padding 15 ]
         [ if hasAttendance then
-            button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+            button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                 { onPress = Just (NavigateTo attendanceLink)
                 , label = text ("• " ++ translate translations "attendance")
                 }
 
           else
             El.none
-        , button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+        , button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
             { onPress = Just (NavigateTo competitionMatrixLink)
             , label = text ("• " ++ translate translations "competition_matrix")
             }
         , if event.endScoresEnabled then
-            button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+            button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                 { onPress = Just (NavigateTo scoringAnalysisLink)
                 , label = text ("• " ++ translate translations "scoring_analysis")
                 }
@@ -3332,14 +3333,14 @@ viewReports translations event =
           else
             El.none
         , if event.endScoresEnabled then
-            button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+            button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                 { onPress = Just (NavigateTo scoringAnalysisByHammerLink)
                 , label = text ("• " ++ translate translations "scoring_analysis_by_hammer")
                 }
 
           else
             El.none
-        , button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+        , button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
             { onPress = Just (NavigateTo teamRostersLink)
             , label = text ("• " ++ translate translations "team_rosters")
             }
@@ -3436,7 +3437,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                     [ Font.color theme.primary
                     , Font.italic
                     , El.padding 8
-                    , El.focused [ Background.color theme.white ]
+                    , El.focused [ Background.color theme.primaryFocused ]
                     ]
                     { onPress = Just (NavigateTo gamePath), label = label }
 
@@ -3552,7 +3553,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                         theme.secondary
 
                      else
-                        theme.white
+                        theme.transparent
                     )
                 , Font.color
                     (if isHilighted then
@@ -3630,7 +3631,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                         button
                             [ Font.color theme.primary
                             , Font.size 12
-                            , El.focused [ Background.color theme.white ]
+                            , El.focused [ Background.color theme.transparent ]
                             ]
                             { onPress = Just (NavigateTo gamePath)
                             , label = text game.name
@@ -3694,7 +3695,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                     ]
                     [ el []
                         (button
-                            [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                            [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                             { onPress = Just (NavigateTo drawPath)
                             , label = text (translate translations "draw" ++ " " ++ draw.label ++ ": " ++ draw.startsAt)
                             }
@@ -3817,7 +3818,7 @@ viewTeam translations flags event team =
                                 , if hasLoggedInCurler then
                                     -- small
                                     if isLoggedInCurler then
-                                        button [ Font.size 12, Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                                        button [ Font.size 12, Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                                             { onPress = Just (NavigateOut (baseClubSubdomainUrl flags ++ "/curlers"))
                                             , label = text (translate translations "edit_curler")
                                             }
@@ -3958,7 +3959,7 @@ viewTeam translations flags event team =
                 viewTeamDrawLabel { draw, game } =
                     if event.endScoresEnabled then
                         tableCell
-                            (button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                            (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                                 { onPress = Just (NavigateTo (drawUrl event.id draw))
                                 , label = text draw.label
                                 }
@@ -3970,7 +3971,7 @@ viewTeam translations flags event team =
                 viewTeamDrawStartsAt { draw, game } =
                     if event.endScoresEnabled then
                         tableCell
-                            (button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                            (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                                 { onPress = Just (NavigateTo (drawUrl event.id draw))
                                 , label = text draw.startsAt
                                 }
@@ -4002,7 +4003,7 @@ viewTeam translations flags event team =
                         Just t ->
                             if event.endScoresEnabled then
                                 tableCell
-                                    (button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                                    (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                                         { onPress = Just (NavigateTo (gameUrl event.id game))
                                         , label = text t
                                         }
@@ -4021,7 +4022,7 @@ viewTeam translations flags event team =
                                 Just score ->
                                     if event.endScoresEnabled then
                                         tableCell
-                                            (button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                                            (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                                                 { onPress = Just (NavigateTo (gameUrl event.id game))
                                                 , label = text score
                                                 }
@@ -4044,7 +4045,7 @@ viewTeam translations flags event team =
                                     teamUrl event.id oppo
                             in
                             tableCell
-                                (button [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                                (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                                     { onPress = Just (NavigateTo oppoPath)
                                     , label = text oppo.name
                                     }
@@ -4261,7 +4262,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                 , Background.color theme.greyLight
                 ]
                 (button
-                    [ El.focused [ Background.color theme.white ]
+                    [ El.focused [ Background.color theme.transparent ]
                     , align
                     , Font.semiBold
                     , Font.color
@@ -4312,7 +4313,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
         [ row [ El.width El.fill, El.spacing 10, El.paddingXY 0 20, Font.size 24 ]
             [ text (translate translations "scoring_analysis")
             , if isForGame then
-                button [ El.alignRight, Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                button [ El.alignRight, Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                     { onPress = Just (NavigateTo fullReportUrl)
                     , label = el [ Font.size 12 ] (text (translate translations "full_report" ++ " →"))
                     }
@@ -4330,7 +4331,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                             if modBy 2 i == 0 then
                                 button
                                     [ Font.color theme.primary
-                                    , El.focused [ Background.color theme.white ]
+                                    , El.focused [ Background.color theme.transparent ]
                                     ]
                                     { onPress = Just (NavigateTo (teamUrl event.id team))
                                     , label =
@@ -4613,7 +4614,7 @@ viewReportScoringAnalysisByHammer translations event =
                                 theme.greyLight
 
                              else
-                                theme.white
+                                theme.transparent
                             )
                         ]
                         [ viewCell
@@ -4622,7 +4623,7 @@ viewReportScoringAnalysisByHammer translations event =
                             , content =
                                 button
                                     [ Font.color theme.primary
-                                    , El.focused [ Background.color theme.white ]
+                                    , El.focused [ Background.color theme.transparent ]
                                     ]
                                     { onPress = Just (NavigateTo (teamUrl event.id team))
                                     , label = text team.name
@@ -4860,7 +4861,7 @@ viewReportCompetitionMatrix translations event =
                                             if gameHasBeenScheduled then
                                                 button
                                                     [ Font.color theme.primary
-                                                    , El.focused [ Background.color theme.white ]
+                                                    , El.focused [ Background.color theme.transparent ]
                                                     ]
                                                     { onPress = Just (NavigateTo gamePath)
                                                     , label = text score
@@ -4958,7 +4959,7 @@ viewReportAttendance translations draws =
                         theme.greyLight
 
                      else
-                        theme.white
+                        theme.transparent
                     )
                 ]
                 (text content)
