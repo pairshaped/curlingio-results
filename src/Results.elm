@@ -1698,15 +1698,16 @@ update msg model =
                 newReloadIn =
                     max 0 (model.reloadIn - 1)
             in
-            if newReloadIn == 0 then
-                if reloadEnabled model then
+            if reloadEnabled model then
+                -- We only want to decrement the counter or do the reload when the event supports it and we're on a relevant reload screen.
+                if newReloadIn == 0 then
                     update (HashChanged True model.hash) { model | reloadIn = timeBetweenReloads }
 
                 else
-                    ( { model | reloadIn = timeBetweenReloads }, Cmd.none )
+                    ( { model | reloadIn = newReloadIn }, Cmd.none )
 
             else
-                ( { model | reloadIn = newReloadIn }, Cmd.none )
+                ( model, Cmd.none )
 
         SetDevice width height ->
             let
