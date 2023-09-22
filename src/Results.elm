@@ -4790,7 +4790,129 @@ viewReportTeamRosters translations teams =
 
 viewReportCompetitionMatrix : List Translation -> Event -> Element Msg
 viewReportCompetitionMatrix translations event =
-    El.none
+    let
+        viewStageMatrix stage =
+            let
+                -- Only the teams participating in this stage.
+                teams =
+                    -- Filter the teams so only team ids included in sides included in games included in the passed stage.
+                    let
+                        teamIncluded team =
+                            let
+                                inSide side =
+                                    side.teamId == Just team.id
+
+                                inGame game =
+                                    List.any inSide game.sides
+                            in
+                            List.any inGame stage.games
+                    in
+                    -- Filter the event.teams to include only those teams involved in games that are in this stage.
+                    List.filter teamIncluded event.teams
+
+                viewTeamColumn team =
+                    el [ El.centerX, El.width (El.px 80), El.padding 20 ] (text team.shortName)
+
+                viewTeamRow team =
+                    row [ El.width El.fill ]
+                        ([ el [ El.centerX, El.width (El.px 80), El.padding 20 ] (text team.shortName)
+                         ]
+                            ++ List.map (viewTeamCell team) teams
+                        )
+
+                viewTeamCell : Team -> Team -> Element Msg
+                viewTeamCell teamA teamB =
+                    let
+                        teamIdsForGame g =
+                            List.map .teamId g.sides
+                                |> List.filterMap identity
+
+                        matchingGame =
+                            List.Extra.find (\g -> [ teamA.id, teamB.id ] == teamIdsForGame g || [ teamB.id, teamA.id ] == teamIdsForGame g) stage.games
+                    in
+                    case matchingGame of
+                        Just game ->
+                            el [ El.width (El.px 80), El.centerX, El.padding 20, Border.widthEach { top = 1, right = 1, bottom = 0, left = 0 }, Border.color theme.grey ]
+                                (case gameScore game (Just ( teamA.id, teamB.id )) of
+                                    Just score ->
+                                        if event.endScoresEnabled then
+                                            let
+                                                -- Only link if the game has been scheduled
+                                                gameHasBeenScheduled =
+                                                    case drawWithGameId event.draws game.id of
+                                                        Just _ ->
+                                                            True
+
+                                                        Nothing ->
+                                                            False
+
+                                                gamePath =
+                                                    gameUrl event.id game
+                                            in
+                                            if gameHasBeenScheduled then
+                                                button
+                                                    [ Font.color theme.primary
+                                                    , El.focused [ Background.color theme.white ]
+                                                    ]
+                                                    { onPress = Just (NavigateTo gamePath)
+                                                    , label = text score
+                                                    }
+
+                                            else
+                                                text score
+
+                                        else
+                                            text score
+
+                                    Nothing ->
+                                        El.none
+                                )
+
+                        Nothing ->
+                            el [ El.width (El.px 80), Background.color theme.greyLight, El.padding 20, Border.widthEach { top = 1, right = 1, bottom = 0, left = 0 }, Border.color theme.grey ] (text " ")
+
+                viewHeader content =
+                    el [ El.width (El.px 80), El.padding 20, Border.widthEach { top = 1, right = 1, bottom = 0, left = 0 }, Border.color theme.grey ] (el [ El.centerX ] (text content))
+
+                viewTableColumn idx =
+                    let
+                        team =
+                            List.Extra.getAt idx teams
+                    in
+                    { header = viewHeader (team |> Maybe.map .name |> Maybe.withDefault " ")
+                    , width = El.px 80
+                    , view =
+                        \teamA ->
+                            case team of
+                                Just teamB ->
+                                    viewTeamCell teamA teamB
+
+                                Nothing ->
+                                    viewHeader " "
+                    }
+            in
+            if List.isEmpty stage.games then
+                El.none
+
+            else
+                column [ El.spacing 10, El.alignTop ]
+                    [ el [ Font.size 20 ] (text stage.name)
+                    , El.table [ Border.widthEach { top = 0, right = 0, bottom = 1, left = 1 }, Border.color theme.grey ]
+                        { data = teams
+                        , columns =
+                            [ { header = viewHeader " "
+                              , width = El.px 80
+                              , view = \team -> viewHeader team.name
+                              }
+                            ]
+                                ++ List.map viewTableColumn (List.range 0 (List.length teams - 1))
+                        }
+                    ]
+    in
+    column [ El.width El.fill, El.spacing 30 ]
+        [ el [ Font.size 24 ] (text (translate translations "competition_matrix"))
+        , El.wrappedRow [ El.spacing 30 ] (List.filter (\s -> s.stageType == RoundRobin) event.stages |> List.map viewStageMatrix)
+        ]
 
 
 viewReportAttendance : List Translation -> List Draw -> Element Msg
