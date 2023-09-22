@@ -4,51 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Curling I/O - Widget Example</title>
-  <link rel="icon" href="data:;base64,iVBORwOKGO=" />
-
-  <!-- IGNORE EVERYTHING ABOVE THIS LINE -->
-
-  <!-- The script and css include links below would ideally go in the head of your html document, but you can play around to see what works (depending on your CMS) -->
-
-  <!-- REQUIRED. This script tag is required to load the widget. -->
-  <script src="https://pairshaped.github.io/curlingio-results/prod.min.js"></script>
-
-  <!-- REQUIRED. This stylesheet is required to layout the components. You can instead load your own customized version of bootstrap 4 though, for example one that came with your wordpress theme. -->
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-
-  <!-- OPTIONAL. This fixes the active state for bootstrap link button styles. -->
-  <style>
-    #curlingio__results {
-      padding: 5px;
-    }
-    #curlingio__results .btn:focus, #curlingio__results .btn:active {
-      outline: none !important;
-      box-shadow: none !important;
-      -webkit-box-shadow: none !important;
-    }
-    #curlingio__results .btn-link {
-      color: #007bff !important;
-      background-color: transparent !important;
-    }
-    #curlingio__results .btn-primary {
-      color: white !important;
-      background-color: #007bff !important;
-    }
-  </style>
-
+  <link rel="icon" href="data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAAC">
 </head>
 <body>
 
-  <!-- OPTIONAL. This is just a wrapper container for padding / margin. You probably don't want this if embedding into a CMS. -->
-  <div class="container py-4">
+  <!-- IGNORE EVERYTHING ABOVE THIS LINE -->
 
-    <!-- REQUIRED. This is the div the widget replaces. The ID of this div must match the getElemenetById below that's passed to the node. If you change the ID here, make sure you also change it down there. -->
-    <div id="curlingio_results"></div>
+  <!-- REQUIRED. This script tag is required to load the widget. -->
+  <!-- Ideally this goes in the head of your html document, but you can play around to see what works (depending on your CMS) -->
+  <script src="https://pairshaped.github.io/curlingio-results/prod.min.js"></script>
 
-  </div>
+  <!-- REQUIRED. This is the div the widget replaces. The ID of this div must match the getElemenetById below that's passed to the node. If you change the ID here, make sure you also change it down there. -->
+  <div id="curlingio_results"></div>
 
+  <!-- REQUIRED. This is how we initialize the widget. You have several options you can configure. Read them over for more information. -->
   <script>
-    // REQUIRED. This is how we initialize the widget. You have several options you can configure. Read them over for more information.
     var scoring = Elm.Results.init(
       {
         node: document.getElementById("curlingio_results"), // REQUIRED. Must match the ID of the div we're replacing, which is "results" in this example.

@@ -19,41 +19,13 @@ You can save this file locally and open it in a browser to mess around with the 
 You'll need to include the widget's javascript.
 ```<script src="https://pairshaped.github.io/curlingio-results/prod.min.js"></script>```
 
-### 2. Include the Bootstrap 4 CSS
-
-You'll want to include the bootstrap 4 styles if they aren't already being included on your site.
-```<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">```
-
-### 3. Optionally include a fix for Bootstrap's link button active state styles.
-
-```
-<style>
-  #curlingio__results {
-    padding: 5px;
-  }
-  #curlingio__results .btn:focus, #curlingio__results .btn:active {
-    outline: none !important;
-    box-shadow: none !important;
-    -webkit-box-shadow: none !important;
-  }
-  #curlingio__results .btn-link {
-    color: #007bff !important;
-    background-color: transparent !important;
-  }
-  #curlingio__results .btn-primary {
-    color: white !important;
-    background-color: #007bff !important;
-  }
-</style>
-```
-
-### 4. Add the placeholder div to your page where you want the widget to be inserted.
+### 2. Add the placeholder div to your page where you want the widget to be inserted.
 
 ```<div id="curlingio_results"></div>```
 
 It's important that the ID here is the same used in the next step.
 
-### 5. Configure and Load the Widget
+### 3. Coiknfigure and Load the Widget
 
 ```
 <script>
