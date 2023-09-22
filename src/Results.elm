@@ -4677,7 +4677,115 @@ viewReportScoringAnalysisByHammer translations event =
 
 viewReportTeamRosters : List Translation -> List Team -> Element Msg
 viewReportTeamRosters translations teams =
-    El.none
+    let
+        hasDelivery =
+            let
+                hasForTeam team =
+                    List.any (\c -> c.delivery /= Nothing) team.lineup
+            in
+            List.filter hasForTeam teams
+                |> List.isEmpty
+                |> not
+
+        viewTeamRoster team =
+            -- let
+            --     viewTeamRosterCurler curler =
+            --         tr []
+            --             [ td [] [ text curler.name ]
+            --             , td []
+            --                 [ text (teamPositionToString translations curler.position)
+            --                 , if curler.skip then
+            --                     sup [ class "ml-1" ] [ text (translate translations "skip") ]
+            --
+            --                   else
+            --                     text ""
+            --                 ]
+            --             , if hasDelivery then
+            --                 td [] [ text (deliveryToString translations curler.delivery) ]
+            --
+            --               else
+            --                 text ""
+            --             ]
+            -- in
+            El.table []
+                { data = team.lineup
+                , columns =
+                    [ { header =
+                            el
+                                [ El.padding 15
+                                , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                                , Border.color theme.grey
+                                , Font.semiBold
+                                , Background.color theme.greyLight
+                                ]
+                                (text team.name)
+                      , width = El.fill
+                      , view =
+                            \curler ->
+                                el
+                                    [ El.padding 15
+                                    , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                                    , Border.color theme.grey
+                                    ]
+                                    (text curler.name)
+                      }
+                    , { header =
+                            el
+                                [ El.padding 15
+                                , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                                , Border.color theme.grey
+                                , Font.semiBold
+                                , Background.color theme.greyLight
+                                ]
+                                (text " ")
+                      , width = El.fill
+                      , view =
+                            \curler ->
+                                row
+                                    [ El.padding 15
+                                    , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                                    , Border.color theme.grey
+                                    , El.spacing 5
+                                    ]
+                                    [ el [] (text (teamPositionToString translations curler.position))
+                                    , if curler.skip then
+                                        el [ Font.size 12, El.alignLeft ] (text (translate translations "skip"))
+
+                                      else
+                                        El.none
+                                    ]
+                      }
+                    , { header =
+                            el
+                                [ El.padding 15
+                                , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                                , Border.color theme.grey
+                                , Font.semiBold
+                                , Background.color theme.greyLight
+                                ]
+                                (text " ")
+                      , width = El.fill
+                      , view =
+                            \curler ->
+                                el
+                                    [ El.padding 15
+                                    , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                                    , Border.color theme.grey
+                                    ]
+                                    (if hasDelivery then
+                                        text (deliveryToString translations curler.delivery)
+
+                                     else
+                                        text " "
+                                    )
+                      }
+                    ]
+                }
+    in
+    column [ El.spacing 20, El.width El.fill ]
+        [ el [ Font.size 24, Font.semiBold ] (text (translate translations "team_rosters"))
+        , column [ El.width El.fill ] (List.map viewTeamRoster teams)
+        ]
 
 
 viewReportCompetitionMatrix : List Translation -> Event -> Element Msg
