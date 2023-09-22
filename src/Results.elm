@@ -3143,7 +3143,12 @@ viewStages translations event onStage =
                                     -- "left" (String.fromInt (coords.col * gridSize) ++ "px")
                                     -- "top" (String.fromInt (coords.row * gridSize) ++ "px")
                                     button [ El.focused [ Background.color theme.white ] ]
-                                        { onPress = Just (NavigateTo (gameUrl event.id game))
+                                        { onPress =
+                                            if gameHasBeenScheduled then
+                                                Just (NavigateTo (gameUrl event.id game))
+
+                                            else
+                                                Nothing
                                         , label =
                                             column
                                                 [ El.width (El.px 178)
@@ -3160,7 +3165,13 @@ viewStages translations event onStage =
                                                     , El.padding 4
                                                     , Font.size 12
                                                     , Font.color theme.white
-                                                    , Background.color theme.greyStrong
+                                                    , Background.color
+                                                        (if game.state == GameActive then
+                                                            theme.primary
+
+                                                         else
+                                                            theme.greyStrong
+                                                        )
                                                     ]
                                                     (el [] (text game.name))
                                                 , column [ El.width El.fill ] (List.indexedMap viewSide game.sides)
