@@ -53,7 +53,7 @@ You'll want to include the bootstrap 4 styles if they aren't already being inclu
 
 It's important that the ID here is the same used in the next step.
 
-### 5. Coiknfigure and Load the Widget
+### 5. Configure and Load the Widget
 
 ```
 <script>
