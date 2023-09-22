@@ -24,10 +24,10 @@
           // eventId: 3742, // If you only want to show one specific event, enter it's ID here.
           // excludeEventSections: ["details", "registrations", "spares"],
           // defaultEventSection: "draws",
-          host: document.location.host,
           // host: "demo.curling.io",  // to pull in the demo server data
+          host: document.location.host,
           hash: document.location.hash,
-          loggedInCurlerIds: [42014]
+          loggedInCurlerIds: [42014] // To simulate having a curler logged in when this is being hosted in Curling I/O itself (dogfooding)
         }
       }
     )
