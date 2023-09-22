@@ -4316,7 +4316,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
             { data = rows
             , columns =
                 [ { header = tableHeader (translate translations "team") El.alignLeft Nothing Nothing
-                  , width = El.fill
+                  , width = El.fillPortion 5 |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4335,7 +4335,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 tableCell El.centerX 1 (text " ")
                   }
                 , { header = tableHeader (translate translations "games") El.centerX Nothing Nothing
-                  , width = El.px 80
+                  , width = El.fillPortion 2 |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4349,7 +4349,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 tableCell El.centerX 1 (text " ")
                   }
                 , { header = tableHeader (translate translations "ends") El.centerX Nothing Nothing
-                  , width = El.px 80
+                  , width = El.fillPortion 2 |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4364,7 +4364,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 tableCell El.centerX 1 (text " ")
                   }
                 , { header = tableHeader " " El.alignLeft Nothing Nothing
-                  , width = El.px 80
+                  , width = El.fillPortion 2 |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4375,7 +4375,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                   }
                 , { header =
                         tableHeader "LSFE" El.centerX (Just (ToggleScoringHilight HilightHammers)) (Just "1")
-                  , width = El.px 50
+                  , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4388,7 +4388,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                   }
                 , { header =
                         tableHeader "SE" El.centerX (Just (ToggleScoringHilight HilightStolenEnds)) (Just "2")
-                  , width = El.px 50
+                  , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4401,7 +4401,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                   }
                 , { header =
                         tableHeader "BE" El.centerX (Just (ToggleScoringHilight HilightBlankEnds)) (Just "3")
-                  , width = El.px 50
+                  , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4413,7 +4413,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 tableCell El.centerX 1 (text (String.fromInt (blankEndsAgainst team)))
                   }
                 , { header = tableHeader "1pt" El.centerX (Just (ToggleScoringHilight Hilight1PointEnds)) Nothing
-                  , width = El.px 50
+                  , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4425,7 +4425,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 tableCell El.centerX 1 (text (String.fromInt (onePointEndsAgainst team)))
                   }
                 , { header = tableHeader "2pt" El.centerX (Just (ToggleScoringHilight Hilight2PointEnds)) Nothing
-                  , width = El.px 50
+                  , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4437,7 +4437,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 tableCell El.centerX 1 (text (String.fromInt (twoPointEndsAgainst team)))
                   }
                 , { header = tableHeader "3pt" El.centerX (Just (ToggleScoringHilight Hilight3PointEnds)) Nothing
-                  , width = El.px 50
+                  , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4449,7 +4449,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 tableCell El.centerX 1 (text (String.fromInt (threePointEndsAgainst team)))
                   }
                 , { header = tableHeader "4pt" El.centerX (Just (ToggleScoringHilight Hilight4PointEnds)) Nothing
-                  , width = El.px 50
+                  , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4461,7 +4461,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 tableCell El.centerX 1 (text (String.fromInt (fourPointEndsAgainst team)))
                   }
                 , { header = tableHeader "5pt" El.centerX (Just (ToggleScoringHilight Hilight5PlusPointEnds)) Nothing
-                  , width = El.px 50
+                  , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4473,7 +4473,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 tableCell El.centerX 1 (text (String.fromInt (fivePlusPointEndsAgainst team)))
                   }
                 , { header = tableHeader "Tot" El.centerX Nothing Nothing
-                  , width = El.px 50
+                  , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4485,7 +4485,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 tableCell El.centerX 1 (text (String.fromInt (totalPointsAgainst team)))
                   }
                 , { header = tableHeader "Avg" El.centerX Nothing Nothing
-                  , width = El.px 50
+                  , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4497,7 +4497,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 tableCell El.centerX 1 (text (String.fromFloat (averagePointsAgainst team)))
                   }
                 , { header = tableHeader "SP" El.centerX (Just (ToggleScoringHilight HilightStolenEnds)) (Just "4")
-                  , width = El.px 50
+                  , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
@@ -4515,7 +4515,164 @@ viewReportScoringAnalysis translations scoringHilight event teams =
 
 viewReportScoringAnalysisByHammer : List Translation -> Event -> Element Msg
 viewReportScoringAnalysisByHammer translations event =
-    El.none
+    let
+        games : List Game
+        games =
+            -- Not pending
+            List.filter (\g -> g.state /= GamePending) (gamesFromStages event.stages)
+
+        viewByHammer withHammer =
+            let
+                teams =
+                    teamsWithGames event.teams games
+
+                viewHeader { portion, align, content } =
+                    el
+                        [ El.width (El.fillPortion portion |> El.minimum 85)
+                        , El.padding 10
+                        , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                        , Border.color theme.grey
+                        ]
+                        (el [ align ] (text (translate translations content)))
+
+                viewCell { portion, align, content } =
+                    el
+                        [ El.width (El.fillPortion portion |> El.minimum 85)
+                        , El.padding 10
+                        , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                        , Border.color theme.grey
+                        ]
+                        (el [ align ] content)
+
+                viewTeamByHammer rowNumber team =
+                    let
+                        gamesCount =
+                            gamesForTeam games team
+                                |> List.length
+
+                        sidesFor =
+                            List.map .sides games
+                                |> List.concat
+                                |> List.filter (\s -> s.teamId == Just team.id)
+
+                        sidesAgainst =
+                            List.map .sides (gamesForTeam games team)
+                                |> List.concat
+                                |> List.filter (\s -> s.teamId /= Just team.id)
+
+                        endsFor =
+                            List.map .endScores sidesFor
+                                |> List.concat
+
+                        endsAgainst =
+                            List.map .endScores sidesAgainst
+                                |> List.concat
+
+                        endsCount =
+                            endsFor |> List.length
+
+                        blankEndsFor =
+                            List.filter (\e -> e == 0) endsFor
+                                |> List.length
+
+                        blankEndsForPercent =
+                            round ((toFloat blankEndsFor / toFloat (endsFor |> List.length)) * 100)
+
+                        stolenEndsAgainst =
+                            List.length (stolenEnds False games team)
+
+                        stolenEndsAgainstPercent =
+                            round ((toFloat stolenEndsAgainst / toFloat (endsAgainst |> List.length)) * 100)
+
+                        singlePointsFor =
+                            List.filter (\e -> e == 1) endsFor
+                                |> List.length
+
+                        singlePointsForPercent =
+                            round ((toFloat singlePointsFor / toFloat (endsFor |> List.length)) * 100)
+
+                        multiPointsFor =
+                            List.filter (\e -> e > 1) endsFor
+                                |> List.length
+
+                        multiPointsForPercent =
+                            round ((toFloat multiPointsFor / toFloat (endsFor |> List.length)) * 100)
+                    in
+                    row
+                        [ El.width El.fill
+                        , Background.color
+                            (if modBy 2 rowNumber == 0 then
+                                theme.greyLight
+
+                             else
+                                theme.white
+                            )
+                        ]
+                        [ viewCell
+                            { portion = 2
+                            , align = El.alignLeft
+                            , content =
+                                button
+                                    [ Font.color theme.primary
+                                    , El.focused [ Background.color theme.white ]
+                                    ]
+                                    { onPress = Just (NavigateTo (teamUrl event.id team))
+                                    , label = text team.name
+                                    }
+                            }
+                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt gamesCount) }
+                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt endsCount) }
+                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt blankEndsFor) }
+                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt blankEndsForPercent) }
+                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt stolenEndsAgainst) }
+                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt stolenEndsAgainstPercent) }
+                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt singlePointsFor) }
+                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt singlePointsForPercent) }
+                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt multiPointsFor) }
+                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt multiPointsForPercent) }
+                        ]
+            in
+            column [ El.width El.fill ]
+                ([ row [ El.width El.fill, Font.semiBold ]
+                    [ viewHeader
+                        { portion = 4
+                        , align = El.alignLeft
+                        , content =
+                            if withHammer then
+                                "with_hammer"
+
+                            else
+                                "without_hammer"
+                        }
+                    , viewHeader { portion = 2, align = El.alignRight, content = "blank_ends_for" }
+                    , viewHeader { portion = 2, align = El.alignRight, content = "stolen_ends_against" }
+                    , viewHeader { portion = 2, align = El.alignRight, content = "single_points_for" }
+                    , viewHeader { portion = 2, align = El.alignRight, content = "multi_points_for" }
+                    ]
+                 , row [ El.width El.fill, Font.semiBold ]
+                    [ viewHeader { portion = 2, align = El.alignLeft, content = "team" }
+                    , viewHeader { portion = 1, align = El.alignRight, content = "games" }
+                    , viewHeader { portion = 1, align = El.alignRight, content = "ends" }
+                    , viewHeader { portion = 1, align = El.alignRight, content = "#" }
+                    , viewHeader { portion = 1, align = El.alignRight, content = "%" }
+                    , viewHeader { portion = 1, align = El.alignRight, content = "#" }
+                    , viewHeader { portion = 1, align = El.alignRight, content = "%" }
+                    , viewHeader { portion = 1, align = El.alignRight, content = "#" }
+                    , viewHeader { portion = 1, align = El.alignRight, content = "%" }
+                    , viewHeader { portion = 1, align = El.alignRight, content = "#" }
+                    , viewHeader { portion = 1, align = El.alignRight, content = "%" }
+                    ]
+                 ]
+                    ++ List.indexedMap viewTeamByHammer teams
+                )
+    in
+    column [ El.spacing 30, El.width El.fill ]
+        [ el [ Font.size 24 ] (text (translate translations "scoring_analysis_by_hammer"))
+        , column [ El.spacing 80, El.width El.fill ]
+            [ viewByHammer True
+            , viewByHammer False
+            ]
+        ]
 
 
 viewReportTeamRosters : List Translation -> List Team -> Element Msg
