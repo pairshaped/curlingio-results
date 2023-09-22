@@ -35,7 +35,7 @@ gridSize =
 
 timeBetweenReloads : Int
 timeBetweenReloads =
-    10
+    60
 
 
 type alias Model =
@@ -1646,6 +1646,23 @@ drawWithGameId draws id =
     List.Extra.find hasGame draws
 
 
+reloadEnabled { flags, hash, event } =
+    -- Only if we're on an event, the event is active, end scores are enabled, and we're on a route / screen that is meaningfull to reload.
+    case toRoute flags.defaultEventSection hash of
+        EventRoute _ nestedRoute ->
+            case event of
+                Success event_ ->
+                    (event_.state == EventStateActive)
+                        && event_.endScoresEnabled
+                        && not (List.member nestedRoute [ DetailsRoute, TeamsRoute, ReportsRoute ])
+
+                _ ->
+                    False
+
+        _ ->
+            False
+
+
 
 -- UPDATE
 
@@ -1681,7 +1698,15 @@ update msg model =
                 newReloadIn =
                     max 0 (model.reloadIn - 1)
             in
-            ( { model | reloadIn = newReloadIn }, Cmd.none )
+            if newReloadIn == 0 then
+                if reloadEnabled model then
+                    update (HashChanged True model.hash) { model | reloadIn = timeBetweenReloads }
+
+                else
+                    ( { model | reloadIn = timeBetweenReloads }, Cmd.none )
+
+            else
+                ( { model | reloadIn = newReloadIn }, Cmd.none )
 
         SetDevice width height ->
             let
@@ -1934,47 +1959,17 @@ viewRoute model translations =
 
 
 viewReloadButton : Model -> Element Msg
-viewReloadButton { flags, hash, fullScreen, reloadIn, event } =
-    case toRoute flags.defaultEventSection hash of
-        EventRoute _ nestedRoute ->
-            case event of
-                Success event_ ->
-                    let
-                        reloadEnabled =
-                            -- Only if the event is active, end scores are enabled, and we're on a route / screen that is meaningfull to reload.
-                            (event_.state == EventStateActive)
-                                && event_.endScoresEnabled
-                                && not (List.member nestedRoute [ DetailsRoute, TeamsRoute, ReportsRoute ])
-                    in
-                    if reloadEnabled then
-                        if reloadIn <= 0 then
-                            button
-                                [ El.paddingXY 8 4
-                                , Border.rounded 3
-                                , Font.size 14
-                                , Font.color theme.primary
-                                , El.focused [ Background.color theme.grey ]
-                                ]
-                                { onPress = Just Reload
-                                , label = text "Reload"
-                                }
+viewReloadButton model =
+    if reloadEnabled model then
+        el
+            [ El.paddingXY 8 4
+            , Font.size 14
+            , Font.color theme.secondary
+            ]
+            (text ("Refresh in " ++ String.fromInt model.reloadIn ++ "s"))
 
-                        else
-                            el
-                                [ El.paddingXY 8 4
-                                , Font.size 14
-                                , Font.color theme.secondary
-                                ]
-                                (text ("Reload in " ++ String.fromInt reloadIn ++ "s"))
-
-                    else
-                        El.none
-
-                _ ->
-                    El.none
-
-        _ ->
-            El.none
+    else
+        El.none
 
 
 viewNotReady : Bool -> String -> Element Msg
