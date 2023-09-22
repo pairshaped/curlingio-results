@@ -4241,7 +4241,11 @@ viewReportScoringAnalysis translations scoringHilight event teams =
 
         averagePointsFor team =
             -- total points divided by number of ends. We multiple by 100 then round then divide by 100 so that we get 2 decimal places.
-            toFloat (round ((toFloat (totalPointsFor team) / toFloat (List.length (endsFor team))) * 100)) / 100
+            if totalPointsFor team == 0 then
+                0.0
+
+            else
+                toFloat (round ((toFloat (totalPointsFor team) / toFloat (List.length (endsFor team))) * 100)) / 100
 
         averagePointsAgainst team =
             -- see averagePointsFor
