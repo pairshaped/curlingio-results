@@ -19,6 +19,7 @@ import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import List.Extra
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
+import Task
 import Time
 import Url
 import Url.Parser exposing ((</>), Parser)
@@ -99,6 +100,7 @@ type alias Flags =
     , lang : Maybe String
     , apiKey : Maybe String
     , subdomain : Maybe String
+    , fullScreenToggle : Bool
     , section : ItemsSection
     , registration : Bool
     , excludeEventSections : List String
@@ -394,6 +396,7 @@ decodeFlags =
         |> optional "lang" (nullable string) Nothing
         |> optional "apiKey" (nullable string) Nothing
         |> optional "subdomain" (nullable string) Nothing
+        |> optional "fullScreenToggle" bool False
         |> optional "section" decodeSection LeaguesSection
         |> optional "registration" bool False
         |> optional "excludeEventSections" (list string) []
@@ -1013,7 +1016,7 @@ init flags_ =
         Err error ->
             let
                 flags =
-                    Flags Nothing Nothing 1200 800 Nothing Nothing Nothing LeaguesSection False [] Nothing Nothing []
+                    Flags Nothing Nothing 1200 800 Nothing Nothing Nothing False LeaguesSection False [] Nothing Nothing []
 
                 device =
                     El.classifyDevice
@@ -3140,8 +3143,6 @@ viewStages translations event onStage =
                                                 Nothing ->
                                                     False
                                     in
-                                    -- "left" (String.fromInt (coords.col * gridSize) ++ "px")
-                                    -- "top" (String.fromInt (coords.row * gridSize) ++ "px")
                                     button [ El.focused [ Background.color theme.white ] ]
                                         { onPress =
                                             if gameHasBeenScheduled then
