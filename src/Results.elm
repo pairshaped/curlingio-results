@@ -1919,6 +1919,37 @@ viewButtonSecondary content msg =
 
 view : Model -> Html Msg
 view model =
+    let
+        viewMain =
+            row
+                [ El.width El.fill
+                , El.inFront
+                    (row [ El.alignRight, El.spacing 10 ]
+                        [ el [] (viewReloadButton model)
+                        , if model.flags.fullScreenToggle then
+                            el [] (viewFullScreenButton model.fullScreen)
+
+                          else
+                            El.none
+                        ]
+                    )
+                ]
+                [ case model.errorMsg of
+                    Just errorMsg ->
+                        viewNotReady model.fullScreen errorMsg
+
+                    Nothing ->
+                        case model.translations of
+                            Success translations ->
+                                viewRoute model translations
+
+                            Failure error ->
+                                viewFetchError model (errorMessage error)
+
+                            _ ->
+                                viewNotReady model.fullScreen "Loading..."
+                ]
+    in
     El.layout
         [ El.width El.fill
         , El.height El.fill
@@ -1940,27 +1971,20 @@ view model =
             , Font.typeface "Noto Color Emoji"
             , Font.sansSerif
             ]
+        , El.inFront
+            (if model.fullScreen then
+                el [ El.width El.fill, El.padding 20, El.scrollbarY, Background.color theme.white ] viewMain
+
+             else
+                El.none
+            )
         ]
     <|
-        row
-            [ El.width El.fill
-            , El.inFront (el [ El.alignRight ] (viewReloadButton model))
-            ]
-            [ case model.errorMsg of
-                Just errorMsg ->
-                    viewNotReady model.fullScreen errorMsg
+        if model.fullScreen then
+            El.none
 
-                Nothing ->
-                    case model.translations of
-                        Success translations ->
-                            viewRoute model translations
-
-                        Failure error ->
-                            viewFetchError model (errorMessage error)
-
-                        _ ->
-                            viewNotReady model.fullScreen "Loading..."
-            ]
+        else
+            viewMain
 
 
 viewRoute : Model -> List Translation -> Element Msg
@@ -2016,6 +2040,19 @@ viewReloadButton model =
 
     else
         El.none
+
+
+viewFullScreenButton : Bool -> Element Msg
+viewFullScreenButton fullScreen =
+    button [ El.focused [ Background.color theme.transparent ] ]
+        { onPress = Just ToggleFullScreen
+        , label =
+            if fullScreen then
+                El.html svgExitFullScreen
+
+            else
+                El.html svgFullScreen
+        }
 
 
 viewNotReady : Bool -> String -> Element Msg
