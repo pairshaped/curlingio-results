@@ -1562,6 +1562,47 @@ gameScore game orderByTeamIds =
             Just score
 
 
+blankEnds : List Game -> Team -> List Int
+blankEnds games team =
+    let
+        -- A blank end is when neither teams gets a point.
+        blankEndsForGame game =
+            let
+                -- We don't know if the team side is the first or second, so build a tuple so we know.
+                sides =
+                    ( List.Extra.find (\s -> s.teamId == Just team.id) game.sides
+                    , List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
+                    )
+
+                -- We don't care about the event's number of ends, just the max of either side.
+                numberOfEnds =
+                    List.map (\side -> List.length side.endScores) game.sides
+                        |> List.maximum
+                        |> Maybe.withDefault 0
+
+                blankEnd : Side -> Side -> Int -> Bool
+                blankEnd sideFor sideAgainst endIndex =
+                    let
+                        endFor =
+                            List.Extra.getAt (endIndex - 1) sideFor.endScores
+
+                        endAgainst =
+                            List.Extra.getAt (endIndex - 1) sideAgainst.endScores
+                    in
+                    ( endFor, endAgainst ) == ( Just 0, Just 0 )
+            in
+            case sides of
+                ( Just sideFor, Just sideAgainst ) ->
+                    List.range 0 numberOfEnds
+                        |> List.filter (blankEnd sideFor sideAgainst)
+
+                _ ->
+                    []
+    in
+    List.map (\game -> blankEndsForGame game) games
+        |> List.concat
+
+
 stolenEnds : Bool -> List Game -> Team -> List Int
 stolenEnds for games team =
     -- The for is a bool to indicate for (True) or against (False)
@@ -4185,12 +4226,8 @@ viewReportScoringAnalysis translations scoringHilight event teams =
             List.filter (\s -> s.firstHammer == True) (sidesAgainst team)
                 |> List.length
 
-        blankEndsFor team =
-            List.filter (\i -> i /= 0) (endsFor team)
-                |> List.length
-
-        blankEndsAgainst team =
-            List.filter (\i -> i == 0) (endsAgainst team)
+        blankEndsForOrAgainst team =
+            blankEnds (games team) team
                 |> List.length
 
         onePointEndsFor team =
@@ -4386,6 +4423,8 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                             else
                                 tableCell El.centerX 1 (text "Against")
                   }
+
+                -- LSFE / First Hammer
                 , { header =
                         tableHeader "LSFE" El.centerX (Just (ToggleScoringHilight HilightHammers)) (Just "1")
                   , width = El.fill |> El.minimum 40
@@ -4399,6 +4438,8 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 -- Against
                                 tableCell El.centerX 1 (text (String.fromInt (firstHammerCountAgainst team)))
                   }
+
+                -- Stolen Ends
                 , { header =
                         tableHeader "SE" El.centerX (Just (ToggleScoringHilight HilightStolenEnds)) (Just "2")
                   , width = El.fill |> El.minimum 40
@@ -4412,19 +4453,23 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 -- Against
                                 tableCell El.centerX 1 (text (String.fromInt (stolenEndsCount team False)))
                   }
+
+                -- Blank Ends
                 , { header =
-                        tableHeader "BE" El.centerX (Just (ToggleScoringHilight HilightBlankEnds)) (Just "3")
+                        tableHeader "BE" El.centerX Nothing (Just "3")
                   , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
                                 -- For
-                                tableCell El.centerX 1 (text (String.fromInt (blankEndsFor team)))
+                                tableCell El.centerX 1 (text (String.fromInt (blankEndsForOrAgainst team)))
 
                             else
                                 -- Against
-                                tableCell El.centerX 1 (text (String.fromInt (blankEndsAgainst team)))
+                                tableCell El.centerX 1 (text (String.fromInt (blankEndsForOrAgainst team)))
                   }
+
+                -- 1 point ends
                 , { header = tableHeader "1pt" El.centerX (Just (ToggleScoringHilight Hilight1PointEnds)) Nothing
                   , width = El.fill |> El.minimum 40
                   , view =
@@ -4437,6 +4482,8 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 -- Against
                                 tableCell El.centerX 1 (text (String.fromInt (onePointEndsAgainst team)))
                   }
+
+                -- 2 point ends
                 , { header = tableHeader "2pt" El.centerX (Just (ToggleScoringHilight Hilight2PointEnds)) Nothing
                   , width = El.fill |> El.minimum 40
                   , view =
@@ -4449,6 +4496,8 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 -- Against
                                 tableCell El.centerX 1 (text (String.fromInt (twoPointEndsAgainst team)))
                   }
+
+                -- 3 point ends
                 , { header = tableHeader "3pt" El.centerX (Just (ToggleScoringHilight Hilight3PointEnds)) Nothing
                   , width = El.fill |> El.minimum 40
                   , view =
@@ -4461,6 +4510,8 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 -- Against
                                 tableCell El.centerX 1 (text (String.fromInt (threePointEndsAgainst team)))
                   }
+
+                -- 4 point ends
                 , { header = tableHeader "4pt" El.centerX (Just (ToggleScoringHilight Hilight4PointEnds)) Nothing
                   , width = El.fill |> El.minimum 40
                   , view =
@@ -4473,6 +4524,8 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 -- Against
                                 tableCell El.centerX 1 (text (String.fromInt (fourPointEndsAgainst team)))
                   }
+
+                -- 5+ point ends
                 , { header = tableHeader "5pt" El.centerX (Just (ToggleScoringHilight Hilight5PlusPointEnds)) Nothing
                   , width = El.fill |> El.minimum 40
                   , view =
@@ -4485,6 +4538,8 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 -- Against
                                 tableCell El.centerX 1 (text (String.fromInt (fivePlusPointEndsAgainst team)))
                   }
+
+                -- Total points
                 , { header = tableHeader "Tot" El.centerX Nothing Nothing
                   , width = El.fill |> El.minimum 40
                   , view =
@@ -4497,6 +4552,8 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 -- Against
                                 tableCell El.centerX 1 (text (String.fromInt (totalPointsAgainst team)))
                   }
+
+                -- Average points
                 , { header = tableHeader "Avg" El.centerX Nothing Nothing
                   , width = El.fill |> El.minimum 40
                   , view =
@@ -4509,6 +4566,8 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                                 -- Against
                                 tableCell El.centerX 1 (text (String.fromFloat (averagePointsAgainst team)))
                   }
+
+                -- Stolen points
                 , { header = tableHeader "SP" El.centerX (Just (ToggleScoringHilight HilightStolenEnds)) (Just "4")
                   , width = El.fill |> El.minimum 40
                   , view =
@@ -4523,6 +4582,12 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                   }
                 ]
             }
+        , El.column [ El.paddingXY 0 20, El.spacing 5, Font.size 12 ]
+            [ el [] (text "1 - LSFE: Last Shot First End")
+            , el [] (text "2 - SE: Stolen Ends")
+            , el [] (text "3 - BE: Blank Ends")
+            , el [] (text "4 - SP: Stolen Points")
+            ]
         ]
 
 
