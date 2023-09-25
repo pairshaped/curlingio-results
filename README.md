@@ -80,6 +80,8 @@ npm
 
 ### Running It
 
+Edit dev.html and configure the application's parameters for your environment. Then run it:
+
 ```
 npm start
 ```
