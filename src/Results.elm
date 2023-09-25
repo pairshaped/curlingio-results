@@ -4649,12 +4649,12 @@ viewReportScoringAnalysisByHammer translations event =
                         endsCount =
                             endsFor |> List.length
 
-                        blankEndsFor =
-                            List.filter (\e -> e == 0) endsFor
+                        blankEndsForOrAgainst =
+                            blankEnds (gamesForTeam games team) team
                                 |> List.length
 
-                        blankEndsForPercent =
-                            round ((toFloat blankEndsFor / toFloat (endsFor |> List.length)) * 100)
+                        blankEndsForOrAgainstPercent =
+                            round ((toFloat blankEndsForOrAgainst / toFloat (endsFor |> List.length)) * 100)
 
                         stolenEndsAgainst =
                             List.length (stolenEnds False games team)
@@ -4700,8 +4700,8 @@ viewReportScoringAnalysisByHammer translations event =
                             }
                         , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt gamesCount) }
                         , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt endsCount) }
-                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt blankEndsFor) }
-                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt blankEndsForPercent) }
+                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt blankEndsForOrAgainst) }
+                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt blankEndsForOrAgainstPercent) }
                         , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt stolenEndsAgainst) }
                         , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt stolenEndsAgainstPercent) }
                         , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt singlePointsFor) }
