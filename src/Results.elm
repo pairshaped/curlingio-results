@@ -12,7 +12,7 @@ import Element.Font as Font
 import Element.Input as Input exposing (button)
 import Element.Region as Region
 import Html exposing (Html)
-import Html.Attributes exposing (style)
+import Html.Attributes exposing (class, style)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
@@ -1923,6 +1923,7 @@ view model =
         viewMain =
             row
                 [ El.width El.fill
+                , El.htmlAttribute (class "cio__main")
                 , El.inFront
                     (row [ El.alignRight, El.spacing 10 ]
                         [ el [] (viewReloadButton model)
@@ -1971,6 +1972,7 @@ view model =
             , Font.typeface "Noto Color Emoji"
             , Font.sansSerif
             ]
+        , El.htmlAttribute (class "cio__container")
         , El.inFront
             (if model.fullScreen then
                 el [ El.width El.fill, El.padding 20, El.scrollbarY, Background.color theme.white ] viewMain
@@ -2035,6 +2037,7 @@ viewReloadButton model =
             [ El.paddingXY 8 4
             , Font.size 14
             , Font.color theme.secondary
+            , El.htmlAttribute (class "cio__reload_button")
             ]
             (text ("Refresh in " ++ String.fromInt model.reloadIn ++ "s"))
 
@@ -2057,13 +2060,13 @@ viewFullScreenButton fullScreen =
 
 viewNotReady : Bool -> String -> Element Msg
 viewNotReady fullScreen message =
-    el [] (text message)
+    el [ El.htmlAttribute (class "cio__not_ready") ] (text message)
 
 
 viewFetchError : Model -> String -> Element Msg
 viewFetchError { fullScreen, hash } message =
     row
-        []
+        [ El.htmlAttribute (class "cio__fetch_error") ]
         [ column [ El.spacing 10 ]
             [ el [] (text message)
             , viewButtonPrimary "Reload" Reload
@@ -2089,7 +2092,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                         , label = text content
                         }
             in
-            row []
+            row [ El.htmlAttribute (class "cio__paging") ]
                 [ if List.length items >= 10 then
                     viewPageButton "Next >" (IncrementPageBy 1)
 
@@ -2153,6 +2156,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                 , El.pointer
                 , Events.onClick ToggleSeasonSearch
                 , El.below seasonOptions
+                , El.htmlAttribute (class "cio__season_dropdown")
                 ]
                 [ el [] (text seasonSelected)
                 , el [ El.alignRight ]
@@ -2187,7 +2191,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
     in
     column [ El.spacing 10, El.width El.fill ]
         [ row [ El.spacing 20 ]
-            [ Input.text [ El.width (El.px 200), El.padding 10 ]
+            [ Input.text [ El.width (El.px 200), El.padding 10, El.htmlAttribute (class "cio__search") ]
                 { placeholder = Just (Input.placeholder [] (text (translate translations "search")))
                 , text = itemFilter.search
                 , onChange = UpdateSearch
@@ -2210,40 +2214,51 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                                 _ ->
                                     "/events/" ++ String.fromInt item.id
                     in
-                    column [ El.spacingXY 0 5, El.paddingXY 10 15, Border.color theme.grey, Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 } ]
+                    column
+                        [ El.spacingXY 0 5
+                        , El.paddingXY 10 15
+                        , Border.color theme.grey
+                        , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                        , El.htmlAttribute (class "cio__item_name")
+                        ]
                         [ el [ Font.color theme.primary, El.pointer, Events.onClick (NavigateTo newPath) ] (text item.name)
-                        , el [ Font.size 13 ] (text (Maybe.withDefault "" item.summary))
+                        , el [ Font.size 13 ] (text (Maybe.withDefault " " item.summary))
                         ]
 
                 viewItemCell content =
-                    el [ El.paddingXY 10 24, Border.color theme.grey, Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 } ] content
+                    el
+                        [ El.paddingXY 10 24
+                        , Border.color theme.grey
+                        , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                        , El.htmlAttribute (class "cio__item_cell")
+                        ]
+                        content
 
                 viewItemOccursOn item =
-                    viewItemCell (el [ El.centerX ] (text (Maybe.withDefault "" item.occursOn)))
+                    viewItemCell (el [ El.centerX, El.htmlAttribute (class "cio__item_occurs_on") ] (text (Maybe.withDefault " " item.occursOn)))
 
                 viewItemPrice item =
                     if flags.registration then
-                        viewItemCell (el [ El.alignRight ] (text (Maybe.withDefault "" item.price)))
+                        viewItemCell (el [ El.alignRight, El.htmlAttribute (class "cio__item_price") ] (text (Maybe.withDefault " " item.price)))
 
                     else
-                        El.none
+                        viewItemCell (text " ")
 
                 viewItemRegister item =
                     if flags.registration then
                         case item.noRegistrationMessage of
                             Just msg ->
-                                case item.addToCartUrl of
-                                    Just url ->
-                                        viewItemCell (el [ Font.color theme.primary, El.alignRight ] (text msg))
-
-                                    Nothing ->
-                                        viewItemCell (text msg)
+                                viewItemCell (el [ El.alignRight, El.htmlAttribute (class "cio__item_register") ] (text msg))
 
                             Nothing ->
                                 case ( item.addToCartUrl, item.addToCartText ) of
                                     ( Just addToCartUrl, Just addToCartText ) ->
                                         el
-                                            [ El.paddingXY 10 17, Border.color theme.grey, Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 } ]
+                                            [ El.paddingXY 10 17
+                                            , Border.color theme.grey
+                                            , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                                            , El.htmlAttribute (class "cio__item_register")
+                                            ]
                                             (button
                                                 [ Background.color theme.primary
                                                 , Font.color theme.white
@@ -2259,14 +2274,14 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                                             )
 
                                     _ ->
-                                        viewItemCell (text "")
+                                        viewItemCell (text " ")
 
                     else
-                        El.none
+                        viewItemCell (text " ")
             in
             row
                 []
-                [ El.table [ El.spacingXY 0 15 ]
+                [ El.table [ El.spacingXY 0 15, El.htmlAttribute (class "cio__items_table") ]
                     { data = filteredItems
                     , columns =
                         [ { header = El.none
@@ -2299,7 +2314,7 @@ viewNoDataForRoute translations =
 
 viewSponsor : Sponsor -> Element Msg
 viewSponsor sponsor =
-    column [ El.spacing 10, El.alignTop ]
+    column [ El.spacing 10, El.alignTop, El.htmlAttribute (class "cio__sponsor") ]
         [ case sponsor.url of
             Just url ->
                 el [ El.pointer, Events.onClick (NavigateTo url) ]
@@ -2318,21 +2333,21 @@ viewSponsor sponsor =
 
 viewProduct : Bool -> List Translation -> Product -> Element Msg
 viewProduct fullScreen translations product =
-    row [ El.spacing 20 ]
+    row [ El.spacing 20, El.htmlAttribute (class "cio__product") ]
         [ column [ El.spacing 20, El.width El.fill, El.alignTop ]
             [ el [ Font.size 28 ] (text product.name)
             , case ( product.description, product.summary ) of
                 ( Just description, _ ) ->
-                    El.paragraph [] [ text description ]
+                    El.paragraph [ El.htmlAttribute (class "cio__product_description") ] [ text description ]
 
                 ( _, Just summary ) ->
-                    El.paragraph [] [ text summary ]
+                    El.paragraph [ El.htmlAttribute (class "cio__product_summary") ] [ text summary ]
 
                 ( Nothing, Nothing ) ->
                     El.none
             , case product.totalWithTax of
                 Just totalWithTax ->
-                    column [ El.spacing 8 ]
+                    column [ El.spacing 8, El.htmlAttribute (class "cio__product_total") ]
                         [ el [ Font.bold ] (text (translate translations "total_with_tax"))
                         , el [] (text totalWithTax)
                         ]
@@ -2341,14 +2356,14 @@ viewProduct fullScreen translations product =
                     El.none
             , case ( product.addToCartUrl, product.addToCartText ) of
                 ( Just addToCartUrl, Just addToCartText ) ->
-                    El.paragraph []
+                    El.paragraph [ El.htmlAttribute (class "cio__product_add_to_cart") ]
                         [ viewButtonPrimary addToCartText (NavigateOut addToCartUrl)
                         ]
 
                 _ ->
                     El.none
             , if not (List.isEmpty product.potentialDiscounts) then
-                column [ El.spacing 5 ]
+                column [ El.spacing 5, El.htmlAttribute (class "cio__product_discounts") ]
                     [ el [ Font.bold ] (text (translate translations "potential_discounts"))
                     , column [] (List.map (\d -> el [] (text d)) product.potentialDiscounts)
                     ]
@@ -2377,7 +2392,7 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
                 newPath =
                     "/events/" ++ String.fromInt event.id ++ "/" ++ eventSection
             in
-            el []
+            el [ El.htmlAttribute (class "cio__event_nav_item") ]
                 (if isActiveRoute then
                     button
                         [ El.paddingXY 16 12
@@ -2402,9 +2417,9 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
                         }
                 )
     in
-    column [ El.width El.fill, El.spacing 20 ]
-        [ el [ Font.size 28, Font.medium ] (text event.name)
-        , row [ El.width El.fill ]
+    column [ El.width El.fill, El.spacing 20, El.htmlAttribute (class "cio__event") ]
+        [ el [ Font.size 28, Font.medium, El.htmlAttribute (class "cio__event_name") ] (text event.name)
+        , row [ El.width El.fill, El.htmlAttribute (class "cio__event_nav") ]
             (List.map viewNavItem (eventSections flags.excludeEventSections event)
                 ++ (if flags.eventId == Nothing then
                         [ el [ El.alignRight ]
@@ -2498,20 +2513,20 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
 
 viewDetails : List Translation -> Event -> Element Msg
 viewDetails translations event =
-    row [ El.spacing 20 ]
+    row [ El.spacing 20, El.htmlAttribute (class "cio__event_details") ]
         [ column [ El.spacing 20, El.width El.fill, El.alignTop ]
             [ case ( event.description, event.summary ) of
                 ( Just description, _ ) ->
-                    El.paragraph [] [ text description ]
+                    El.paragraph [ El.htmlAttribute (class "cio__event_description") ] [ text description ]
 
                 ( _, Just summary ) ->
-                    El.paragraph [] [ text summary ]
+                    El.paragraph [ El.htmlAttribute (class "cio__event_summary") ] [ text summary ]
 
                 ( Nothing, Nothing ) ->
                     El.none
             , case event.totalWithTax of
                 Just totalWithTax ->
-                    column [ El.spacing 8 ]
+                    column [ El.spacing 8, El.htmlAttribute (class "cio__event_total") ]
                         [ el [ Font.bold ] (text (translate translations "total_with_tax"))
                         , el [] (text totalWithTax)
                         ]
@@ -2520,44 +2535,44 @@ viewDetails translations event =
                     El.none
             , case ( event.addToCartUrl, event.addToCartText ) of
                 ( Just addToCartUrl, Just addToCartText ) ->
-                    El.paragraph [ El.paddingEach { top = 10, right = 0, bottom = 20, left = 0 } ]
+                    El.paragraph [ El.paddingEach { top = 10, right = 0, bottom = 20, left = 0 }, El.htmlAttribute (class "cio__event_add_to_cart") ]
                         [ viewButtonPrimary addToCartText (NavigateOut addToCartUrl)
                         ]
 
                 _ ->
                     El.none
-            , row [ El.width El.fill ]
-                [ column [ El.width El.fill, El.spacing 5 ]
+            , row [ El.width El.fill, El.spacing 30 ]
+                [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_starts_on") ]
                     [ el [ Font.bold ] (text (translate translations "starts_on"))
                     , el [] (text event.startsOn)
                     ]
-                , column [ El.width El.fill, El.spacing 5 ]
+                , column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_ends_on") ]
                     [ el [ Font.bold ] (text (translate translations "ends_on"))
                     , el [] (text event.endsOn)
                     ]
                 ]
-            , row [ El.width El.fill ]
-                [ column [ El.width El.fill, El.spacing 5 ]
+            , row [ El.width El.fill, El.spacing 30 ]
+                [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_registration_opens_at") ]
                     [ el [ Font.bold ] (text (translate translations "registration_opens_at"))
                     , el [] (text (Maybe.withDefault "" event.registrationOpensAt))
                     ]
-                , column [ El.width El.fill, El.spacing 5 ]
+                , column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_registration_closes_at") ]
                     [ el [ Font.bold ] (text (translate translations "registration_closes_at"))
                     , el [] (text (Maybe.withDefault "" event.registrationClosesAt))
                     ]
                 ]
-            , row [ El.width El.fill ]
-                [ column [ El.width El.fill, El.spacing 5 ]
+            , row [ El.width El.fill, El.spacing 30 ]
+                [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_team_restriction") ]
                     [ el [ Font.bold ] (text (translate translations "team_restriction"))
                     , el [] (text event.teamRestriction)
                     ]
-                , column [ El.width El.fill, El.spacing 5 ]
+                , column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_age_range") ]
                     [ el [ Font.bold ] (text (translate translations "age_range"))
                     , el [] (text event.ageRange)
                     ]
                 ]
             , if not (List.isEmpty event.potentialDiscounts) then
-                column [ El.width El.fill, El.spacing 5 ]
+                column [ El.width El.fill, El.spacing 5, El.htmlAttribute (class "cio__event_discounts") ]
                     [ el [ Font.bold ] (text (translate translations "potential_discounts"))
                     , column [ El.spacing 5, El.paddingXY 4 5 ] (List.map (\d -> el [] (text ("• " ++ d))) event.potentialDiscounts)
                     ]
@@ -2697,12 +2712,12 @@ viewRegistrations translations registrations =
         tableColumns =
             List.filterMap identity [ curlerColumn, teamColumn, skipColumn, positionColumn, lineupColumn ]
     in
-    el [ El.width El.fill ]
+    el [ El.width El.fill, El.htmlAttribute (class "cio__event_registrations") ]
         (if List.isEmpty registrations then
             El.paragraph [] [ text (translate translations "no_registrations") ]
 
          else
-            El.indexedTable []
+            El.indexedTable [ El.htmlAttribute (class "cio__event_registrations_table") ]
                 { data = registrations
                 , columns = tableColumns
                 }
@@ -2820,10 +2835,16 @@ viewDraws translations scoringHilight event =
                     List.any (\d -> d.attendance > 0) event.draws
 
                 tableHeader align content =
+                    let
+                        contentId =
+                            String.replace " " "_" content
+                                |> String.toLower
+                    in
                     row
                         [ Font.bold
                         , El.paddingXY 12 16
                         , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                        , El.htmlAttribute (class ("cio__event_draws_header cio__event_draws_header_" ++ contentId))
                         , Border.color theme.grey
                         ]
                         [ el [ align ] (text (translate translations content)) ]
@@ -2833,6 +2854,7 @@ viewDraws translations scoringHilight event =
                         [ El.paddingXY 12 16
                         , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
                         , Border.color theme.grey
+                        , El.htmlAttribute (class "cio__event_draws_cell")
                         , if isActive then
                             Background.color theme.greyLight
 
@@ -2893,12 +2915,12 @@ viewDraws translations scoringHilight event =
             ([ labelColumn, startsAtColumn ] ++ List.indexedMap sheetColumn event.sheetNames ++ [ attendanceColumn ])
                 |> List.filterMap identity
     in
-    el [ El.width El.fill ]
+    el [ El.width El.fill, El.htmlAttribute (class "cio__event_draws") ]
         (if List.isEmpty event.draws then
             El.paragraph [] [ text (translate translations "no_schedule") ]
 
          else
-            El.table []
+            El.table [ El.htmlAttribute (class "cio__event_draws_table") ]
                 { data = event.draws
                 , columns = tableColumns
                 }
@@ -2923,12 +2945,14 @@ viewTeams translations event =
                 , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
                 , Border.color theme.grey
                 , El.paddingXY 12 16
+                , El.htmlAttribute (class "cio__event_teams_header")
                 ]
                 (text (translate translations content))
 
         tableCell i content =
             el
                 [ El.paddingXY 12 16
+                , El.htmlAttribute (class "cio__event_teams_cell")
                 , Background.color
                     (if modBy 2 i == 0 then
                         theme.greyLight
@@ -2994,12 +3018,12 @@ viewTeams translations event =
         tableColumns =
             List.filterMap identity [ teamColumn, coachColumn, affiliationColumn, locationColumn ]
     in
-    el [ El.width El.fill ]
+    el [ El.width El.fill, El.htmlAttribute (class "cio__event_teams") ]
         (if List.isEmpty event.teams then
             El.paragraph [] [ text (translate translations "no_teams") ]
 
          else
-            El.indexedTable []
+            El.indexedTable [ El.htmlAttribute (class "cio__event_teams_table") ]
                 { data = event.teams
                 , columns = tableColumns
                 }
@@ -3032,6 +3056,7 @@ viewStages translations event onStage =
                         { bottom = 1, left = 0, right = 0, top = 0 }
                     )
                 , Border.rounded 3
+                , El.htmlAttribute (class "cio__event_stage_link")
                 ]
                 { onPress = Just (NavigateTo (stageUrl event.id stage))
                 , label = text stage.name
@@ -3136,7 +3161,7 @@ viewStages translations event onStage =
                 tableColumns =
                     List.filterMap identity [ teamColumn, gamesColumn, winsColumn, lossesColumn, tiesColumn, pointsColumn ]
             in
-            El.indexedTable []
+            El.indexedTable [ El.htmlAttribute (class "cio__event_round_robin_table") ]
                 { data = teamResults
                 , columns = tableColumns
                 }
@@ -3238,6 +3263,7 @@ viewStages translations event onStage =
                                                 , El.htmlAttribute (style "position" "absolute")
                                                 , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
                                                 , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize) ++ "px"))
+                                                , El.htmlAttribute (class "cio__event_bracket_game")
                                                 ]
                                                 [ el
                                                     [ El.width El.fill
@@ -3337,6 +3363,7 @@ viewStages translations event onStage =
                             , Background.color theme.greyLight
                             , Font.size 20
                             , Font.medium
+                            , El.htmlAttribute (class "cio__event_bracket_group")
                             ]
                             (text ("☷ " ++ group.name))
                         , column [ El.width El.fill, El.htmlAttribute (style "position" "relative") ]
@@ -3348,12 +3375,12 @@ viewStages translations event onStage =
             in
             case onStage.groups of
                 Just groups ->
-                    column [ El.width El.fill ] (List.map viewGroup groups)
+                    column [ El.width El.fill, El.htmlAttribute (class "cio__event_bracket") ] (List.map viewGroup groups)
 
                 Nothing ->
                     el [] (text "No groups")
     in
-    column [ El.width El.fill ]
+    column [ El.width El.fill, El.htmlAttribute (class "cio__event_stages") ]
         [ row [] (List.map viewStageLink event.stages)
         , case onStage.stageType of
             RoundRobin ->
@@ -3389,7 +3416,7 @@ viewReports translations event =
         competitionMatrixLink =
             "/events/" ++ String.fromInt event.id ++ "/reports/competition_matrix"
     in
-    column [ El.spacing 15, El.padding 15 ]
+    column [ El.spacing 15, El.padding 15, El.htmlAttribute (class "cio__event_reports") ]
         [ if hasAttendance then
             button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                 { onPress = Just (NavigateTo attendanceLink)
@@ -4175,7 +4202,7 @@ viewTeam translations flags event team =
                     ]
                 }
     in
-    column [ El.spacing 20, El.paddingEach { top = 0, right = 0, bottom = 20, left = 0 } ]
+    column [ El.spacing 20, El.paddingEach { top = 0, right = 0, bottom = 20, left = 0 }, El.htmlAttribute (class "cio__event_team") ]
         [ el [ Font.size 24, Font.semiBold ] (text team.name)
         , viewTeamLineup
         , viewTeamInfo
@@ -4387,7 +4414,7 @@ viewReportScoringAnalysis translations scoringHilight event teams =
                 (el [ align ] content)
     in
     column
-        [ El.width El.fill ]
+        [ El.width El.fill, El.htmlAttribute (class "cio__event_reports_scoring_analysis") ]
         [ row [ El.width El.fill, El.spacing 10, El.paddingXY 0 20, Font.size 24 ]
             [ text (translate translations "scoring_analysis")
             , if isForGame then
@@ -4781,7 +4808,7 @@ viewReportScoringAnalysisByHammer translations event =
                     ++ List.indexedMap viewTeamByHammer teams
                 )
     in
-    column [ El.spacing 30, El.width El.fill ]
+    column [ El.spacing 30, El.width El.fill, El.htmlAttribute (class "cio__event_reports_scoring_analysis_by_hammer") ]
         [ el [ Font.size 24 ] (text (translate translations "scoring_analysis_by_hammer"))
         , column [ El.spacing 80, El.width El.fill ]
             [ viewByHammer True
@@ -4897,7 +4924,7 @@ viewReportTeamRosters translations teams =
                     ]
                 }
     in
-    column [ El.spacing 20, El.width El.fill ]
+    column [ El.spacing 20, El.width El.fill, El.htmlAttribute (class "cio__event_reports_team_rosters") ]
         [ el [ Font.size 24, Font.semiBold ] (text (translate translations "team_rosters"))
         , column [ El.width El.fill ] (List.map viewTeamRoster teams)
         ]
@@ -5030,7 +5057,7 @@ viewReportCompetitionMatrix translations event =
                         }
                     ]
     in
-    column [ El.width El.fill, El.spacing 30 ]
+    column [ El.width El.fill, El.spacing 30, El.htmlAttribute (class "cio__event_reports_competition_matrix") ]
         [ el [ Font.size 24 ] (text (translate translations "competition_matrix"))
         , El.wrappedRow [ El.spacing 30 ] (List.filter (\s -> s.stageType == RoundRobin) event.stages |> List.map viewStageMatrix)
         ]
@@ -5076,7 +5103,7 @@ viewReportAttendance translations draws =
                 ]
                 (text content)
     in
-    column [ El.spacing 20 ]
+    column [ El.spacing 20, El.htmlAttribute (class "cio__event_reports_attendance") ]
         [ el [ Font.size 24 ] (text (translate translations "attendance"))
         , El.indexedTable [ El.width El.fill, Border.widthEach { top = 1, right = 0, bottom = 0, left = 1 }, Border.color theme.grey ]
             { data = draws
