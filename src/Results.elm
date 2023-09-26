@@ -2279,8 +2279,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                     else
                         viewItemCell (text " ")
             in
-            row
-                []
+            row [ El.width El.fill ]
                 [ El.table [ El.spacingXY 0 15, El.htmlAttribute (class "cio__items_table") ]
                     { data = filteredItems
                     , columns =
