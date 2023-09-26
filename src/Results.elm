@@ -5016,7 +5016,7 @@ viewReportCompetitionMatrix translations event =
                         [ El.clip
                         , El.width (El.px 100)
                         , El.height (El.px 70)
-                        , El.padding 5
+                        , El.padding 6
                         , Border.widthEach { top = 1, right = 1, bottom = 0, left = 0 }
                         , Border.color theme.grey
                         ]
