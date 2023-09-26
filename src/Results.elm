@@ -2916,7 +2916,7 @@ viewDraws translations scoringHilight event =
     in
     el [ El.width El.fill, El.htmlAttribute (class "cio__event_draws") ]
         (if List.isEmpty event.draws then
-            El.paragraph [] [ text (translate translations "no_schedule") ]
+            El.paragraph [] [ text (translate translations "no_draws") ]
 
          else
             El.table [ El.htmlAttribute (class "cio__event_draws_table") ]
