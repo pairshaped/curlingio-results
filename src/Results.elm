@@ -941,7 +941,7 @@ teamPositionToString translations position =
                 "alternate"
 
             Nothing ->
-                ""
+                " "
         )
 
 
@@ -3844,6 +3844,9 @@ viewTeam translations flags event team =
         viewTeamLineup : Element Msg
         viewTeamLineup =
             let
+                hasPosition =
+                    List.any (\c -> c.position /= Nothing || c.skip) team.lineup
+
                 hasDelivery =
                     List.any (\c -> c.delivery /= Nothing) team.lineup
 
@@ -3894,14 +3897,27 @@ viewTeam translations flags event team =
                                 [ el
                                     [ El.paddingEach { top = 5, right = 0, bottom = 2, left = 0 }
                                     , El.onRight
-                                        (if curler.skip then
+                                        (if curler.position /= Nothing && curler.skip then
                                             el [ El.paddingXY 0 5, Font.size 12 ] (text (" " ++ translate translations "skip"))
 
                                          else
                                             El.none
                                         )
                                     ]
-                                    (text (teamPositionToString translations curler.position))
+                                    (case curler.position of
+                                        Just position ->
+                                            text (teamPositionToString translations curler.position)
+
+                                        Nothing ->
+                                            if curler.skip then
+                                                text (translate translations "skip")
+
+                                            else if hasPosition then
+                                                text " "
+
+                                            else
+                                                El.none
+                                    )
                                 , if hasDelivery then
                                     -- small
                                     el [ Font.size 12 ] (text (translate translations "delivery" ++ ": " ++ deliveryToString translations curler.delivery))
@@ -4830,25 +4846,6 @@ viewReportTeamRosters translations teams =
                 |> not
 
         viewTeamRoster team =
-            -- let
-            --     viewTeamRosterCurler curler =
-            --         tr []
-            --             [ td [] [ text curler.name ]
-            --             , td []
-            --                 [ text (teamPositionToString translations curler.position)
-            --                 , if curler.skip then
-            --                     sup [ class "ml-1" ] [ text (translate translations "skip") ]
-            --
-            --                   else
-            --                     text ""
-            --                 ]
-            --             , if hasDelivery then
-            --                 td [] [ text (deliveryToString translations curler.delivery) ]
-            --
-            --               else
-            --                 text ""
-            --             ]
-            -- in
             El.table []
                 { data = team.lineup
                 , columns =
