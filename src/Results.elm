@@ -1922,8 +1922,8 @@ view model =
     let
         viewMain =
             row
-                [ El.width El.fill
-                , El.htmlAttribute (class "cio__main")
+                [ El.htmlAttribute (class "cio__main")
+                , El.width El.fill
                 , El.inFront
                     (row [ El.alignRight, El.spacing 10 ]
                         [ el [] (viewReloadButton model)
@@ -1952,10 +1952,12 @@ view model =
                 ]
     in
     El.layout
-        [ El.width El.fill
-        , El.height El.fill
-        , Font.size 16
+        [ Font.size 16
         , Font.color theme.defaultText
+        , El.width (El.fill |> El.maximum 1024)
+        , El.height El.fill
+        , El.scrollbarX
+        , El.clipY
         , Font.family
             [ Font.typeface "-apple-system"
             , Font.typeface "BlinkMacSystemFont"
@@ -2189,7 +2191,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                     in
                     List.filter matches items
     in
-    column [ El.spacing 10, El.width El.fill ]
+    column [ El.spacing 10, El.width El.fill, El.height El.fill ]
         [ row [ El.spacing 20 ]
             [ Input.text [ El.width (El.px 200), El.padding 10, El.htmlAttribute (class "cio__search") ]
                 { placeholder = Just (Input.placeholder [] (text (translate translations "search")))
@@ -2313,11 +2315,11 @@ viewNoDataForRoute translations =
 
 viewSponsor : Sponsor -> Element Msg
 viewSponsor sponsor =
-    column [ El.spacing 10, El.alignTop, El.htmlAttribute (class "cio__sponsor") ]
+    column [ El.spacing 10, El.width El.fill, El.alignTop, El.htmlAttribute (class "cio__sponsor") ]
         [ case sponsor.url of
             Just url ->
-                el [ El.pointer, Events.onClick (NavigateTo url) ]
-                    (El.image [] { src = sponsor.logoUrl, description = Maybe.withDefault "" sponsor.name })
+                el [ El.width El.fill, El.pointer, Events.onClick (NavigateTo url) ]
+                    (El.image [ El.alignRight ] { src = sponsor.logoUrl, description = Maybe.withDefault "" sponsor.name })
 
             Nothing ->
                 El.image [] { src = sponsor.logoUrl, description = Maybe.withDefault "" sponsor.name }
@@ -2332,8 +2334,17 @@ viewSponsor sponsor =
 
 viewProduct : Bool -> List Translation -> Product -> Element Msg
 viewProduct fullScreen translations product =
-    row [ El.spacing 20, El.htmlAttribute (class "cio__product") ]
-        [ column [ El.spacing 20, El.width El.fill, El.alignTop ]
+    row
+        [ El.spacing 20
+        , El.width El.fill
+        , El.htmlAttribute (class "cio__product")
+        ]
+        [ column
+            [ El.spacing 20
+            , El.width El.fill
+            , El.height El.fill
+            , El.alignTop
+            ]
             [ el [ Font.size 28 ] (text product.name)
             , case ( product.description, product.summary ) of
                 ( Just description, _ ) ->
@@ -2416,9 +2427,14 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
                         }
                 )
     in
-    column [ El.width El.fill, El.spacing 20, El.htmlAttribute (class "cio__event") ]
-        [ el [ Font.size 28, Font.medium, El.htmlAttribute (class "cio__event_name") ] (text event.name)
-        , row [ El.width El.fill, El.htmlAttribute (class "cio__event_nav") ]
+    column
+        [ El.width El.fill
+        , El.height El.fill
+        , El.spacing 20
+        , El.htmlAttribute (class "cio__event")
+        ]
+        [ el [ Font.size 28, El.width El.fill, Font.medium, El.htmlAttribute (class "cio__event_name") ] (text event.name)
+        , row [ El.width (El.fill |> El.maximum 1024), El.htmlAttribute (class "cio__event_nav") ]
             (List.map viewNavItem (eventSections flags.excludeEventSections event)
                 ++ (if flags.eventId == Nothing then
                         [ el [ El.alignRight ]
