@@ -1,6 +1,7 @@
 port module Results exposing (init)
 
 import Browser
+import Browser.Dom
 import Browser.Events
 import Browser.Navigation as Navigation
 import CustomSvg exposing (..)
@@ -95,8 +96,6 @@ type alias Translation =
 type alias Flags =
     { host : Maybe String
     , hash : Maybe String
-    , deviceWidth : Int
-    , deviceHeight : Int
     , lang : Maybe String
     , apiKey : Maybe String
     , subdomain : Maybe String
@@ -391,8 +390,6 @@ decodeFlags =
     Decode.succeed Flags
         |> optional "host" (nullable string) Nothing
         |> optional "hash" (nullable string) Nothing
-        |> optional "deviceWidth" int 1200
-        |> optional "deviceHeight" int 800
         |> optional "lang" (nullable string) Nothing
         |> optional "apiKey" (nullable string) Nothing
         |> optional "subdomain" (nullable string) Nothing
@@ -960,6 +957,13 @@ deliveryToString translations delivery =
 
 init : Decode.Value -> ( Model, Cmd Msg )
 init flags_ =
+    let
+        device =
+            El.classifyDevice
+                { width = 800
+                , height = 600
+                }
+    in
     case Decode.decodeValue decodeFlags flags_ of
         Ok flags ->
             let
@@ -995,18 +999,13 @@ init flags_ =
                         Just hash ->
                             hash
 
-                device =
-                    El.classifyDevice
-                        { width = flags.deviceWidth
-                        , height = flags.deviceHeight
-                        }
-
                 newModel =
                     Model flags newHash device False NotAsked NotAsked (ItemFilter 1 0 "" False) NotAsked NotAsked Nothing Nothing timeBetweenReloads
             in
             ( newModel
             , Cmd.batch
-                [ getTranslations flags
+                [ Task.perform InitDevice Browser.Dom.getViewport
+                , getTranslations flags
                 , Tuple.second (getItemsMaybe newModel newHash False)
                 , Tuple.second (getEventMaybe newModel newHash False)
                 , Tuple.second (getProductMaybe newModel newHash)
@@ -1016,13 +1015,7 @@ init flags_ =
         Err error ->
             let
                 flags =
-                    Flags Nothing Nothing 1200 800 Nothing Nothing Nothing False LeaguesSection False [] Nothing Nothing []
-
-                device =
-                    El.classifyDevice
-                        { width = flags.deviceWidth
-                        , height = flags.deviceHeight
-                        }
+                    Flags Nothing Nothing Nothing Nothing Nothing False LeaguesSection False [] Nothing Nothing []
             in
             ( Model flags "" device False NotAsked NotAsked (ItemFilter 1 0 "" False) NotAsked NotAsked Nothing (Just (Decode.errorToString error)) 0
             , Cmd.none
@@ -1713,6 +1706,7 @@ reloadEnabled { flags, hash, event } =
 
 type Msg
     = NoOp
+    | InitDevice Browser.Dom.Viewport
     | Tick Time.Posix
     | SetDevice Int Int
     | NavigateTo String
@@ -1736,6 +1730,16 @@ update msg model =
     case msg of
         NoOp ->
             ( model, Cmd.none )
+
+        InitDevice { viewport } ->
+            let
+                device =
+                    El.classifyDevice
+                        { width = round viewport.width
+                        , height = round viewport.height
+                        }
+            in
+            ( { model | device = device }, Cmd.none )
 
         Tick _ ->
             let
@@ -1923,10 +1927,30 @@ view model =
         viewMain =
             row
                 [ El.htmlAttribute (class "cio__main")
-                , El.width El.fill
+                , El.width
+                    (El.fill
+                        |> El.maximum
+                            (case model.device.class of
+                                El.Phone ->
+                                    599
+
+                                El.Tablet ->
+                                    1199
+
+                                El.Desktop ->
+                                    1200
+
+                                El.BigDesktop ->
+                                    1920
+                            )
+                    )
+                , El.padding 10
+                , El.centerX
+                , El.scrollbarX
+                , El.clipY
                 , El.inFront
-                    (row [ El.alignRight, El.spacing 10 ]
-                        [ el [] (viewReloadButton model)
+                    (row [ El.alignRight, El.spacing 10, El.paddingXY 0 10 ]
+                        [ el [ El.alignTop ] (viewReloadButton model)
                         , if model.flags.fullScreenToggle then
                             el [] (viewFullScreenButton model.fullScreen)
 
@@ -1954,10 +1978,8 @@ view model =
     El.layout
         [ Font.size 16
         , Font.color theme.defaultText
-        , El.width (El.fill |> El.maximum 1024)
+        , El.width El.fill
         , El.height El.fill
-        , El.scrollbarX
-        , El.clipY
         , Font.family
             [ Font.typeface "-apple-system"
             , Font.typeface "BlinkMacSystemFont"
@@ -2034,10 +2056,11 @@ viewRoute model translations =
 
 viewReloadButton : Model -> Element Msg
 viewReloadButton model =
-    if reloadEnabled model then
+    if reloadEnabled model && model.device.class /= El.Phone then
         el
-            [ El.paddingXY 8 4
-            , Font.size 14
+            [ El.paddingXY 8 0
+            , El.alignTop
+            , Font.size 12
             , Font.color theme.secondary
             , El.htmlAttribute (class "cio__reload_button")
             ]
@@ -2391,7 +2414,7 @@ viewProduct fullScreen translations product =
 
 
 viewEvent : Model -> List Translation -> NestedEventRoute -> Event -> Element Msg
-viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
+viewEvent { flags, device, scoringHilight, fullScreen } translations nestedRoute event =
     let
         viewNavItem eventSection =
             let
@@ -2434,7 +2457,7 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
         , El.htmlAttribute (class "cio__event")
         ]
         [ el [ Font.size 28, El.width El.fill, Font.medium, El.htmlAttribute (class "cio__event_name") ] (text event.name)
-        , row [ El.width (El.fill |> El.maximum 1024), El.htmlAttribute (class "cio__event_nav") ]
+        , El.wrappedRow [ El.width El.fill, El.htmlAttribute (class "cio__event_nav") ]
             (List.map viewNavItem (eventSections flags.excludeEventSections event)
                 ++ (if flags.eventId == Nothing then
                         [ el [ El.alignRight ]
@@ -2456,7 +2479,7 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
             )
         , case nestedRoute of
             DetailsRoute ->
-                viewDetails translations event
+                viewDetails device translations event
 
             RegistrationsRoute ->
                 viewRegistrations translations event.registrations
@@ -2494,7 +2517,7 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
             StagesRoute ->
                 case List.head event.stages of
                     Just stage ->
-                        viewStages translations event stage
+                        viewStages device translations event stage
 
                     Nothing ->
                         viewNoDataForRoute translations
@@ -2502,7 +2525,7 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
             StageRoute id ->
                 case List.Extra.find (\s -> s.id == id) event.stages of
                     Just stage ->
-                        viewStages translations event stage
+                        viewStages device translations event stage
 
                     Nothing ->
                         viewNoDataForRoute translations
@@ -2526,8 +2549,8 @@ viewEvent { flags, scoringHilight, fullScreen } translations nestedRoute event =
         ]
 
 
-viewDetails : List Translation -> Event -> Element Msg
-viewDetails translations event =
+viewDetails : Device -> List Translation -> Event -> Element Msg
+viewDetails device translations event =
     row [ El.spacing 20, El.htmlAttribute (class "cio__event_details") ]
         [ column [ El.spacing 20, El.width El.fill, El.alignTop ]
             [ case ( event.description, event.summary ) of
@@ -2556,7 +2579,7 @@ viewDetails translations event =
 
                 _ ->
                     El.none
-            , row [ El.width El.fill, El.spacing 30 ]
+            , row [ El.width El.fill, El.spacing 20 ]
                 [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_starts_on") ]
                     [ el [ Font.bold ] (text (translate translations "starts_on"))
                     , el [] (text event.startsOn)
@@ -2566,7 +2589,7 @@ viewDetails translations event =
                     , el [] (text event.endsOn)
                     ]
                 ]
-            , row [ El.width El.fill, El.spacing 30 ]
+            , row [ El.width El.fill, El.spacing 20 ]
                 [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_registration_opens_at") ]
                     [ el [ Font.bold ] (text (translate translations "registration_opens_at"))
                     , el [] (text (Maybe.withDefault "" event.registrationOpensAt))
@@ -2576,7 +2599,7 @@ viewDetails translations event =
                     , el [] (text (Maybe.withDefault "" event.registrationClosesAt))
                     ]
                 ]
-            , row [ El.width El.fill, El.spacing 30 ]
+            , row [ El.width El.fill, El.spacing 20 ]
                 [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_team_restriction") ]
                     [ el [ Font.bold ] (text (translate translations "team_restriction"))
                     , el [] (text event.teamRestriction)
@@ -2597,7 +2620,11 @@ viewDetails translations event =
             ]
         , case event.sponsor of
             Just sponsor ->
-                viewSponsor sponsor
+                if device.class == El.Phone then
+                    El.none
+
+                else
+                    viewSponsor sponsor
 
             Nothing ->
                 El.none
@@ -3045,8 +3072,8 @@ viewTeams translations event =
         )
 
 
-viewStages : List Translation -> Event -> Stage -> Element Msg
-viewStages translations event onStage =
+viewStages : El.Device -> List Translation -> Event -> Stage -> Element Msg
+viewStages device translations event onStage =
     let
         teams =
             teamsWithGames event.teams onStage.games
@@ -3113,40 +3140,69 @@ viewStages translations event onStage =
 
                 teamColumn =
                     Just
-                        { header = tableHeader "team"
+                        { header = tableHeader " "
                         , width = El.fill
                         , view =
                             \i teamResult ->
+                                let
+                                    teamName =
+                                        if device.class == El.Phone then
+                                            teamResult.team.shortName
+
+                                        else
+                                            teamResult.team.name
+                                in
                                 tableCell i
                                     (if teamHasDetails teamResult.team then
                                         button
                                             [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                                             { onPress = Just (NavigateTo (teamUrl event.id teamResult.team))
-                                            , label = text teamResult.team.name
+                                            , label = text teamName
                                             }
 
                                      else
-                                        text teamResult.team.name
+                                        text teamName
                                     )
                         }
 
                 gamesColumn =
                     Just
-                        { header = tableHeader "games"
+                        { header =
+                            tableHeader
+                                (if device.class == El.Phone then
+                                    "G"
+
+                                 else
+                                    "games"
+                                )
                         , width = El.fill
                         , view = \i teamResult -> tableCell i (text (String.fromInt teamResult.gamesPlayed))
                         }
 
                 winsColumn =
                     Just
-                        { header = tableHeader "wins"
+                        { header =
+                            tableHeader
+                                (if device.class == El.Phone then
+                                    "W"
+
+                                 else
+                                    "wins"
+                                )
                         , width = El.fill
                         , view = \i teamResult -> tableCell i (text (String.fromInt teamResult.wins))
                         }
 
                 lossesColumn =
                     Just
-                        { header = tableHeader "losses"
+                        { header =
+                            tableHeader
+                                (if device.class == El.Phone then
+                                    "L"
+
+                                 else
+                                    "losses"
+                                )
                         , width = El.fill
                         , view = \i teamResult -> tableCell i (text (String.fromInt teamResult.losses))
                         }
@@ -3154,7 +3210,14 @@ viewStages translations event onStage =
                 tiesColumn =
                     if hasTies then
                         Just
-                            { header = tableHeader "ties"
+                            { header =
+                                tableHeader
+                                    (if device.class == El.Phone then
+                                        "T"
+
+                                     else
+                                        "ties"
+                                    )
                             , width = El.fill
                             , view = \i teamResult -> tableCell i (text (String.fromInt teamResult.ties))
                             }
@@ -3165,7 +3228,14 @@ viewStages translations event onStage =
                 pointsColumn =
                     if hasPoints then
                         Just
-                            { header = tableHeader "points"
+                            { header =
+                                tableHeader
+                                    (if device.class == El.Phone then
+                                        "P"
+
+                                     else
+                                        "points"
+                                    )
                             , width = El.fill
                             , view = \i teamResult -> tableCell i (text (String.fromFloat teamResult.points))
                             }
