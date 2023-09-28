@@ -87,16 +87,10 @@ type ScoringHilight
     | Hilight5PlusPointEnds
 
 
-type alias Translation =
-    { key : String
-    , label : String
-    }
-
-
 type alias Flags =
     { host : Maybe String
     , hash : Maybe String
-    , lang : Maybe String
+    , lang : String
     , apiKey : Maybe String
     , subdomain : Maybe String
     , fullScreenToggle : Bool
@@ -106,6 +100,12 @@ type alias Flags =
     , defaultEventSection : Maybe String
     , eventId : Maybe Int
     , loggedInCurlerIds : List Int
+    }
+
+
+type alias Translation =
+    { key : String
+    , label : String
     }
 
 
@@ -388,9 +388,9 @@ decodeFlags =
                     )
     in
     Decode.succeed Flags
-        |> optional "host" (nullable string) Nothing
-        |> optional "hash" (nullable string) Nothing
-        |> optional "lang" (nullable string) Nothing
+        |> required "host" (nullable string)
+        |> required "hash" (nullable string)
+        |> optional "lang" string "en"
         |> optional "apiKey" (nullable string) Nothing
         |> optional "subdomain" (nullable string) Nothing
         |> optional "fullScreenToggle" bool False
@@ -404,34 +404,34 @@ decodeFlags =
 
 decodeTranslations : Decoder (List Translation)
 decodeTranslations =
+    let
+        decodeTranslation : Decoder Translation
+        decodeTranslation =
+            Decode.succeed Translation
+                |> required "key" string
+                |> required "label" string
+    in
     list decodeTranslation
-
-
-decodeTranslation : Decoder Translation
-decodeTranslation =
-    Decode.succeed Translation
-        |> required "key" string
-        |> required "label" string
 
 
 decodeItems : Decoder (List Item)
 decodeItems =
+    let
+        decodeItem : Decoder Item
+        decodeItem =
+            Decode.succeed Item
+                |> required "id" int
+                |> required "name" string
+                |> optional "summary" (nullable string) Nothing
+                |> optional "occurs_on" (nullable string) Nothing
+                |> optional "location" (nullable string) Nothing
+                |> optional "no_registration_message" (nullable string) Nothing
+                |> optional "price" (nullable string) Nothing
+                |> optional "add_to_cart_url" (nullable string) Nothing
+                |> optional "add_to_cart_text" (nullable string) Nothing
+                |> optional "publish_results" bool False
+    in
     list decodeItem
-
-
-decodeItem : Decoder Item
-decodeItem =
-    Decode.succeed Item
-        |> required "id" int
-        |> required "name" string
-        |> optional "summary" (nullable string) Nothing
-        |> optional "occurs_on" (nullable string) Nothing
-        |> optional "location" (nullable string) Nothing
-        |> optional "no_registration_message" (nullable string) Nothing
-        |> optional "price" (nullable string) Nothing
-        |> optional "add_to_cart_url" (nullable string) Nothing
-        |> optional "add_to_cart_text" (nullable string) Nothing
-        |> optional "publish_results" bool False
 
 
 decodeSponsor : Decoder Sponsor
@@ -1000,7 +1000,19 @@ init flags_ =
                             hash
 
                 newModel =
-                    Model flags newHash device False NotAsked NotAsked (ItemFilter 1 0 "" False) NotAsked NotAsked Nothing Nothing timeBetweenReloads
+                    { flags = flags
+                    , hash = newHash
+                    , device = device
+                    , fullScreen = False
+                    , translations = NotAsked
+                    , items = NotAsked
+                    , itemFilter = ItemFilter 1 0 "" False
+                    , product = NotAsked
+                    , event = NotAsked
+                    , scoringHilight = Nothing
+                    , errorMsg = Nothing
+                    , reloadIn = timeBetweenReloads
+                    }
             in
             ( newModel
             , Cmd.batch
@@ -1015,9 +1027,33 @@ init flags_ =
         Err error ->
             let
                 flags =
-                    Flags Nothing Nothing Nothing Nothing Nothing False LeaguesSection False [] Nothing Nothing []
+                    { host = Nothing
+                    , hash = Nothing
+                    , lang = "en"
+                    , apiKey = Nothing
+                    , subdomain = Nothing
+                    , fullScreenToggle = False
+                    , section = LeaguesSection
+                    , registration = False
+                    , excludeEventSections = []
+                    , defaultEventSection = Nothing
+                    , eventId = Nothing
+                    , loggedInCurlerIds = []
+                    }
             in
-            ( Model flags "" device False NotAsked NotAsked (ItemFilter 1 0 "" False) NotAsked NotAsked Nothing (Just (Decode.errorToString error)) 0
+            ( { flags = flags
+              , hash = ""
+              , device = device
+              , fullScreen = False
+              , translations = NotAsked
+              , items = NotAsked
+              , itemFilter = ItemFilter 1 0 "" False
+              , product = NotAsked
+              , event = NotAsked
+              , scoringHilight = Nothing
+              , errorMsg = Just (Decode.errorToString error)
+              , reloadIn = 0
+              }
             , Cmd.none
             )
 
@@ -1046,15 +1082,15 @@ baseUrl { host, lang } =
     let
         devUrl =
             -- Development
-            "http://api.curling.test:3000/" ++ Maybe.withDefault "en" lang
+            "http://api.curling.test:3000/" ++ lang
 
         -- productionUrl =
         --     -- Production without caching
-        --     "https://api.curling.io/" ++ Maybe.withDefault "en" lang
+        --     "https://api.curling.io/" ++ lang
         --
         productionCachedUrl =
             -- Production cached via CDN (Fastly)
-            "https://api-curlingio.global.ssl.fastly.net/" ++ Maybe.withDefault "en" lang
+            "https://api-curlingio.global.ssl.fastly.net/" ++ lang
     in
     case host of
         Just h ->
@@ -1094,10 +1130,10 @@ baseClubSubdomainUrl flags =
     let
         devUrl =
             -- Development
-            "http://" ++ clubId flags ++ ".curling.test:3000/" ++ Maybe.withDefault "en" flags.lang
+            "http://" ++ clubId flags ++ ".curling.test:3000/" ++ flags.lang
 
         productionUrl =
-            "https://" ++ clubId flags ++ ".curling.io/" ++ Maybe.withDefault "en" flags.lang
+            "https://" ++ clubId flags ++ ".curling.io/" ++ flags.lang
     in
     case flags.host of
         Just h ->
