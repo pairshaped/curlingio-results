@@ -3,20 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Curling I/O - Current Draws</title>
+  <title>Curling I/O - Current Games Dev</title>
   <link rel="icon" href="data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAAC">
-  <script src="draws-dev.js"></script>
+  <script src="current-games-dev.js"></script>
 </head>
 <body>
   <!-- <div style="padding: 20px; margin: 20px; width: 100%; height: 100px; font&#45;size: 36px; text&#45;align: center;">Website Content</div> -->
-  <div id="curlingio_current_draws"></div>
+  <div id="curlingio_current_games"></div>
   <script>
-    var scoring = Elm.CurrentDraws.init(
+    var scoring = Elm.CurrentGames.init(
       {
-        node: document.getElementById("curlingio_current_draws"),
+        node: document.getElementById("curlingio_current_games"),
         flags: {
           subdomain: "demo",
-          section: "leagues",
+          // lang: "en",
+          // theme: {
+          //   primary: "#ed1940",
+          //   secondary: "#5c5c5c",
+          // },
           // host: "demo.curling.io"  // To pull in the demo server data during development.
           host: document.location.host
         }

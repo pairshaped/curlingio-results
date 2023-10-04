@@ -1,7 +1,7 @@
 {
   "scripts": {
     "start": "elm-live src/Results.elm --start-page=dev.html --open -- --output=dev.js --debug",
-    "draws": "elm-live src/CurrentDraws.elm --start-page=draws-dev.html --open -- --output=draws-dev.js --debug"
+    "current": "elm-live src/CurrentGames.elm --start-page=current-games-dev.html --open -- --output=current-games-dev.js --debug"
   },
   "dependencies": {
     "elm": "^0.19.1-5",

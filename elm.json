@@ -18,7 +18,8 @@
             "elm-community/list-extra": "8.6.0",
             "krisajenkins/remotedata": "6.0.1",
             "mdgriffith/elm-ui": "1.1.8",
-            "ohanhi/remotedata-http": "4.0.0"
+            "ohanhi/remotedata-http": "4.0.0",
+            "rtfeldman/elm-hex": "1.0.0"
         },
         "indirect": {
             "elm/bytes": "1.0.8",

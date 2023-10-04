@@ -1,5 +1,7 @@
 port module Results exposing (init)
 
+-- import Element.HexColor as HexColor
+
 import Browser
 import Browser.Dom
 import Browser.Events
@@ -16,11 +18,12 @@ import Html exposing (Html)
 import Html.Attributes exposing (class, style)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
-import Json.Decode.Pipeline exposing (hardcoded, optional, required)
+import Json.Decode.Pipeline exposing (optional, required)
 import List.Extra
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Task
+import Theme exposing (Theme, decodeTheme, defaultTheme)
 import Time
 import Url
 import Url.Parser exposing ((</>), Parser)
@@ -99,6 +102,7 @@ type alias Flags =
     , excludeEventSections : List String
     , defaultEventSection : Maybe String
     , eventId : Maybe Int
+    , theme : Theme
     , loggedInCurlerIds : List Int
     }
 
@@ -399,6 +403,7 @@ decodeFlags =
         |> optional "excludeEventSections" (list string) []
         |> optional "defaultEventSection" (nullable string) Nothing
         |> optional "eventId" (nullable int) Nothing
+        |> optional "theme" decodeTheme defaultTheme
         |> optional "loggedInCurlerIds" (list int) []
 
 
@@ -1038,6 +1043,7 @@ init flags_ =
                     , excludeEventSections = []
                     , defaultEventSection = Nothing
                     , eventId = Nothing
+                    , theme = defaultTheme
                     , loggedInCurlerIds = []
                     }
             in
@@ -1913,48 +1919,24 @@ update msg model =
 
 
 
--- COLORS
-
-
-theme =
-    { primary = El.rgb255 237 25 64
-    , primaryFocused = El.rgb255 197 10 49
-    , secondary = El.rgb255 108 117 125
-    , secondaryFocused = El.rgb255 128 137 155
-    , white = El.rgb255 255 255 255
-    , greyLight = El.rgba 0 0 0 0.05
-    , grey = El.rgba 0 0 0 0.1
-    , greyMedium = El.rgba 0 0 0 0.2
-    , greyStrong = El.rgba 0 0 0 0.4
-    , greyDark = El.rgba 0 0 0 0.6
-    , defaultText = El.rgb255 33 37 41
-    , transparent = El.rgba 1 1 1 0
-    }
-
-
-
 -- VIEWS
 
 
-viewButton textColor bgColor bgColorFocused content msg =
+viewButton textColor bgColor content msg =
     button
         [ Background.color bgColor
         , Font.color textColor
         , El.paddingXY 12 10
         , Border.rounded 4
-        , El.focused [ Background.color bgColorFocused ]
+        , El.focused [ Background.color bgColor ]
         ]
         { onPress = Just msg
         , label = text content
         }
 
 
-viewButtonPrimary content msg =
-    viewButton theme.white theme.primary theme.primaryFocused content msg
-
-
-viewButtonSecondary content msg =
-    viewButton theme.white theme.secondary theme.secondaryFocused content msg
+viewButtonPrimary theme content msg =
+    viewButton theme.white theme.primary content msg
 
 
 view : Model -> Html Msg
@@ -1986,9 +1968,9 @@ view model =
                 , El.clipY
                 , El.inFront
                     (row [ El.alignRight, El.spacing 10, El.paddingXY 0 10 ]
-                        [ el [ El.alignTop ] (viewReloadButton model)
+                        [ el [ El.alignTop ] (viewReloadButton theme model)
                         , if model.flags.fullScreenToggle then
-                            el [] (viewFullScreenButton model.fullScreen)
+                            el [] (viewFullScreenButton theme model.fullScreen)
 
                           else
                             El.none
@@ -2002,7 +1984,7 @@ view model =
                     Nothing ->
                         case model.translations of
                             Success translations ->
-                                viewRoute model translations
+                                viewRoute theme translations model
 
                             Failure error ->
                                 viewFetchError model (errorMessage error)
@@ -2010,6 +1992,9 @@ view model =
                             _ ->
                                 viewNotReady model.fullScreen "Loading..."
                 ]
+
+        theme =
+            model.flags.theme
     in
     El.layout
         [ Font.size 16
@@ -2049,8 +2034,8 @@ view model =
             viewMain
 
 
-viewRoute : Model -> List Translation -> Element Msg
-viewRoute model translations =
+viewRoute : Theme -> List Translation -> Model -> Element Msg
+viewRoute theme translations model =
     let
         viewLoading =
             viewNotReady model.fullScreen "Loading..."
@@ -2059,7 +2044,7 @@ viewRoute model translations =
         ItemsRoute ->
             case model.items of
                 Success items ->
-                    viewItems model translations items
+                    viewItems theme translations model items
 
                 Failure error ->
                     viewFetchError model (errorMessage error)
@@ -2070,7 +2055,7 @@ viewRoute model translations =
         ProductRoute id ->
             case model.product of
                 Success product ->
-                    viewProduct model.fullScreen translations product
+                    viewProduct theme translations model.fullScreen product
 
                 Failure error ->
                     viewFetchError model (errorMessage error)
@@ -2081,7 +2066,7 @@ viewRoute model translations =
         EventRoute id nestedRoute ->
             case model.event of
                 Success event ->
-                    viewEvent model translations nestedRoute event
+                    viewEvent theme translations model nestedRoute event
 
                 Failure error ->
                     viewFetchError model (errorMessage error)
@@ -2090,8 +2075,8 @@ viewRoute model translations =
                     viewLoading
 
 
-viewReloadButton : Model -> Element Msg
-viewReloadButton model =
+viewReloadButton : Theme -> Model -> Element Msg
+viewReloadButton theme model =
     if reloadEnabled model && model.device.class /= El.Phone then
         el
             [ El.paddingXY 8 0
@@ -2106,8 +2091,8 @@ viewReloadButton model =
         El.none
 
 
-viewFullScreenButton : Bool -> Element Msg
-viewFullScreenButton fullScreen =
+viewFullScreenButton : Theme -> Bool -> Element Msg
+viewFullScreenButton theme fullScreen =
     button [ El.focused [ Background.color theme.transparent ] ]
         { onPress = Just ToggleFullScreen
         , label =
@@ -2125,18 +2110,18 @@ viewNotReady fullScreen message =
 
 
 viewFetchError : Model -> String -> Element Msg
-viewFetchError { fullScreen, hash } message =
+viewFetchError { flags, fullScreen, hash } message =
     row
         [ El.htmlAttribute (class "cio__fetch_error") ]
         [ column [ El.spacing 10 ]
             [ el [] (text message)
-            , viewButtonPrimary "Reload" Reload
+            , viewButtonPrimary flags.theme "Reload" Reload
             ]
         ]
 
 
-viewItems : Model -> List Translation -> List Item -> Element Msg
-viewItems { flags, fullScreen, itemFilter } translations items =
+viewItems : Theme -> List Translation -> Model -> List Item -> Element Msg
+viewItems theme translations { flags, fullScreen, itemFilter } items =
     let
         viewPaging =
             let
@@ -2147,7 +2132,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                         , Border.rounded 3
                         , Font.color theme.white
                         , Background.color theme.primary
-                        , El.focused [ Background.color theme.primaryFocused ]
+                        , El.focused [ Background.color theme.primary ]
                         ]
                         { onPress = Just msg
                         , label = text content
@@ -2182,7 +2167,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                         , El.padding 10
                         , Events.onClick (UpdateSeasonDelta delta)
                         , if delta == itemFilter.seasonDelta then
-                            Background.color theme.grey
+                            Background.color theme.greyLight
 
                           else
                             Background.color theme.transparent
@@ -2250,7 +2235,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                     in
                     List.filter matches items
     in
-    column [ El.spacing 10, El.width El.fill, El.height El.fill ]
+    column [ El.spacing 10, El.width El.fill, El.height (El.fill |> El.minimum 210) ]
         [ row [ El.spacing 20 ]
             [ Input.text [ El.width (El.px 200), El.padding 10, El.htmlAttribute (class "cio__search") ]
                 { placeholder = Just (Input.placeholder [] (text (translate translations "search")))
@@ -2327,7 +2312,7 @@ viewItems { flags, fullScreen, itemFilter } translations items =
                                                 , El.alignRight
                                                 , El.padding 8
                                                 , Border.rounded 3
-                                                , El.focused [ Background.color theme.primaryFocused ]
+                                                , El.focused [ Background.color theme.primary ]
                                                 ]
                                                 { onPress = Just (NavigateOut addToCartUrl)
                                                 , label = text addToCartText
@@ -2391,8 +2376,8 @@ viewSponsor sponsor =
         ]
 
 
-viewProduct : Bool -> List Translation -> Product -> Element Msg
-viewProduct fullScreen translations product =
+viewProduct : Theme -> List Translation -> Bool -> Product -> Element Msg
+viewProduct theme translations fullScreen product =
     row
         [ El.spacing 20
         , El.width El.fill
@@ -2426,7 +2411,7 @@ viewProduct fullScreen translations product =
             , case ( product.addToCartUrl, product.addToCartText ) of
                 ( Just addToCartUrl, Just addToCartText ) ->
                     El.paragraph [ El.htmlAttribute (class "cio__product_add_to_cart") ]
-                        [ viewButtonPrimary addToCartText (NavigateOut addToCartUrl)
+                        [ viewButtonPrimary theme addToCartText (NavigateOut addToCartUrl)
                         ]
 
                 _ ->
@@ -2449,8 +2434,8 @@ viewProduct fullScreen translations product =
         ]
 
 
-viewEvent : Model -> List Translation -> NestedEventRoute -> Event -> Element Msg
-viewEvent { flags, device, scoringHilight, fullScreen } translations nestedRoute event =
+viewEvent : Theme -> List Translation -> Model -> NestedEventRoute -> Event -> Element Msg
+viewEvent theme translations { flags, device, scoringHilight, fullScreen } nestedRoute event =
     let
         viewNavItem eventSection =
             let
@@ -2515,18 +2500,18 @@ viewEvent { flags, device, scoringHilight, fullScreen } translations nestedRoute
             )
         , case nestedRoute of
             DetailsRoute ->
-                viewDetails device translations event
+                viewDetails theme device translations event
 
             RegistrationsRoute ->
-                viewRegistrations translations event.registrations
+                viewRegistrations theme translations event.registrations
 
             DrawsRoute ->
-                viewDraws translations scoringHilight event
+                viewDraws theme translations scoringHilight event
 
             DrawRoute drawId ->
                 case List.Extra.find (\d -> d.id == drawId) event.draws of
                     Just draw ->
-                        viewDraw translations scoringHilight event draw
+                        viewDraw theme translations scoringHilight event draw
 
                     Nothing ->
                         viewNoDataForRoute translations
@@ -2545,7 +2530,7 @@ viewEvent { flags, device, scoringHilight, fullScreen } translations nestedRoute
                             sheetLabel =
                                 sheetNameForGame event (Just game)
                         in
-                        viewGame translations scoringHilight event sheetLabel True draw game
+                        viewGame theme translations scoringHilight event sheetLabel True draw game
 
                     _ ->
                         viewNoDataForRoute translations
@@ -2553,7 +2538,7 @@ viewEvent { flags, device, scoringHilight, fullScreen } translations nestedRoute
             StagesRoute ->
                 case List.head event.stages of
                     Just stage ->
-                        viewStages device translations event stage
+                        viewStages theme device translations event stage
 
                     Nothing ->
                         viewNoDataForRoute translations
@@ -2561,32 +2546,32 @@ viewEvent { flags, device, scoringHilight, fullScreen } translations nestedRoute
             StageRoute id ->
                 case List.Extra.find (\s -> s.id == id) event.stages of
                     Just stage ->
-                        viewStages device translations event stage
+                        viewStages theme device translations event stage
 
                     Nothing ->
                         viewNoDataForRoute translations
 
             TeamsRoute ->
-                viewTeams translations event
+                viewTeams theme translations event
 
             TeamRoute id ->
                 case List.Extra.find (\t -> t.id == id) event.teams of
                     Just team ->
-                        viewTeam translations flags event team
+                        viewTeam theme translations flags event team
 
                     Nothing ->
                         viewNoDataForRoute translations
 
             ReportsRoute ->
-                viewReports translations event
+                viewReports theme translations event
 
             ReportRoute report ->
-                viewReport translations scoringHilight event report
+                viewReport theme translations scoringHilight event report
         ]
 
 
-viewDetails : Device -> List Translation -> Event -> Element Msg
-viewDetails device translations event =
+viewDetails : Theme -> Device -> List Translation -> Event -> Element Msg
+viewDetails theme device translations event =
     row [ El.spacing 20, El.htmlAttribute (class "cio__event_details") ]
         [ column [ El.spacing 20, El.width El.fill, El.alignTop ]
             [ case ( event.description, event.summary ) of
@@ -2610,7 +2595,7 @@ viewDetails device translations event =
             , case ( event.addToCartUrl, event.addToCartText ) of
                 ( Just addToCartUrl, Just addToCartText ) ->
                     El.paragraph [ El.paddingEach { top = 10, right = 0, bottom = 20, left = 0 }, El.htmlAttribute (class "cio__event_add_to_cart") ]
-                        [ viewButtonPrimary addToCartText (NavigateOut addToCartUrl)
+                        [ viewButtonPrimary theme addToCartText (NavigateOut addToCartUrl)
                         ]
 
                 _ ->
@@ -2667,8 +2652,8 @@ viewDetails device translations event =
         ]
 
 
-viewRegistrations : List Translation -> List Registration -> Element Msg
-viewRegistrations translations registrations =
+viewRegistrations : Theme -> List Translation -> List Registration -> Element Msg
+viewRegistrations theme translations registrations =
     let
         hasCurlers =
             List.any (\r -> r.curlerName /= Nothing) registrations
@@ -2802,8 +2787,8 @@ viewRegistrations translations registrations =
         )
 
 
-viewDraws : List Translation -> Maybe ScoringHilight -> Event -> Element Msg
-viewDraws translations scoringHilight event =
+viewDraws : Theme -> List Translation -> Maybe ScoringHilight -> Event -> Element Msg
+viewDraws theme translations scoringHilight event =
     let
         isDrawActive : Draw -> Bool
         isDrawActive draw =
@@ -3005,8 +2990,8 @@ viewDraws translations scoringHilight event =
         )
 
 
-viewTeams : List Translation -> Event -> Element Msg
-viewTeams translations event =
+viewTeams : Theme -> List Translation -> Event -> Element Msg
+viewTeams theme translations event =
     let
         hasCoaches =
             List.any (\t -> t.coach /= Nothing) event.teams
@@ -3108,8 +3093,8 @@ viewTeams translations event =
         )
 
 
-viewStages : El.Device -> List Translation -> Event -> Stage -> Element Msg
-viewStages device translations event onStage =
+viewStages : Theme -> El.Device -> List Translation -> Event -> Stage -> Element Msg
+viewStages theme device translations event onStage =
     let
         teams =
             teamsWithGames event.teams onStage.games
@@ -3118,7 +3103,7 @@ viewStages device translations event onStage =
             button
                 [ El.paddingXY 18 10
                 , El.focused [ Background.color theme.transparent ]
-                , Border.color theme.greyMedium
+                , Border.color theme.grey
                 , Font.color
                     (if stage.id == onStage.id then
                         theme.defaultText
@@ -3355,7 +3340,7 @@ viewStages device translations event onStage =
 
                                                   else
                                                     Border.width 0
-                                                , Border.color theme.greyMedium
+                                                , Border.color theme.grey
                                                 ]
                                                 (text label)
 
@@ -3378,9 +3363,9 @@ viewStages device translations event onStage =
                                         , label =
                                             column
                                                 [ El.width (El.px 178)
-                                                , Background.color theme.grey
+                                                , Background.color theme.greyLight
                                                 , Border.width 1
-                                                , Border.color theme.greyMedium
+                                                , Border.color theme.grey
                                                 , El.htmlAttribute (style "position" "absolute")
                                                 , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
                                                 , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize) ++ "px"))
@@ -3397,7 +3382,7 @@ viewStages device translations event onStage =
                                                             theme.primary
 
                                                          else
-                                                            theme.greyStrong
+                                                            theme.secondary
                                                         )
                                                     ]
                                                     (el [] (text game.name))
@@ -3516,8 +3501,8 @@ viewStages device translations event onStage =
 -- REPORTS
 
 
-viewReports : List Translation -> Event -> Element Msg
-viewReports translations event =
+viewReports : Theme -> List Translation -> Event -> Element Msg
+viewReports theme translations event =
     let
         hasAttendance =
             (List.map .attendance event.draws |> List.sum) > 0
@@ -3573,8 +3558,8 @@ viewReports translations event =
         ]
 
 
-viewDraw : List Translation -> Maybe ScoringHilight -> Event -> Draw -> Element Msg
-viewDraw translations scoringHilight event draw =
+viewDraw : Theme -> List Translation -> Maybe ScoringHilight -> Event -> Draw -> Element Msg
+viewDraw theme translations scoringHilight event draw =
     let
         viewDrawSheet gameId =
             let
@@ -3587,7 +3572,7 @@ viewDraw translations scoringHilight event draw =
             in
             case game of
                 Just game_ ->
-                    viewGame translations scoringHilight event sheetLabel False draw game_
+                    viewGame theme translations scoringHilight event sheetLabel False draw game_
 
                 Nothing ->
                     El.none
@@ -3600,8 +3585,8 @@ viewDraw translations scoringHilight event draw =
         ]
 
 
-viewGame : List Translation -> Maybe ScoringHilight -> Event -> String -> Bool -> Draw -> Game -> Element Msg
-viewGame translations scoringHilight event sheetLabel detailed draw game =
+viewGame : Theme -> List Translation -> Maybe ScoringHilight -> Event -> String -> Bool -> Draw -> Game -> Element Msg
+viewGame theme translations scoringHilight event sheetLabel detailed draw game =
     let
         maxNumberOfEnds =
             List.map (\s -> List.length s.endScores) game.sides
@@ -3663,7 +3648,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
                     [ Font.color theme.primary
                     , Font.italic
                     , El.padding 8
-                    , El.focused [ Background.color theme.primaryFocused ]
+                    , El.focused [ Background.color theme.primary ]
                     ]
                     { onPress = Just (NavigateTo gamePath), label = label }
 
@@ -3951,7 +3936,7 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
             column [ El.width El.fill, El.paddingXY 0 10 ]
                 [ List.map (findTeamForSide event.teams) game.sides
                     |> List.filterMap identity
-                    |> viewReportScoringAnalysis translations scoringHilight event
+                    |> viewReportScoringAnalysis theme translations scoringHilight event
                 ]
 
           else
@@ -3959,8 +3944,8 @@ viewGame translations scoringHilight event sheetLabel detailed draw game =
         ]
 
 
-viewTeam : List Translation -> Flags -> Event -> Team -> Element Msg
-viewTeam translations flags event team =
+viewTeam : Theme -> List Translation -> Flags -> Event -> Team -> Element Msg
+viewTeam theme translations flags event team =
     let
         viewTeamLineup : Element Msg
         viewTeamLineup =
@@ -4351,34 +4336,34 @@ viewTeam translations flags event team =
         ]
 
 
-viewReport : List Translation -> Maybe ScoringHilight -> Event -> String -> Element Msg
-viewReport translations scoringHilight event report =
+viewReport : Theme -> List Translation -> Maybe ScoringHilight -> Event -> String -> Element Msg
+viewReport theme translations scoringHilight event report =
     case report of
         "attendance" ->
-            viewReportAttendance translations event.draws
+            viewReportAttendance theme translations event.draws
 
         "scoring_analysis" ->
             let
                 games =
                     gamesFromStages event.stages
             in
-            viewReportScoringAnalysis translations scoringHilight event (teamsWithGames event.teams games)
+            viewReportScoringAnalysis theme translations scoringHilight event (teamsWithGames event.teams games)
 
         "scoring_analysis_by_hammer" ->
-            viewReportScoringAnalysisByHammer translations event
+            viewReportScoringAnalysisByHammer theme translations event
 
         "team_rosters" ->
-            viewReportTeamRosters translations event.teams
+            viewReportTeamRosters theme translations event.teams
 
         "competition_matrix" ->
-            viewReportCompetitionMatrix translations event
+            viewReportCompetitionMatrix theme translations event
 
         _ ->
             viewNoDataForRoute translations
 
 
-viewReportScoringAnalysis : List Translation -> Maybe ScoringHilight -> Event -> List Team -> Element Msg
-viewReportScoringAnalysis translations scoringHilight event teams =
+viewReportScoringAnalysis : Theme -> List Translation -> Maybe ScoringHilight -> Event -> List Team -> Element Msg
+viewReportScoringAnalysis theme translations scoringHilight event teams =
     let
         rows =
             -- TODO: Structure the data so that for and against are just rows, but when rendering we know due to missing data or a flag which is which.
@@ -4792,8 +4777,8 @@ viewReportScoringAnalysis translations scoringHilight event teams =
         ]
 
 
-viewReportScoringAnalysisByHammer : List Translation -> Event -> Element Msg
-viewReportScoringAnalysisByHammer translations event =
+viewReportScoringAnalysisByHammer : Theme -> List Translation -> Event -> Element Msg
+viewReportScoringAnalysisByHammer theme translations event =
     let
         games : List Game
         games =
@@ -4954,8 +4939,8 @@ viewReportScoringAnalysisByHammer translations event =
         ]
 
 
-viewReportTeamRosters : List Translation -> List Team -> Element Msg
-viewReportTeamRosters translations teams =
+viewReportTeamRosters : Theme -> List Translation -> List Team -> Element Msg
+viewReportTeamRosters theme translations teams =
     let
         hasDelivery =
             let
@@ -5048,8 +5033,8 @@ viewReportTeamRosters translations teams =
         ]
 
 
-viewReportCompetitionMatrix : List Translation -> Event -> Element Msg
-viewReportCompetitionMatrix translations event =
+viewReportCompetitionMatrix : Theme -> List Translation -> Event -> Element Msg
+viewReportCompetitionMatrix theme translations event =
     let
         viewStageMatrix stage =
             let
@@ -5181,8 +5166,8 @@ viewReportCompetitionMatrix translations event =
         ]
 
 
-viewReportAttendance : List Translation -> List Draw -> Element Msg
-viewReportAttendance translations draws =
+viewReportAttendance : Theme -> List Translation -> List Draw -> Element Msg
+viewReportAttendance theme translations draws =
     let
         viewAttendanceRow idx draw =
             let

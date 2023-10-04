@@ -9803,23 +9803,302 @@ var $elm$core$Basics$never = function (_v0) {
 };
 var $elm$browser$Browser$element = _Browser_element;
 var $krisajenkins$remotedata$RemoteData$NotAsked = {$: 'NotAsked'};
-var $author$project$CurrentDraws$Flags = F4(
-	function (host, lang, subdomain, section) {
-		return {host: host, lang: lang, section: section, subdomain: subdomain};
+var $author$project$CurrentGames$Flags = F5(
+	function (subdomain, lang, host, showEndScores, theme) {
+		return {host: host, lang: lang, showEndScores: showEndScores, subdomain: subdomain, theme: theme};
 	});
+var $elm$json$Json$Decode$bool = _Json_decodeBool;
+var $author$project$Theme$Theme = F8(
+	function (defaultText, white, transparent, grey, greyLight, greyDark, primary, secondary) {
+		return {defaultText: defaultText, grey: grey, greyDark: greyDark, greyLight: greyLight, primary: primary, secondary: secondary, transparent: transparent, white: white};
+	});
+var $elm$json$Json$Decode$andThen = _Json_andThen;
+var $elm$core$String$cons = _String_cons;
+var $elm$core$String$fromChar = function (_char) {
+	return A2($elm$core$String$cons, _char, '');
+};
+var $elm$core$Basics$pow = _Basics_pow;
+var $rtfeldman$elm_hex$Hex$fromStringHelp = F3(
+	function (position, chars, accumulated) {
+		fromStringHelp:
+		while (true) {
+			if (!chars.b) {
+				return $elm$core$Result$Ok(accumulated);
+			} else {
+				var _char = chars.a;
+				var rest = chars.b;
+				switch (_char.valueOf()) {
+					case '0':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated;
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case '1':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + A2($elm$core$Basics$pow, 16, position);
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case '2':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + (2 * A2($elm$core$Basics$pow, 16, position));
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case '3':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + (3 * A2($elm$core$Basics$pow, 16, position));
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case '4':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + (4 * A2($elm$core$Basics$pow, 16, position));
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case '5':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + (5 * A2($elm$core$Basics$pow, 16, position));
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case '6':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + (6 * A2($elm$core$Basics$pow, 16, position));
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case '7':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + (7 * A2($elm$core$Basics$pow, 16, position));
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case '8':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + (8 * A2($elm$core$Basics$pow, 16, position));
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case '9':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + (9 * A2($elm$core$Basics$pow, 16, position));
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case 'a':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + (10 * A2($elm$core$Basics$pow, 16, position));
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case 'b':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + (11 * A2($elm$core$Basics$pow, 16, position));
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case 'c':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + (12 * A2($elm$core$Basics$pow, 16, position));
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case 'd':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + (13 * A2($elm$core$Basics$pow, 16, position));
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case 'e':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + (14 * A2($elm$core$Basics$pow, 16, position));
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					case 'f':
+						var $temp$position = position - 1,
+							$temp$chars = rest,
+							$temp$accumulated = accumulated + (15 * A2($elm$core$Basics$pow, 16, position));
+						position = $temp$position;
+						chars = $temp$chars;
+						accumulated = $temp$accumulated;
+						continue fromStringHelp;
+					default:
+						var nonHex = _char;
+						return $elm$core$Result$Err(
+							$elm$core$String$fromChar(nonHex) + ' is not a valid hexadecimal character.');
+				}
+			}
+		}
+	});
+var $elm$core$Result$map = F2(
+	function (func, ra) {
+		if (ra.$ === 'Ok') {
+			var a = ra.a;
+			return $elm$core$Result$Ok(
+				func(a));
+		} else {
+			var e = ra.a;
+			return $elm$core$Result$Err(e);
+		}
+	});
+var $elm$core$Result$mapError = F2(
+	function (f, result) {
+		if (result.$ === 'Ok') {
+			var v = result.a;
+			return $elm$core$Result$Ok(v);
+		} else {
+			var e = result.a;
+			return $elm$core$Result$Err(
+				f(e));
+		}
+	});
+var $elm$core$List$tail = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(xs);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $elm$core$String$foldr = _String_foldr;
+var $elm$core$String$toList = function (string) {
+	return A3($elm$core$String$foldr, $elm$core$List$cons, _List_Nil, string);
+};
+var $rtfeldman$elm_hex$Hex$fromString = function (str) {
+	if ($elm$core$String$isEmpty(str)) {
+		return $elm$core$Result$Err('Empty strings are not valid hexadecimal strings.');
+	} else {
+		var result = function () {
+			if (A2($elm$core$String$startsWith, '-', str)) {
+				var list = A2(
+					$elm$core$Maybe$withDefault,
+					_List_Nil,
+					$elm$core$List$tail(
+						$elm$core$String$toList(str)));
+				return A2(
+					$elm$core$Result$map,
+					$elm$core$Basics$negate,
+					A3(
+						$rtfeldman$elm_hex$Hex$fromStringHelp,
+						$elm$core$List$length(list) - 1,
+						list,
+						0));
+			} else {
+				return A3(
+					$rtfeldman$elm_hex$Hex$fromStringHelp,
+					$elm$core$String$length(str) - 1,
+					$elm$core$String$toList(str),
+					0);
+			}
+		}();
+		var formatError = function (err) {
+			return A2(
+				$elm$core$String$join,
+				' ',
+				_List_fromArray(
+					['\"' + (str + '\"'), 'is not a valid hexadecimal string because', err]));
+		};
+		return A2($elm$core$Result$mapError, formatError, result);
+	}
+};
+var $mdgriffith$elm_ui$Internal$Model$Rgba = F4(
+	function (a, b, c, d) {
+		return {$: 'Rgba', a: a, b: b, c: c, d: d};
+	});
+var $mdgriffith$elm_ui$Element$rgb255 = F3(
+	function (red, green, blue) {
+		return A4($mdgriffith$elm_ui$Internal$Model$Rgba, red / 255, green / 255, blue / 255, 1);
+	});
+var $elm$core$String$toLower = _String_toLower;
+var $elm$core$Result$withDefault = F2(
+	function (def, result) {
+		if (result.$ === 'Ok') {
+			var a = result.a;
+			return a;
+		} else {
+			return def;
+		}
+	});
+var $author$project$Theme$hexToColor = function (value) {
+	var val = $elm$core$String$toLower(value);
+	var hexRecord = {
+		blue: A3($elm$core$String$slice, 5, 7, val),
+		green: A3($elm$core$String$slice, 3, 5, val),
+		red: A3($elm$core$String$slice, 1, 3, val)
+	};
+	var rgbRecord = {
+		blue: A2(
+			$elm$core$Result$withDefault,
+			0,
+			$rtfeldman$elm_hex$Hex$fromString(hexRecord.blue)),
+		green: A2(
+			$elm$core$Result$withDefault,
+			0,
+			$rtfeldman$elm_hex$Hex$fromString(hexRecord.green)),
+		red: A2(
+			$elm$core$Result$withDefault,
+			0,
+			$rtfeldman$elm_hex$Hex$fromString(hexRecord.red))
+	};
+	var color = A3($mdgriffith$elm_ui$Element$rgb255, rgbRecord.red, rgbRecord.green, rgbRecord.blue);
+	return color;
+};
+var $mdgriffith$elm_ui$Element$rgba = $mdgriffith$elm_ui$Internal$Model$Rgba;
+var $author$project$Theme$defaultTheme = {
+	defaultText: A3($mdgriffith$elm_ui$Element$rgb255, 33, 37, 41),
+	grey: A3($mdgriffith$elm_ui$Element$rgb255, 210, 210, 210),
+	greyDark: A3($mdgriffith$elm_ui$Element$rgb255, 52, 58, 64),
+	greyLight: A3($mdgriffith$elm_ui$Element$rgb255, 248, 248, 248),
+	primary: $author$project$Theme$hexToColor('#ed1940'),
+	secondary: $author$project$Theme$hexToColor('#5c5c5c'),
+	transparent: A4($mdgriffith$elm_ui$Element$rgba, 1, 1, 1, 0),
+	white: A3($mdgriffith$elm_ui$Element$rgb255, 255, 255, 255)
+};
+var $elm$core$Basics$composeR = F3(
+	function (f, g, x) {
+		return g(
+			f(x));
+	});
+var $NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom = $elm$json$Json$Decode$map2($elm$core$Basics$apR);
+var $NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$hardcoded = A2($elm$core$Basics$composeR, $elm$json$Json$Decode$succeed, $NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom);
+var $elm$json$Json$Decode$fail = _Json_fail;
 var $elm$json$Json$Decode$null = _Json_decodeNull;
 var $elm$json$Json$Decode$oneOf = _Json_oneOf;
-var $elm$json$Json$Decode$nullable = function (decoder) {
-	return $elm$json$Json$Decode$oneOf(
-		_List_fromArray(
-			[
-				$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
-				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder)
-			]));
-};
-var $NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom = $elm$json$Json$Decode$map2($elm$core$Basics$apR);
-var $elm$json$Json$Decode$andThen = _Json_andThen;
-var $elm$json$Json$Decode$fail = _Json_fail;
 var $NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optionalDecoder = F3(
 	function (pathDecoder, valDecoder, fallback) {
 		var nullOr = function (decoder) {
@@ -9863,6 +10142,52 @@ var $NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional = F4(
 				fallback),
 			decoder);
 	});
+var $author$project$Theme$decodeTheme = function () {
+	var decodeStringColor = A2(
+		$elm$json$Json$Decode$andThen,
+		function (str) {
+			return $elm$json$Json$Decode$succeed(
+				$author$project$Theme$hexToColor(str));
+		},
+		$elm$json$Json$Decode$string);
+	return A4(
+		$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
+		'secondary',
+		decodeStringColor,
+		$author$project$Theme$defaultTheme.secondary,
+		A4(
+			$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
+			'primary',
+			decodeStringColor,
+			$author$project$Theme$defaultTheme.primary,
+			A2(
+				$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$hardcoded,
+				$author$project$Theme$defaultTheme.greyDark,
+				A2(
+					$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$hardcoded,
+					$author$project$Theme$defaultTheme.greyLight,
+					A2(
+						$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$hardcoded,
+						$author$project$Theme$defaultTheme.grey,
+						A2(
+							$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$hardcoded,
+							$author$project$Theme$defaultTheme.transparent,
+							A2(
+								$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$hardcoded,
+								$author$project$Theme$defaultTheme.white,
+								A2(
+									$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$hardcoded,
+									$author$project$Theme$defaultTheme.defaultText,
+									$elm$json$Json$Decode$succeed($author$project$Theme$Theme)))))))));
+}();
+var $elm$json$Json$Decode$nullable = function (decoder) {
+	return $elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[
+				$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
+				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder)
+			]));
+};
 var $NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required = F3(
 	function (key, valDecoder, decoder) {
 		return A2(
@@ -9870,30 +10195,35 @@ var $NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required = F3(
 			A2($elm$json$Json$Decode$field, key, valDecoder),
 			decoder);
 	});
-var $author$project$CurrentDraws$decodeFlags = A4(
+var $author$project$CurrentGames$decodeFlags = A4(
 	$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
-	'section',
-	$elm$json$Json$Decode$string,
-	'leagues',
-	A3(
-		$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
-		'subdomain',
-		$elm$json$Json$Decode$string,
+	'theme',
+	$author$project$Theme$decodeTheme,
+	$author$project$Theme$defaultTheme,
+	A4(
+		$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
+		'showEndScores',
+		$elm$json$Json$Decode$bool,
+		true,
 		A4(
 			$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
-			'lang',
-			$elm$json$Json$Decode$string,
-			'en',
+			'host',
+			$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+			$elm$core$Maybe$Nothing,
 			A4(
 				$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
-				'host',
-				$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
-				$elm$core$Maybe$Nothing,
-				$elm$json$Json$Decode$succeed($author$project$CurrentDraws$Flags)))));
-var $author$project$CurrentDraws$GotDraws = function (a) {
-	return {$: 'GotDraws', a: a};
+				'lang',
+				$elm$json$Json$Decode$string,
+				'en',
+				A3(
+					$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+					'subdomain',
+					$elm$json$Json$Decode$string,
+					$elm$json$Json$Decode$succeed($author$project$CurrentGames$Flags))))));
+var $author$project$CurrentGames$GotSides = function (a) {
+	return {$: 'GotSides', a: a};
 };
-var $author$project$CurrentDraws$baseUrl = function (_v0) {
+var $author$project$CurrentGames$baseUrl = function (_v0) {
 	var host = _v0.host;
 	var lang = _v0.lang;
 	var productionCachedUrl = 'https://api-curlingio.global.ssl.fastly.net/' + lang;
@@ -9905,39 +10235,153 @@ var $author$project$CurrentDraws$baseUrl = function (_v0) {
 		return productionCachedUrl;
 	}
 };
-var $author$project$CurrentDraws$baseClubUrl = function (flags) {
-	return $author$project$CurrentDraws$baseUrl(flags) + ('/clubs/' + (flags.subdomain + '/'));
+var $author$project$CurrentGames$baseClubUrl = function (flags) {
+	return $author$project$CurrentGames$baseUrl(flags) + ('/clubs/' + (flags.subdomain + '/'));
 };
-var $author$project$CurrentDraws$Draw = F5(
-	function (id, startsAt, label, attendance, drawSheets) {
-		return {attendance: attendance, drawSheets: drawSheets, id: id, label: label, startsAt: startsAt};
-	});
+var $author$project$CurrentGames$GameActive = {$: 'GameActive'};
+var $author$project$CurrentGames$GameComplete = {$: 'GameComplete'};
+var $author$project$CurrentGames$GamePending = {$: 'GamePending'};
+var $author$project$CurrentGames$Side = function (id) {
+	return function (gameId) {
+		return function (drawId) {
+			return function (eventId) {
+				return function (startsAt) {
+					return function (gameName) {
+						return function (rockColor) {
+							return function (result) {
+								return function (score) {
+									return function (teamShortName) {
+										return function (gameState) {
+											return function (eventName) {
+												return function (firstHammer) {
+													return function (endScores) {
+														return {drawId: drawId, endScores: endScores, eventId: eventId, eventName: eventName, firstHammer: firstHammer, gameId: gameId, gameName: gameName, gameState: gameState, id: id, result: result, rockColor: rockColor, score: score, startsAt: startsAt, teamShortName: teamShortName};
+													};
+												};
+											};
+										};
+									};
+								};
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};
+var $author$project$CurrentGames$SideResultConceded = {$: 'SideResultConceded'};
+var $author$project$CurrentGames$SideResultForfeited = {$: 'SideResultForfeited'};
+var $author$project$CurrentGames$SideResultLost = {$: 'SideResultLost'};
+var $author$project$CurrentGames$SideResultTied = {$: 'SideResultTied'};
+var $author$project$CurrentGames$SideResultTimePenalized = {$: 'SideResultTimePenalized'};
+var $author$project$CurrentGames$SideResultWon = {$: 'SideResultWon'};
 var $elm$json$Json$Decode$int = _Json_decodeInt;
-var $author$project$CurrentDraws$decodeDraws = function () {
-	var decodeDraw = A3(
-		$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
-		'draw_sheets',
-		$elm$json$Json$Decode$list(
-			$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string)),
-		A4(
+var $author$project$CurrentGames$decodeSides = function () {
+	var decodeSide = function () {
+		var decodeSideResult = A2(
+			$elm$json$Json$Decode$andThen,
+			function (str) {
+				switch (str) {
+					case 'won':
+						return $elm$json$Json$Decode$succeed(
+							$elm$core$Maybe$Just($author$project$CurrentGames$SideResultWon));
+					case 'lost':
+						return $elm$json$Json$Decode$succeed(
+							$elm$core$Maybe$Just($author$project$CurrentGames$SideResultLost));
+					case 'tied':
+						return $elm$json$Json$Decode$succeed(
+							$elm$core$Maybe$Just($author$project$CurrentGames$SideResultTied));
+					case 'conceded':
+						return $elm$json$Json$Decode$succeed(
+							$elm$core$Maybe$Just($author$project$CurrentGames$SideResultConceded));
+					case 'forfeited':
+						return $elm$json$Json$Decode$succeed(
+							$elm$core$Maybe$Just($author$project$CurrentGames$SideResultForfeited));
+					case 'time_penalized':
+						return $elm$json$Json$Decode$succeed(
+							$elm$core$Maybe$Just($author$project$CurrentGames$SideResultTimePenalized));
+					default:
+						return $elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing);
+				}
+			},
+			$elm$json$Json$Decode$string);
+		var decodeGameState = A2(
+			$elm$json$Json$Decode$andThen,
+			function (str) {
+				switch (str) {
+					case 'active':
+						return $elm$json$Json$Decode$succeed($author$project$CurrentGames$GameActive);
+					case 'complete':
+						return $elm$json$Json$Decode$succeed($author$project$CurrentGames$GameComplete);
+					default:
+						return $elm$json$Json$Decode$succeed($author$project$CurrentGames$GamePending);
+				}
+			},
+			$elm$json$Json$Decode$string);
+		return A4(
 			$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
-			'attendance',
-			$elm$json$Json$Decode$int,
-			0,
-			A3(
-				$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
-				'label',
-				$elm$json$Json$Decode$string,
+			'end_scores',
+			$elm$json$Json$Decode$list($elm$json$Json$Decode$int),
+			_List_Nil,
+			A4(
+				$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
+				'first_hammer',
+				$elm$json$Json$Decode$bool,
+				false,
 				A3(
 					$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
-					'starts_at',
+					'event_name',
 					$elm$json$Json$Decode$string,
 					A3(
 						$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
-						'id',
-						$elm$json$Json$Decode$int,
-						$elm$json$Json$Decode$succeed($author$project$CurrentDraws$Draw))))));
-	return $elm$json$Json$Decode$list(decodeDraw);
+						'game_state',
+						decodeGameState,
+						A3(
+							$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+							'team_short_name',
+							$elm$json$Json$Decode$string,
+							A3(
+								$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+								'score',
+								$elm$json$Json$Decode$nullable($elm$json$Json$Decode$int),
+								A4(
+									$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
+									'result',
+									decodeSideResult,
+									$elm$core$Maybe$Nothing,
+									A3(
+										$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+										'rock_color',
+										$elm$json$Json$Decode$string,
+										A4(
+											$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
+											'game_name',
+											$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+											$elm$core$Maybe$Nothing,
+											A3(
+												$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+												'starts_at',
+												$elm$json$Json$Decode$string,
+												A3(
+													$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+													'event_id',
+													$elm$json$Json$Decode$int,
+													A3(
+														$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+														'draw_id',
+														$elm$json$Json$Decode$int,
+														A3(
+															$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+															'game_id',
+															$elm$json$Json$Decode$string,
+															A3(
+																$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+																'id',
+																$elm$json$Json$Decode$int,
+																$elm$json$Json$Decode$succeed($author$project$CurrentGames$Side)))))))))))))));
+	}();
+	return $elm$json$Json$Decode$list(decodeSide);
 }();
 var $elm$http$Http$BadStatus_ = F2(
 	function (a, b) {
@@ -9967,11 +10411,6 @@ var $elm$core$Maybe$isJust = function (maybe) {
 };
 var $elm$core$Platform$sendToSelf = _Platform_sendToSelf;
 var $elm$http$Http$emptyBody = _Http_emptyBody;
-var $elm$core$Basics$composeR = F3(
-	function (f, g, x) {
-		return g(
-			f(x));
-	});
 var $elm$http$Http$expectStringResponse = F2(
 	function (toMsg, toResult) {
 		return A3(
@@ -9979,17 +10418,6 @@ var $elm$http$Http$expectStringResponse = F2(
 			'',
 			$elm$core$Basics$identity,
 			A2($elm$core$Basics$composeR, toResult, toMsg));
-	});
-var $elm$core$Result$mapError = F2(
-	function (f, result) {
-		if (result.$ === 'Ok') {
-			var v = result.a;
-			return $elm$core$Result$Ok(v);
-		} else {
-			var e = result.a;
-			return $elm$core$Result$Err(
-				f(e));
-		}
 	});
 var $elm$http$Http$BadBody = function (a) {
 	return {$: 'BadBody', a: a};
@@ -10254,20 +10682,18 @@ var $ohanhi$remotedata_http$RemoteData$Http$noCacheConfig = _Utils_update(
 		headers: A2($elm$core$List$cons, $ohanhi$remotedata_http$RemoteData$Http$noCache, $ohanhi$remotedata_http$RemoteData$Http$defaultConfig.headers)
 	});
 var $ohanhi$remotedata_http$RemoteData$Http$get = $ohanhi$remotedata_http$RemoteData$Http$getWithConfig($ohanhi$remotedata_http$RemoteData$Http$noCacheConfig);
-var $author$project$CurrentDraws$getDraws = function (flags) {
-	var url = _Utils_ap(
-		$author$project$CurrentDraws$baseClubUrl(flags),
-		flags.section);
-	return A3($ohanhi$remotedata_http$RemoteData$Http$get, url, $author$project$CurrentDraws$GotDraws, $author$project$CurrentDraws$decodeDraws);
+var $author$project$CurrentGames$getSides = function (flags) {
+	var url = $author$project$CurrentGames$baseClubUrl(flags) + 'current_game_positions';
+	return A3($ohanhi$remotedata_http$RemoteData$Http$get, url, $author$project$CurrentGames$GotSides, $author$project$CurrentGames$decodeSides);
 };
-var $author$project$CurrentDraws$GotTranslations = function (a) {
+var $author$project$CurrentGames$GotTranslations = function (a) {
 	return {$: 'GotTranslations', a: a};
 };
-var $author$project$CurrentDraws$Translation = F2(
+var $author$project$CurrentGames$Translation = F2(
 	function (key, label) {
 		return {key: key, label: label};
 	});
-var $author$project$CurrentDraws$decodeTranslations = function () {
+var $author$project$CurrentGames$decodeTranslations = function () {
 	var decodeTranslation = A3(
 		$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
 		'label',
@@ -10276,37 +10702,37 @@ var $author$project$CurrentDraws$decodeTranslations = function () {
 			$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
 			'key',
 			$elm$json$Json$Decode$string,
-			$elm$json$Json$Decode$succeed($author$project$CurrentDraws$Translation)));
+			$elm$json$Json$Decode$succeed($author$project$CurrentGames$Translation)));
 	return $elm$json$Json$Decode$list(decodeTranslation);
 }();
-var $author$project$CurrentDraws$getTranslations = function (flags) {
-	var url = $author$project$CurrentDraws$baseUrl(flags) + '/translations';
-	return A3($ohanhi$remotedata_http$RemoteData$Http$get, url, $author$project$CurrentDraws$GotTranslations, $author$project$CurrentDraws$decodeTranslations);
+var $author$project$CurrentGames$getTranslations = function (flags) {
+	var url = $author$project$CurrentGames$baseUrl(flags) + '/translations';
+	return A3($ohanhi$remotedata_http$RemoteData$Http$get, url, $author$project$CurrentGames$GotTranslations, $author$project$CurrentGames$decodeTranslations);
 };
-var $author$project$CurrentDraws$init = function (flags_) {
-	var _v0 = A2($elm$json$Json$Decode$decodeValue, $author$project$CurrentDraws$decodeFlags, flags_);
+var $author$project$CurrentGames$init = function (flags_) {
+	var _v0 = A2($elm$json$Json$Decode$decodeValue, $author$project$CurrentGames$decodeFlags, flags_);
 	if (_v0.$ === 'Ok') {
 		var flags = _v0.a;
 		return _Utils_Tuple2(
-			{draws: $krisajenkins$remotedata$RemoteData$NotAsked, errorMsg: $elm$core$Maybe$Nothing, flags: flags, translations: $krisajenkins$remotedata$RemoteData$NotAsked},
+			{errorMsg: $elm$core$Maybe$Nothing, flags: flags, sides: $krisajenkins$remotedata$RemoteData$NotAsked, translations: $krisajenkins$remotedata$RemoteData$NotAsked},
 			$elm$core$Platform$Cmd$batch(
 				_List_fromArray(
 					[
-						$author$project$CurrentDraws$getTranslations(flags),
-						$author$project$CurrentDraws$getDraws(flags)
+						$author$project$CurrentGames$getTranslations(flags),
+						$author$project$CurrentGames$getSides(flags)
 					])));
 	} else {
 		var error = _v0.a;
-		var flags = {host: $elm$core$Maybe$Nothing, lang: 'en', section: 'leagues', subdomain: ''};
+		var flags = {host: $elm$core$Maybe$Nothing, lang: 'en', showEndScores: false, subdomain: '', theme: $author$project$Theme$defaultTheme};
 		return _Utils_Tuple2(
-			{draws: $krisajenkins$remotedata$RemoteData$NotAsked, errorMsg: $elm$core$Maybe$Nothing, flags: flags, translations: $krisajenkins$remotedata$RemoteData$NotAsked},
+			{errorMsg: $elm$core$Maybe$Nothing, flags: flags, sides: $krisajenkins$remotedata$RemoteData$NotAsked, translations: $krisajenkins$remotedata$RemoteData$NotAsked},
 			$elm$core$Platform$Cmd$none);
 	}
 };
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
 var $elm$browser$Browser$Navigation$load = _Browser_load;
-var $author$project$CurrentDraws$update = F2(
+var $author$project$CurrentGames$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
 			case 'NoOp':
@@ -10328,7 +10754,7 @@ var $author$project$CurrentDraws$update = F2(
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{draws: response, errorMsg: $elm$core$Maybe$Nothing}),
+						{errorMsg: $elm$core$Maybe$Nothing, sides: response}),
 					$elm$core$Platform$Cmd$none);
 		}
 	});
@@ -15757,7 +16183,6 @@ var $mdgriffith$elm_ui$Internal$Model$FontFamily = F2(
 		return {$: 'FontFamily', a: a, b: b};
 	});
 var $mdgriffith$elm_ui$Internal$Flag$fontFamily = $mdgriffith$elm_ui$Internal$Flag$flag(5);
-var $elm$core$String$toLower = _String_toLower;
 var $elm$core$String$words = _String_words;
 var $mdgriffith$elm_ui$Internal$Model$renderFontClassName = F2(
 	function (font, current) {
@@ -15826,10 +16251,6 @@ var $mdgriffith$elm_ui$Internal$Model$StaticRootAndDynamic = F2(
 	});
 var $mdgriffith$elm_ui$Internal$Model$AllowHover = {$: 'AllowHover'};
 var $mdgriffith$elm_ui$Internal$Model$Layout = {$: 'Layout'};
-var $mdgriffith$elm_ui$Internal$Model$Rgba = F4(
-	function (a, b, c, d) {
-		return {$: 'Rgba', a: a, b: b, c: c, d: d};
-	});
 var $mdgriffith$elm_ui$Internal$Model$focusDefaultStyle = {
 	backgroundColor: $elm$core$Maybe$Nothing,
 	borderColor: $elm$core$Maybe$Nothing,
@@ -16051,6 +16472,10 @@ var $mdgriffith$elm_ui$Element$padding = function (x) {
 			f,
 			f));
 };
+var $mdgriffith$elm_ui$Internal$Model$Px = function (a) {
+	return {$: 'Px', a: a};
+};
+var $mdgriffith$elm_ui$Element$px = $mdgriffith$elm_ui$Internal$Model$Px;
 var $mdgriffith$elm_ui$Element$Font$sansSerif = $mdgriffith$elm_ui$Internal$Model$SansSerif;
 var $mdgriffith$elm_ui$Element$Font$size = function (i) {
 	return A2(
@@ -16064,34 +16489,619 @@ var $mdgriffith$elm_ui$Internal$Model$Text = function (a) {
 var $mdgriffith$elm_ui$Element$text = function (content) {
 	return $mdgriffith$elm_ui$Internal$Model$Text(content);
 };
-var $mdgriffith$elm_ui$Element$rgb255 = F3(
-	function (red, green, blue) {
-		return A4($mdgriffith$elm_ui$Internal$Model$Rgba, red / 255, green / 255, blue / 255, 1);
-	});
-var $mdgriffith$elm_ui$Element$rgba = $mdgriffith$elm_ui$Internal$Model$Rgba;
-var $author$project$CurrentDraws$theme = {
-	defaultText: A3($mdgriffith$elm_ui$Element$rgb255, 33, 37, 41),
-	grey: A4($mdgriffith$elm_ui$Element$rgba, 0, 0, 0, 0.1),
-	greyDark: A4($mdgriffith$elm_ui$Element$rgba, 0, 0, 0, 0.6),
-	greyLight: A4($mdgriffith$elm_ui$Element$rgba, 0, 0, 0, 0.05),
-	greyMedium: A4($mdgriffith$elm_ui$Element$rgba, 0, 0, 0, 0.2),
-	greyStrong: A4($mdgriffith$elm_ui$Element$rgba, 0, 0, 0, 0.4),
-	primary: A3($mdgriffith$elm_ui$Element$rgb255, 237, 25, 64),
-	primaryFocused: A3($mdgriffith$elm_ui$Element$rgb255, 197, 10, 49),
-	secondary: A3($mdgriffith$elm_ui$Element$rgb255, 108, 117, 125),
-	secondaryFocused: A3($mdgriffith$elm_ui$Element$rgb255, 128, 137, 155),
-	transparent: A4($mdgriffith$elm_ui$Element$rgba, 1, 1, 1, 0),
-	white: A3($mdgriffith$elm_ui$Element$rgb255, 255, 255, 255)
-};
 var $mdgriffith$elm_ui$Element$Font$typeface = $mdgriffith$elm_ui$Internal$Model$Typeface;
-var $author$project$CurrentDraws$view = function (model) {
+var $mdgriffith$elm_ui$Internal$Model$AlignX = function (a) {
+	return {$: 'AlignX', a: a};
+};
+var $mdgriffith$elm_ui$Internal$Model$Right = {$: 'Right'};
+var $mdgriffith$elm_ui$Element$alignRight = $mdgriffith$elm_ui$Internal$Model$AlignX($mdgriffith$elm_ui$Internal$Model$Right);
+var $mdgriffith$elm_ui$Internal$Model$Class = F2(
+	function (a, b) {
+		return {$: 'Class', a: a, b: b};
+	});
+var $mdgriffith$elm_ui$Internal$Flag$fontWeight = $mdgriffith$elm_ui$Internal$Flag$flag(13);
+var $mdgriffith$elm_ui$Element$Font$bold = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$fontWeight, $mdgriffith$elm_ui$Internal$Style$classes.bold);
+var $mdgriffith$elm_ui$Internal$Flag$overflow = $mdgriffith$elm_ui$Internal$Flag$flag(20);
+var $mdgriffith$elm_ui$Element$clip = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$overflow, $mdgriffith$elm_ui$Internal$Style$classes.clip);
+var $mdgriffith$elm_ui$Internal$Flag$borderColor = $mdgriffith$elm_ui$Internal$Flag$flag(28);
+var $mdgriffith$elm_ui$Element$Border$color = function (clr) {
+	return A2(
+		$mdgriffith$elm_ui$Internal$Model$StyleClass,
+		$mdgriffith$elm_ui$Internal$Flag$borderColor,
+		A3(
+			$mdgriffith$elm_ui$Internal$Model$Colored,
+			'bc-' + $mdgriffith$elm_ui$Internal$Model$formatColorClass(clr),
+			'border-color',
+			clr));
+};
+var $mdgriffith$elm_ui$Internal$Model$AsColumn = {$: 'AsColumn'};
+var $mdgriffith$elm_ui$Internal$Model$asColumn = $mdgriffith$elm_ui$Internal$Model$AsColumn;
+var $mdgriffith$elm_ui$Element$column = F2(
+	function (attrs, children) {
+		return A4(
+			$mdgriffith$elm_ui$Internal$Model$element,
+			$mdgriffith$elm_ui$Internal$Model$asColumn,
+			$mdgriffith$elm_ui$Internal$Model$div,
+			A2(
+				$elm$core$List$cons,
+				$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.contentTop + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.contentLeft)),
+				A2(
+					$elm$core$List$cons,
+					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
+						attrs))),
+			$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
+	});
+var $elm_community$list_extra$List$Extra$find = F2(
+	function (predicate, list) {
+		find:
+		while (true) {
+			if (!list.b) {
+				return $elm$core$Maybe$Nothing;
+			} else {
+				var first = list.a;
+				var rest = list.b;
+				if (predicate(first)) {
+					return $elm$core$Maybe$Just(first);
+				} else {
+					var $temp$predicate = predicate,
+						$temp$list = rest;
+					predicate = $temp$predicate;
+					list = $temp$list;
+					continue find;
+				}
+			}
+		}
+	});
+var $author$project$CurrentGames$translate = F2(
+	function (translations, key) {
+		var _v0 = A2(
+			$elm_community$list_extra$List$Extra$find,
+			function (translation) {
+				return _Utils_eq(
+					$elm$core$String$toLower(translation.key),
+					$elm$core$String$toLower(key));
+			},
+			translations);
+		if (_v0.$ === 'Just') {
+			var translation = _v0.a;
+			return translation.label;
+		} else {
+			return key;
+		}
+	});
+var $author$project$CurrentGames$gameStateToString = F2(
+	function (translations, gameState) {
+		return A2(
+			$author$project$CurrentGames$translate,
+			translations,
+			function () {
+				switch (gameState.$) {
+					case 'GamePending':
+						return 'pending';
+					case 'GameActive':
+						return 'active';
+					default:
+						return 'complete';
+				}
+			}());
+	});
+var $elm_community$list_extra$List$Extra$groupWhile = F2(
+	function (isSameGroup, items) {
+		return A3(
+			$elm$core$List$foldr,
+			F2(
+				function (x, acc) {
+					if (!acc.b) {
+						return _List_fromArray(
+							[
+								_Utils_Tuple2(x, _List_Nil)
+							]);
+					} else {
+						var _v1 = acc.a;
+						var y = _v1.a;
+						var restOfGroup = _v1.b;
+						var groups = acc.b;
+						return A2(isSameGroup, x, y) ? A2(
+							$elm$core$List$cons,
+							_Utils_Tuple2(
+								x,
+								A2($elm$core$List$cons, y, restOfGroup)),
+							groups) : A2(
+							$elm$core$List$cons,
+							_Utils_Tuple2(x, _List_Nil),
+							acc);
+					}
+				}),
+			_List_Nil,
+			items);
+	});
+var $author$project$CurrentGames$groupWhile = F2(
+	function (isSameGroup, items) {
+		return A2(
+			$elm$core$List$map,
+			function (_v0) {
+				var x = _v0.a;
+				var xs = _v0.b;
+				return A2($elm$core$List$cons, x, xs);
+			},
+			A2($elm_community$list_extra$List$Extra$groupWhile, isSameGroup, items));
+	});
+var $elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(x);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $mdgriffith$elm_ui$Internal$Model$Empty = {$: 'Empty'};
+var $mdgriffith$elm_ui$Element$none = $mdgriffith$elm_ui$Internal$Model$Empty;
+var $mdgriffith$elm_ui$Element$paddingXY = F2(
+	function (x, y) {
+		if (_Utils_eq(x, y)) {
+			var f = x;
+			return A2(
+				$mdgriffith$elm_ui$Internal$Model$StyleClass,
+				$mdgriffith$elm_ui$Internal$Flag$padding,
+				A5(
+					$mdgriffith$elm_ui$Internal$Model$PaddingStyle,
+					'p-' + $elm$core$String$fromInt(x),
+					f,
+					f,
+					f,
+					f));
+		} else {
+			var yFloat = y;
+			var xFloat = x;
+			return A2(
+				$mdgriffith$elm_ui$Internal$Model$StyleClass,
+				$mdgriffith$elm_ui$Internal$Flag$padding,
+				A5(
+					$mdgriffith$elm_ui$Internal$Model$PaddingStyle,
+					'p-' + ($elm$core$String$fromInt(x) + ('-' + $elm$core$String$fromInt(y))),
+					yFloat,
+					xFloat,
+					yFloat,
+					xFloat));
+		}
+	});
+var $mdgriffith$elm_ui$Internal$Model$AsRow = {$: 'AsRow'};
+var $mdgriffith$elm_ui$Internal$Model$asRow = $mdgriffith$elm_ui$Internal$Model$AsRow;
+var $mdgriffith$elm_ui$Element$row = F2(
+	function (attrs, children) {
+		return A4(
+			$mdgriffith$elm_ui$Internal$Model$element,
+			$mdgriffith$elm_ui$Internal$Model$asRow,
+			$mdgriffith$elm_ui$Internal$Model$div,
+			A2(
+				$elm$core$List$cons,
+				$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.contentLeft + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.contentCenterY)),
+				A2(
+					$elm$core$List$cons,
+					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
+						attrs))),
+			$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
+	});
+var $mdgriffith$elm_ui$Internal$Model$SpacingStyle = F3(
+	function (a, b, c) {
+		return {$: 'SpacingStyle', a: a, b: b, c: c};
+	});
+var $mdgriffith$elm_ui$Internal$Flag$spacing = $mdgriffith$elm_ui$Internal$Flag$flag(3);
+var $mdgriffith$elm_ui$Internal$Model$spacingName = F2(
+	function (x, y) {
+		return 'spacing-' + ($elm$core$String$fromInt(x) + ('-' + $elm$core$String$fromInt(y)));
+	});
+var $mdgriffith$elm_ui$Element$spacing = function (x) {
+	return A2(
+		$mdgriffith$elm_ui$Internal$Model$StyleClass,
+		$mdgriffith$elm_ui$Internal$Flag$spacing,
+		A3(
+			$mdgriffith$elm_ui$Internal$Model$SpacingStyle,
+			A2($mdgriffith$elm_ui$Internal$Model$spacingName, x, x),
+			x,
+			x));
+};
+var $mdgriffith$elm_ui$Internal$Model$BorderWidth = F5(
+	function (a, b, c, d, e) {
+		return {$: 'BorderWidth', a: a, b: b, c: c, d: d, e: e};
+	});
+var $mdgriffith$elm_ui$Element$Border$width = function (v) {
+	return A2(
+		$mdgriffith$elm_ui$Internal$Model$StyleClass,
+		$mdgriffith$elm_ui$Internal$Flag$borderWidth,
+		A5(
+			$mdgriffith$elm_ui$Internal$Model$BorderWidth,
+			'b-' + $elm$core$String$fromInt(v),
+			v,
+			v,
+			v,
+			v));
+};
+var $mdgriffith$elm_ui$Internal$Model$Padding = F5(
+	function (a, b, c, d, e) {
+		return {$: 'Padding', a: a, b: b, c: c, d: d, e: e};
+	});
+var $mdgriffith$elm_ui$Internal$Model$Spaced = F3(
+	function (a, b, c) {
+		return {$: 'Spaced', a: a, b: b, c: c};
+	});
+var $mdgriffith$elm_ui$Internal$Model$extractSpacingAndPadding = function (attrs) {
+	return A3(
+		$elm$core$List$foldr,
+		F2(
+			function (attr, _v0) {
+				var pad = _v0.a;
+				var spacing = _v0.b;
+				return _Utils_Tuple2(
+					function () {
+						if (pad.$ === 'Just') {
+							var x = pad.a;
+							return pad;
+						} else {
+							if ((attr.$ === 'StyleClass') && (attr.b.$ === 'PaddingStyle')) {
+								var _v3 = attr.b;
+								var name = _v3.a;
+								var t = _v3.b;
+								var r = _v3.c;
+								var b = _v3.d;
+								var l = _v3.e;
+								return $elm$core$Maybe$Just(
+									A5($mdgriffith$elm_ui$Internal$Model$Padding, name, t, r, b, l));
+							} else {
+								return $elm$core$Maybe$Nothing;
+							}
+						}
+					}(),
+					function () {
+						if (spacing.$ === 'Just') {
+							var x = spacing.a;
+							return spacing;
+						} else {
+							if ((attr.$ === 'StyleClass') && (attr.b.$ === 'SpacingStyle')) {
+								var _v6 = attr.b;
+								var name = _v6.a;
+								var x = _v6.b;
+								var y = _v6.c;
+								return $elm$core$Maybe$Just(
+									A3($mdgriffith$elm_ui$Internal$Model$Spaced, name, x, y));
+							} else {
+								return $elm$core$Maybe$Nothing;
+							}
+						}
+					}());
+			}),
+		_Utils_Tuple2($elm$core$Maybe$Nothing, $elm$core$Maybe$Nothing),
+		attrs);
+};
+var $mdgriffith$elm_ui$Internal$Model$paddingNameFloat = F4(
+	function (top, right, bottom, left) {
+		return 'pad-' + ($mdgriffith$elm_ui$Internal$Model$floatClass(top) + ('-' + ($mdgriffith$elm_ui$Internal$Model$floatClass(right) + ('-' + ($mdgriffith$elm_ui$Internal$Model$floatClass(bottom) + ('-' + $mdgriffith$elm_ui$Internal$Model$floatClass(left)))))));
+	});
+var $mdgriffith$elm_ui$Element$wrappedRow = F2(
+	function (attrs, children) {
+		var _v0 = $mdgriffith$elm_ui$Internal$Model$extractSpacingAndPadding(attrs);
+		var padded = _v0.a;
+		var spaced = _v0.b;
+		if (spaced.$ === 'Nothing') {
+			return A4(
+				$mdgriffith$elm_ui$Internal$Model$element,
+				$mdgriffith$elm_ui$Internal$Model$asRow,
+				$mdgriffith$elm_ui$Internal$Model$div,
+				A2(
+					$elm$core$List$cons,
+					$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.contentLeft + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.contentCenterY + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.wrapped)))),
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
+						A2(
+							$elm$core$List$cons,
+							$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
+							attrs))),
+				$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
+		} else {
+			var _v2 = spaced.a;
+			var spaceName = _v2.a;
+			var x = _v2.b;
+			var y = _v2.c;
+			var newPadding = function () {
+				if (padded.$ === 'Just') {
+					var _v5 = padded.a;
+					var name = _v5.a;
+					var t = _v5.b;
+					var r = _v5.c;
+					var b = _v5.d;
+					var l = _v5.e;
+					if ((_Utils_cmp(r, x / 2) > -1) && (_Utils_cmp(b, y / 2) > -1)) {
+						var newTop = t - (y / 2);
+						var newRight = r - (x / 2);
+						var newLeft = l - (x / 2);
+						var newBottom = b - (y / 2);
+						return $elm$core$Maybe$Just(
+							A2(
+								$mdgriffith$elm_ui$Internal$Model$StyleClass,
+								$mdgriffith$elm_ui$Internal$Flag$padding,
+								A5(
+									$mdgriffith$elm_ui$Internal$Model$PaddingStyle,
+									A4($mdgriffith$elm_ui$Internal$Model$paddingNameFloat, newTop, newRight, newBottom, newLeft),
+									newTop,
+									newRight,
+									newBottom,
+									newLeft)));
+					} else {
+						return $elm$core$Maybe$Nothing;
+					}
+				} else {
+					return $elm$core$Maybe$Nothing;
+				}
+			}();
+			if (newPadding.$ === 'Just') {
+				var pad = newPadding.a;
+				return A4(
+					$mdgriffith$elm_ui$Internal$Model$element,
+					$mdgriffith$elm_ui$Internal$Model$asRow,
+					$mdgriffith$elm_ui$Internal$Model$div,
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.contentLeft + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.contentCenterY + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.wrapped)))),
+						A2(
+							$elm$core$List$cons,
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
+							A2(
+								$elm$core$List$cons,
+								$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
+								_Utils_ap(
+									attrs,
+									_List_fromArray(
+										[pad]))))),
+					$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
+			} else {
+				var halfY = -(y / 2);
+				var halfX = -(x / 2);
+				return A4(
+					$mdgriffith$elm_ui$Internal$Model$element,
+					$mdgriffith$elm_ui$Internal$Model$asEl,
+					$mdgriffith$elm_ui$Internal$Model$div,
+					attrs,
+					$mdgriffith$elm_ui$Internal$Model$Unkeyed(
+						_List_fromArray(
+							[
+								A4(
+								$mdgriffith$elm_ui$Internal$Model$element,
+								$mdgriffith$elm_ui$Internal$Model$asRow,
+								$mdgriffith$elm_ui$Internal$Model$div,
+								A2(
+									$elm$core$List$cons,
+									$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.contentLeft + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.contentCenterY + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.wrapped)))),
+									A2(
+										$elm$core$List$cons,
+										$mdgriffith$elm_ui$Internal$Model$Attr(
+											A2(
+												$elm$html$Html$Attributes$style,
+												'margin',
+												$elm$core$String$fromFloat(halfY) + ('px' + (' ' + ($elm$core$String$fromFloat(halfX) + 'px'))))),
+										A2(
+											$elm$core$List$cons,
+											$mdgriffith$elm_ui$Internal$Model$Attr(
+												A2(
+													$elm$html$Html$Attributes$style,
+													'width',
+													'calc(100% + ' + ($elm$core$String$fromInt(x) + 'px)'))),
+											A2(
+												$elm$core$List$cons,
+												$mdgriffith$elm_ui$Internal$Model$Attr(
+													A2(
+														$elm$html$Html$Attributes$style,
+														'height',
+														'calc(100% + ' + ($elm$core$String$fromInt(y) + 'px)'))),
+												A2(
+													$elm$core$List$cons,
+													A2(
+														$mdgriffith$elm_ui$Internal$Model$StyleClass,
+														$mdgriffith$elm_ui$Internal$Flag$spacing,
+														A3($mdgriffith$elm_ui$Internal$Model$SpacingStyle, spaceName, x, y)),
+													_List_Nil))))),
+								$mdgriffith$elm_ui$Internal$Model$Unkeyed(children))
+							])));
+			}
+		}
+	});
+var $author$project$CurrentGames$viewGames = F3(
+	function (_v0, translations, sides) {
+		var theme = _v0.theme;
+		var showEndScores = _v0.showEndScores;
+		var viewGame = function (gameSides) {
+			var viewSide = function (side) {
+				var viewTeamName = A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+							$mdgriffith$elm_ui$Element$clip
+						]),
+					$mdgriffith$elm_ui$Element$text(side.teamShortName));
+				var viewScore = A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$alignRight,
+							$mdgriffith$elm_ui$Element$width(
+							$mdgriffith$elm_ui$Element$px(20)),
+							$mdgriffith$elm_ui$Element$Font$bold
+						]),
+					A2(
+						$mdgriffith$elm_ui$Element$el,
+						_List_fromArray(
+							[$mdgriffith$elm_ui$Element$alignRight]),
+						$mdgriffith$elm_ui$Element$text(
+							function () {
+								var _v8 = side.score;
+								if (_v8.$ === 'Just') {
+									var score = _v8.a;
+									return $elm$core$String$fromInt(score);
+								} else {
+									return '-';
+								}
+							}())));
+				var viewEndScores = function () {
+					var viewEndScore = function (endScore) {
+						return A2(
+							$mdgriffith$elm_ui$Element$el,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$alignRight,
+									$mdgriffith$elm_ui$Element$width(
+									$mdgriffith$elm_ui$Element$px(10))
+								]),
+							$mdgriffith$elm_ui$Element$text(
+								$elm$core$String$fromInt(endScore)));
+					};
+					return showEndScores ? A2(
+						$mdgriffith$elm_ui$Element$row,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$alignRight,
+								$mdgriffith$elm_ui$Element$spacing(5)
+							]),
+						A2($elm$core$List$map, viewEndScore, side.endScores)) : $mdgriffith$elm_ui$Element$none;
+				}();
+				return A2(
+					$mdgriffith$elm_ui$Element$row,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+							$mdgriffith$elm_ui$Element$spacing(10),
+							A2($mdgriffith$elm_ui$Element$paddingXY, 0, 5),
+							$mdgriffith$elm_ui$Element$Font$color(
+							function () {
+								var _v6 = side.result;
+								if ((_v6.$ === 'Just') && (_v6.a.$ === 'SideResultWon')) {
+									var _v7 = _v6.a;
+									return theme.primary;
+								} else {
+									return theme.defaultText;
+								}
+							}())
+						]),
+					_List_fromArray(
+						[viewTeamName, viewEndScores, viewScore]));
+			};
+			var title = function () {
+				var _v4 = $elm$core$List$head(gameSides);
+				if (_v4.$ === 'Just') {
+					var top = _v4.a;
+					return _Utils_ap(
+						top.eventName,
+						function () {
+							var _v5 = top.gameName;
+							if (_v5.$ === 'Just') {
+								var gameName = _v5.a;
+								return ' - ' + gameName;
+							} else {
+								return '';
+							}
+						}());
+				} else {
+					return '';
+				}
+			}();
+			var subTitle = function () {
+				var _v3 = $elm$core$List$head(gameSides);
+				if (_v3.$ === 'Just') {
+					var top = _v3.a;
+					return top.startsAt + (' - ' + A2($author$project$CurrentGames$gameStateToString, translations, top.gameState));
+				} else {
+					return '';
+				}
+			}();
+			return A2(
+				$mdgriffith$elm_ui$Element$column,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+						$mdgriffith$elm_ui$Element$spacing(10),
+						$mdgriffith$elm_ui$Element$padding(10),
+						$mdgriffith$elm_ui$Element$Border$width(1),
+						function () {
+						var _v1 = A2(
+							$elm$core$Maybe$map,
+							function ($) {
+								return $.gameState;
+							},
+							$elm$core$List$head(gameSides));
+						if ((_v1.$ === 'Just') && (_v1.a.$ === 'GameActive')) {
+							var _v2 = _v1.a;
+							return $mdgriffith$elm_ui$Element$Border$color(theme.primary);
+						} else {
+							return $mdgriffith$elm_ui$Element$Border$color(theme.grey);
+						}
+					}()
+					]),
+				_List_fromArray(
+					[
+						A2(
+						$mdgriffith$elm_ui$Element$wrappedRow,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$Font$size(12)
+							]),
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$text(title)
+							])),
+						A2(
+						$mdgriffith$elm_ui$Element$el,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$Font$size(12)
+							]),
+						$mdgriffith$elm_ui$Element$text(subTitle)),
+						A2(
+						$mdgriffith$elm_ui$Element$column,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+							]),
+						A2($elm$core$List$map, viewSide, gameSides))
+					]));
+		};
+		return $elm$core$List$isEmpty(sides) ? A2(
+			$mdgriffith$elm_ui$Element$el,
+			_List_Nil,
+			$mdgriffith$elm_ui$Element$text(
+				A2($author$project$CurrentGames$translate, translations, 'no_current_games'))) : A2(
+			$mdgriffith$elm_ui$Element$column,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+					$mdgriffith$elm_ui$Element$spacing(20)
+				]),
+			A2(
+				$elm$core$List$map,
+				viewGame,
+				A2(
+					$author$project$CurrentGames$groupWhile,
+					F2(
+						function (a, b) {
+							return _Utils_eq(a.gameId, b.gameId);
+						}),
+					sides)));
+	});
+var $author$project$CurrentGames$view = function (model) {
 	return A2(
 		$mdgriffith$elm_ui$Element$layout,
 		_List_fromArray(
 			[
 				$mdgriffith$elm_ui$Element$Font$size(16),
-				$mdgriffith$elm_ui$Element$Font$color($author$project$CurrentDraws$theme.defaultText),
-				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$Font$color(model.flags.theme.defaultText),
+				$mdgriffith$elm_ui$Element$width(
+				$mdgriffith$elm_ui$Element$px(300)),
 				$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
 				$mdgriffith$elm_ui$Element$padding(10),
 				$mdgriffith$elm_ui$Element$Font$family(
@@ -16113,18 +17123,27 @@ var $author$project$CurrentDraws$view = function (model) {
 						$mdgriffith$elm_ui$Element$Font$sansSerif
 					]))
 			]),
-		A2(
-			$mdgriffith$elm_ui$Element$el,
-			_List_Nil,
-			$mdgriffith$elm_ui$Element$text('Current Draws')));
+		function () {
+			var _v0 = _Utils_Tuple2(model.translations, model.sides);
+			if ((_v0.a.$ === 'Success') && (_v0.b.$ === 'Success')) {
+				var translations = _v0.a.a;
+				var sides = _v0.b.a;
+				return A3($author$project$CurrentGames$viewGames, model.flags, translations, sides);
+			} else {
+				return A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_Nil,
+					$mdgriffith$elm_ui$Element$text('Nothing'));
+			}
+		}());
 };
-var $author$project$CurrentDraws$main = $elm$browser$Browser$element(
+var $author$project$CurrentGames$main = $elm$browser$Browser$element(
 	{
-		init: $author$project$CurrentDraws$init,
+		init: $author$project$CurrentGames$init,
 		subscriptions: function (_v0) {
 			return $elm$core$Platform$Sub$none;
 		},
-		update: $author$project$CurrentDraws$update,
-		view: $author$project$CurrentDraws$view
+		update: $author$project$CurrentGames$update,
+		view: $author$project$CurrentGames$view
 	});
-_Platform_export({'CurrentDraws':{'init':$author$project$CurrentDraws$main($elm$json$Json$Decode$value)({"versions":{"elm":"0.19.1"},"types":{"message":"CurrentDraws.Msg","aliases":{"CurrentDraws.Draw":{"args":[],"type":"{ id : Basics.Int, startsAt : String.String, label : String.String, attendance : Basics.Int, drawSheets : List.List (Maybe.Maybe String.String) }"},"CurrentDraws.Translation":{"args":[],"type":"{ key : String.String, label : String.String }"},"RemoteData.WebData":{"args":["a"],"type":"RemoteData.RemoteData Http.Error a"}},"unions":{"CurrentDraws.Msg":{"args":[],"tags":{"NoOp":[],"NavigateOut":["String.String"],"GotTranslations":["RemoteData.WebData (List.List CurrentDraws.Translation)"],"GotDraws":["RemoteData.WebData (List.List CurrentDraws.Draw)"]}},"Http.Error":{"args":[],"tags":{"BadUrl":["String.String"],"Timeout":[],"NetworkError":[],"BadStatus":["Basics.Int"],"BadBody":["String.String"]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Maybe.Maybe":{"args":["a"],"tags":{"Just":["a"],"Nothing":[]}},"RemoteData.RemoteData":{"args":["e","a"],"tags":{"NotAsked":[],"Loading":[],"Failure":["e"],"Success":["a"]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));
+_Platform_export({'CurrentGames':{'init':$author$project$CurrentGames$main($elm$json$Json$Decode$value)({"versions":{"elm":"0.19.1"},"types":{"message":"CurrentGames.Msg","aliases":{"CurrentGames.Side":{"args":[],"type":"{ id : Basics.Int, gameId : String.String, drawId : Basics.Int, eventId : Basics.Int, startsAt : String.String, gameName : Maybe.Maybe String.String, rockColor : String.String, result : Maybe.Maybe CurrentGames.SideResult, score : Maybe.Maybe Basics.Int, teamShortName : String.String, gameState : CurrentGames.GameState, eventName : String.String, firstHammer : Basics.Bool, endScores : List.List Basics.Int }"},"CurrentGames.Translation":{"args":[],"type":"{ key : String.String, label : String.String }"},"RemoteData.WebData":{"args":["a"],"type":"RemoteData.RemoteData Http.Error a"}},"unions":{"CurrentGames.Msg":{"args":[],"tags":{"NoOp":[],"NavigateOut":["String.String"],"GotTranslations":["RemoteData.WebData (List.List CurrentGames.Translation)"],"GotSides":["RemoteData.WebData (List.List CurrentGames.Side)"]}},"Basics.Bool":{"args":[],"tags":{"True":[],"False":[]}},"Http.Error":{"args":[],"tags":{"BadUrl":["String.String"],"Timeout":[],"NetworkError":[],"BadStatus":["Basics.Int"],"BadBody":["String.String"]}},"CurrentGames.GameState":{"args":[],"tags":{"GamePending":[],"GameActive":[],"GameComplete":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Maybe.Maybe":{"args":["a"],"tags":{"Just":["a"],"Nothing":[]}},"RemoteData.RemoteData":{"args":["e","a"],"tags":{"NotAsked":[],"Loading":[],"Failure":["e"],"Success":["a"]}},"CurrentGames.SideResult":{"args":[],"tags":{"SideResultWon":[],"SideResultLost":[],"SideResultTied":[],"SideResultConceded":[],"SideResultForfeited":[],"SideResultTimePenalized":[]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));
