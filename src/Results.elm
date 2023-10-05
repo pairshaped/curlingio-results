@@ -20,6 +20,7 @@ import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
 import Json.Decode.Pipeline exposing (optional, required)
 import List.Extra
+import Markdown
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Task
@@ -2583,7 +2584,7 @@ viewDetails theme device translations event =
         [ column [ El.spacing 20, El.width El.fill, El.alignTop ]
             [ case ( event.description, event.summary ) of
                 ( Just description, _ ) ->
-                    El.paragraph [ El.htmlAttribute (class "cio__event_description") ] [ text description ]
+                    El.paragraph [ El.htmlAttribute (class "cio__event_description") ] [ El.html (Markdown.toHtml [] description) ]
 
                 ( _, Just summary ) ->
                     El.paragraph [ El.htmlAttribute (class "cio__event_summary") ] [ text summary ]
