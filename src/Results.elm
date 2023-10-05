@@ -68,6 +68,7 @@ type Route
 type NestedEventRoute
     = DetailsRoute
     | RegistrationsRoute
+    | SparesRoute
     | DrawsRoute
     | DrawRoute Int
     | GameRoute String
@@ -181,6 +182,7 @@ type alias Event =
     , sheetNames : List String
     , teams : List Team
     , registrations : List Registration
+    , spares : List Spare
     , stages : List Stage
     , draws : List Draw
     }
@@ -245,6 +247,12 @@ type alias Registration =
     , skipName : Maybe String
     , position : Maybe String
     , lineup : Maybe Lineup
+    }
+
+
+type alias Spare =
+    { name : String
+    , positions : List String
     }
 
 
@@ -479,6 +487,12 @@ decodeEvent =
                             _ ->
                                 Decode.succeed EventStateComplete
                     )
+
+        decodeSpare : Decoder Spare
+        decodeSpare =
+            Decode.succeed Spare
+                |> required "name" string
+                |> required "positions" (list string)
     in
     Decode.succeed Event
         |> required "id" int
@@ -507,6 +521,7 @@ decodeEvent =
         |> optional "sheet_names" (list string) []
         |> optional "teams" (list decodeTeam) []
         |> optional "registrations" (list decodeRegistration) []
+        |> optional "spares" (list decodeSpare) []
         |> optional "stages" (list decodeStage) []
         |> optional "draws" (list decodeDraw) []
 
@@ -786,30 +801,10 @@ matchRoute defaultEventSection =
 matchNestedEventRoute : Maybe String -> Parser (NestedEventRoute -> a) a
 matchNestedEventRoute defaultEventSection =
     Url.Parser.oneOf
-        -- [ Url.Parser.map
-        --     (case defaultEventSection of
-        --         Just "registrations" ->
-        --             RegistrationsRoute
-        --
-        --         Just "draws" ->
-        --             DrawsRoute
-        --
-        --         Just "stages" ->
-        --             StagesRoute
-        --
-        --         Just "teams" ->
-        --             TeamsRoute
-        --
-        --         Just "reports" ->
-        --             ReportsRoute
-        --
-        --         _ ->
-        --             DetailsRoute
-        --     )
-        --     Url.Parser.top
         [ Url.Parser.map DetailsRoute Url.Parser.top
         , Url.Parser.map DetailsRoute (Url.Parser.s "details")
         , Url.Parser.map RegistrationsRoute (Url.Parser.s "registrations")
+        , Url.Parser.map SparesRoute (Url.Parser.s "spares")
         , Url.Parser.map DrawsRoute (Url.Parser.s "draws")
         , Url.Parser.map StagesRoute (Url.Parser.s "stages")
         , Url.Parser.map TeamsRoute (Url.Parser.s "teams")
@@ -1304,6 +1299,9 @@ eventSections excludeEventSections event =
                 hasRegistrations =
                     not (List.isEmpty event.registrations)
 
+                hasSpares =
+                    not (List.isEmpty event.spares)
+
                 hasDraws =
                     not (List.isEmpty event.draws)
 
@@ -1323,6 +1321,9 @@ eventSections excludeEventSections event =
                 "registrations" ->
                     hasRegistrations
 
+                "spares" ->
+                    hasSpares
+
                 "draws" ->
                     hasDraws
 
@@ -1339,7 +1340,7 @@ eventSections excludeEventSections event =
                 _ ->
                     True
     in
-    [ "details", "registrations", "draws", "stages", "teams", "reports" ]
+    [ "details", "registrations", "spares", "draws", "stages", "teams", "reports" ]
         |> List.filter included
         |> List.filter hasData
 
@@ -1352,6 +1353,9 @@ eventSectionForRoute route =
 
         RegistrationsRoute ->
             "registrations"
+
+        SparesRoute ->
+            "spares"
 
         DrawsRoute ->
             "draws"
@@ -2505,6 +2509,9 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
             RegistrationsRoute ->
                 viewRegistrations theme translations event.registrations
 
+            SparesRoute ->
+                viewSpares theme translations event.spares
+
             DrawsRoute ->
                 viewDraws theme translations scoringHilight event
 
@@ -2783,6 +2790,64 @@ viewRegistrations theme translations registrations =
             El.indexedTable [ El.htmlAttribute (class "cio__event_registrations_table") ]
                 { data = registrations
                 , columns = tableColumns
+                }
+        )
+
+
+viewSpares : Theme -> List Translation -> List Spare -> Element Msg
+viewSpares theme translations spares =
+    let
+        tableHeader content =
+            el
+                [ Font.bold
+                , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                , Border.color theme.grey
+                , El.padding 12
+                ]
+                (text (translate translations content))
+
+        tableCell i content =
+            el
+                [ El.padding 12
+                , Background.color
+                    (if modBy 2 i == 0 then
+                        theme.greyLight
+
+                     else
+                        theme.transparent
+                    )
+                ]
+                (text content)
+
+        nameColumn =
+            { header = tableHeader "curler"
+            , width = El.fill
+            , view = \i spare -> tableCell i spare.name
+            }
+
+        positionsColumn =
+            { header = tableHeader "position"
+            , width = El.fill
+            , view =
+                \i spare ->
+                    tableCell i
+                        (if List.isEmpty spare.positions then
+                            "-"
+
+                         else
+                            List.map (\pos -> translate translations pos) spare.positions
+                                |> String.join ", "
+                        )
+            }
+    in
+    el [ El.width El.fill, El.htmlAttribute (class "cio__event_spares") ]
+        (if List.isEmpty spares then
+            El.paragraph [] [ text (translate translations "no_spares") ]
+
+         else
+            El.indexedTable [ El.htmlAttribute (class "cio__event_spares_table") ]
+                { data = spares
+                , columns = [ nameColumn, positionsColumn ]
                 }
         )
 
