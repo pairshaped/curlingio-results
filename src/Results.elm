@@ -1737,7 +1737,7 @@ reloadEnabled { flags, hash, event } =
                 Success event_ ->
                     (event_.state == EventStateActive)
                         && event_.endScoresEnabled
-                        && not (List.member nestedRoute [ DetailsRoute, TeamsRoute, ReportsRoute ])
+                        && not (List.member nestedRoute [ DetailsRoute, RegistrationsRoute, SparesRoute, TeamsRoute, ReportsRoute ])
 
                 _ ->
                     False
