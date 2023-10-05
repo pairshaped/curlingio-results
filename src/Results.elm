@@ -2510,7 +2510,7 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
                 viewRegistrations theme translations event.registrations
 
             SparesRoute ->
-                viewSpares theme translations event.spares
+                viewSpares theme translations flags event.id event.spares
 
             DrawsRoute ->
                 viewDraws theme translations scoringHilight event
@@ -2794,8 +2794,8 @@ viewRegistrations theme translations registrations =
         )
 
 
-viewSpares : Theme -> List Translation -> List Spare -> Element Msg
-viewSpares theme translations spares =
+viewSpares : Theme -> List Translation -> Flags -> Int -> List Spare -> Element Msg
+viewSpares theme translations flags eventId spares =
     let
         tableHeader content =
             el
@@ -2840,16 +2840,21 @@ viewSpares theme translations spares =
                         )
             }
     in
-    el [ El.width El.fill, El.htmlAttribute (class "cio__event_spares") ]
-        (if List.isEmpty spares then
+    column [ El.width El.fill, El.spacing 30, El.htmlAttribute (class "cio__event_spares") ]
+        [ if List.isEmpty spares then
             El.paragraph [] [ text (translate translations "no_spares") ]
 
-         else
+          else
             El.indexedTable [ El.htmlAttribute (class "cio__event_spares_table") ]
                 { data = spares
                 , columns = [ nameColumn, positionsColumn ]
                 }
-        )
+        , button
+            [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+            { onPress = Just (NavigateOut (baseClubSubdomainUrl flags ++ "/events/" ++ String.fromInt eventId ++ "/spares"))
+            , label = text (translate translations "members_login_to_see_contact_info")
+            }
+        ]
 
 
 viewDraws : Theme -> List Translation -> Maybe ScoringHilight -> Event -> Element Msg
