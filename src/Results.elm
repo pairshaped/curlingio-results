@@ -4124,7 +4124,7 @@ viewTeam theme translations flags event team =
                             ]
                         ]
             in
-            El.wrappedRow [ El.spacing 30 ] (List.map viewTeamCurler team.lineup)
+            El.wrappedRow [ El.spacing 20 ] (List.map viewTeamCurler team.lineup)
 
         viewTeamInfo : Element Msg
         viewTeamInfo =
