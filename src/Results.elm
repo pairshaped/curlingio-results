@@ -3568,67 +3568,6 @@ viewStages theme device translations event onStage =
         ]
 
 
-
--- REPORTS
-
-
-viewReports : Theme -> List Translation -> Event -> Element Msg
-viewReports theme translations event =
-    let
-        hasAttendance =
-            (List.map .attendance event.draws |> List.sum) > 0
-
-        attendanceLink =
-            "/events/" ++ String.fromInt event.id ++ "/reports/attendance"
-
-        scoringAnalysisLink =
-            "/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis"
-
-        scoringAnalysisByHammerLink =
-            "/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis_by_hammer"
-
-        teamRostersLink =
-            "/events/" ++ String.fromInt event.id ++ "/reports/team_rosters"
-
-        competitionMatrixLink =
-            "/events/" ++ String.fromInt event.id ++ "/reports/competition_matrix"
-    in
-    column [ El.spacing 15, El.padding 15, El.htmlAttribute (class "cio__event_reports") ]
-        [ if hasAttendance then
-            button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                { onPress = Just (NavigateTo attendanceLink)
-                , label = text ("• " ++ translate translations "attendance")
-                }
-
-          else
-            El.none
-        , button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-            { onPress = Just (NavigateTo competitionMatrixLink)
-            , label = text ("• " ++ translate translations "competition_matrix")
-            }
-        , if event.endScoresEnabled then
-            button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                { onPress = Just (NavigateTo scoringAnalysisLink)
-                , label = text ("• " ++ translate translations "scoring_analysis")
-                }
-
-          else
-            El.none
-        , if event.endScoresEnabled then
-            button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                { onPress = Just (NavigateTo scoringAnalysisByHammerLink)
-                , label = text ("• " ++ translate translations "scoring_analysis_by_hammer")
-                }
-
-          else
-            El.none
-        , button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-            { onPress = Just (NavigateTo teamRostersLink)
-            , label = text ("• " ++ translate translations "team_rosters")
-            }
-        ]
-
-
 viewDraw : Theme -> List Translation -> Maybe ScoringHilight -> Event -> Draw -> Element Msg
 viewDraw theme translations scoringHilight event draw =
     let
@@ -4407,9 +4346,67 @@ viewTeam theme translations flags event team =
         ]
 
 
+
+-- REPORTS
+
+
+viewReports : Theme -> List Translation -> Event -> Element Msg
+viewReports theme translations event =
+    let
+        hasAttendance =
+            (List.map .attendance event.draws |> List.sum) > 0
+
+        hasShots =
+            True
+
+        reportButton id =
+            let
+                reportLink =
+                    "/events/" ++ String.fromInt event.id ++ "/reports/" ++ id
+            in
+            button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                { onPress = Just (NavigateTo reportLink)
+                , label = text ("• " ++ translate translations id)
+                }
+    in
+    column [ El.spacing 15, El.padding 15, El.htmlAttribute (class "cio__event_reports") ]
+        ([ reportButton "competition_matrix"
+         , reportButton "team_rosters"
+         , if hasAttendance then
+            reportButton "attendance"
+
+           else
+            El.none
+         ]
+            ++ (if event.endScoresEnabled then
+                    [ reportButton "scoring_analysis", reportButton "scoring_analysis_by_hammer" ]
+
+                else
+                    []
+               )
+            ++ (if event.endScoresEnabled && event.shotByShotEnabled then
+                    [ reportButton "cumulative_statistics_by_team"
+                    , reportButton "hog_line_violation"
+                    , reportButton "positional_percentage_comparison"
+                    , reportButton "scoring_and_percentages"
+                    , reportButton "statistics_by_team"
+                    ]
+
+                else
+                    []
+               )
+        )
+
+
 viewReport : Theme -> List Translation -> Maybe ScoringHilight -> Event -> String -> Element Msg
 viewReport theme translations scoringHilight event report =
     case report of
+        "competition_matrix" ->
+            viewReportCompetitionMatrix theme translations event
+
+        "team_rosters" ->
+            viewReportTeamRosters theme translations event.teams
+
         "attendance" ->
             viewReportAttendance theme translations event.draws
 
@@ -4423,11 +4420,20 @@ viewReport theme translations scoringHilight event report =
         "scoring_analysis_by_hammer" ->
             viewReportScoringAnalysisByHammer theme translations event
 
-        "team_rosters" ->
-            viewReportTeamRosters theme translations event.teams
+        "cumulative_statistics_by_team" ->
+            viewReportCumulativeStatisticsByTeam theme translations event.draws
 
-        "competition_matrix" ->
-            viewReportCompetitionMatrix theme translations event
+        "hog_line_violation" ->
+            viewReportHogLineViolation theme translations event.draws
+
+        "positional_percentage_comparison" ->
+            viewReportPositionalPercentageComparison theme translations event.draws
+
+        "scoring_and_percentages" ->
+            viewReportScoringAndPercentages theme translations event.draws
+
+        "statistics_by_team" ->
+            viewReportStatisticsByTeam theme translations event.draws
 
         _ ->
             viewNoDataForRoute translations
@@ -5240,19 +5246,6 @@ viewReportCompetitionMatrix theme translations event =
 viewReportAttendance : Theme -> List Translation -> List Draw -> Element Msg
 viewReportAttendance theme translations draws =
     let
-        viewAttendanceRow idx draw =
-            let
-                sumToCurrent =
-                    List.take (idx + 1) draws
-                        |> List.map (\d -> d.attendance)
-                        |> List.sum
-            in
-            row []
-                [ el [] (text draw.label)
-                , el [] (text (String.fromInt draw.attendance))
-                , el [] (text (String.fromInt sumToCurrent))
-                ]
-
         viewHeader content =
             el
                 [ El.padding 20
@@ -5260,7 +5253,7 @@ viewReportAttendance theme translations draws =
                 , Border.widthEach { top = 0, right = 1, bottom = 1, left = 0 }
                 , Border.color theme.grey
                 ]
-                (text (translate translations content))
+                (el [ El.alignRight ] (text (translate translations content)))
 
         viewCell idx content =
             el
@@ -5275,11 +5268,11 @@ viewReportAttendance theme translations draws =
                         theme.transparent
                     )
                 ]
-                (text content)
+                (el [ El.alignRight ] (text content))
     in
     column [ El.spacing 20, El.htmlAttribute (class "cio__event_reports_attendance") ]
         [ el [ Font.size 24 ] (text (translate translations "attendance"))
-        , El.indexedTable [ El.width El.fill, Border.widthEach { top = 1, right = 0, bottom = 0, left = 1 }, Border.color theme.grey ]
+        , El.indexedTable [ Border.widthEach { top = 1, right = 0, bottom = 0, left = 1 }, Border.color theme.grey ]
             { data = draws
             , columns =
                 [ { header = viewHeader "draw"
@@ -5303,6 +5296,46 @@ viewReportAttendance theme translations draws =
                   }
                 ]
             }
+        ]
+
+
+viewReportCumulativeStatisticsByTeam : Theme -> List Translation -> List Draw -> Element Msg
+viewReportCumulativeStatisticsByTeam theme translations draws =
+    column [ El.spacing 20 ]
+        [ el [ Font.size 24 ] (text (translate translations "cumulative_statistics_by_team"))
+        , el [] (text "Coming Soon!")
+        ]
+
+
+viewReportHogLineViolation : Theme -> List Translation -> List Draw -> Element Msg
+viewReportHogLineViolation theme translations draws =
+    column [ El.spacing 20 ]
+        [ el [ Font.size 24 ] (text (translate translations "hog_line_violation"))
+        , el [] (text "Coming Soon!")
+        ]
+
+
+viewReportPositionalPercentageComparison : Theme -> List Translation -> List Draw -> Element Msg
+viewReportPositionalPercentageComparison theme translations draws =
+    column [ El.spacing 20 ]
+        [ el [ Font.size 24 ] (text (translate translations "positional_percentage_comparison"))
+        , el [] (text "Coming Soon!")
+        ]
+
+
+viewReportScoringAndPercentages : Theme -> List Translation -> List Draw -> Element Msg
+viewReportScoringAndPercentages theme translations draws =
+    column [ El.spacing 20 ]
+        [ el [ Font.size 24 ] (text (translate translations "scoring_and_percentages"))
+        , el [] (text "Coming Soon!")
+        ]
+
+
+viewReportStatisticsByTeam : Theme -> List Translation -> List Draw -> Element Msg
+viewReportStatisticsByTeam theme translations draws =
+    column [ El.spacing 20 ]
+        [ el [ Font.size 24 ] (text (translate translations "statistics_by_team"))
+        , el [] (text "Coming Soon!")
         ]
 
 
