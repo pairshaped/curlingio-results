@@ -1739,6 +1739,7 @@ reloadEnabled { flags, hash, event } =
                     (event_.state == EventStateActive)
                         && event_.endScoresEnabled
                         && not (List.member nestedRoute [ DetailsRoute, RegistrationsRoute, SparesRoute, TeamsRoute, ReportsRoute ])
+                        && not (String.contains "/reports" hash)
 
                 _ ->
                     False
