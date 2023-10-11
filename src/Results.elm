@@ -1951,22 +1951,27 @@ view model =
         viewMain =
             row
                 [ El.htmlAttribute (class "cio__main")
+                , El.htmlAttribute (style "z-index" "100")
                 , El.width
-                    (El.fill
-                        |> El.maximum
-                            (case model.device.class of
-                                El.Phone ->
-                                    599
+                    (if model.fullScreen then
+                        El.fill
 
-                                El.Tablet ->
-                                    1199
+                     else
+                        El.fill
+                            |> El.maximum
+                                (case model.device.class of
+                                    El.Phone ->
+                                        599
 
-                                El.Desktop ->
-                                    1200
+                                    El.Tablet ->
+                                        1199
 
-                                El.BigDesktop ->
-                                    1920
-                            )
+                                    El.Desktop ->
+                                        1200
+
+                                    El.BigDesktop ->
+                                        1920
+                                )
                     )
                 , El.padding 10
                 , El.centerX
