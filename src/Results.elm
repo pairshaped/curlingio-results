@@ -2963,11 +2963,7 @@ viewDraws theme translations scoringHilight event =
                     }
 
             else
-                button
-                    [ El.focused [ Background.color theme.white ] ]
-                    { onPress = Just NoOp
-                    , label = text game.name
-                    }
+                el [] (text game.name)
 
         tableColumns =
             let
