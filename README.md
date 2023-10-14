@@ -76,7 +76,7 @@ Please review the comments in the embedded code to make configuration tweaks. He
 We use elm and elm-live for development. You can install these via npm.
 
 ```
-npm
+npm install
 ```
 
 ### Running It
