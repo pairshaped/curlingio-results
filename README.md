@@ -73,10 +73,11 @@ Please review the comments in the embedded code to make configuration tweaks. He
 
 ### Installing Dependencies
 
+We use elm and elm-live for development. You can install these via npm.
+
 ```
 npm
 ```
-
 
 ### Running It
 
@@ -88,14 +89,16 @@ npm start
 
 ### Production Deployment
 
-Compile for production by optimizing and minimizing using:
+Make sure you have uglify-js installed to compress the production js.
+```
+npm install -g uglify-js
+```
+
+Compile and optimize for production using:
 
 ```
 ./prod.sh
 ```
-
-Then deploy by simply pushing the updated prod.js and prod.min.js in master up to github.
-
 
 ## Copyright and License
 
