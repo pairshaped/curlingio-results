@@ -25,7 +25,7 @@ You'll need to include the widget's javascript.
 
 It's important that the ID here is the same used in the next step.
 
-### 3. Coiknfigure and Load the Widget
+### 3. Configure and Load the Widget
 
 ```
 <script>
