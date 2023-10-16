@@ -1,4 +1,6 @@
 elm-stuff
-dev.js
-prod.js
+# dev.js
+# current-games-dev.js
+# prod.js
+# current-games-prod.js
 node_modules
