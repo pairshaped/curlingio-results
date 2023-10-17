@@ -171,6 +171,8 @@ type alias Event =
     , noRegistrationMessage : Maybe String
     , registrationOpensAt : Maybe String
     , registrationClosesAt : Maybe String
+    , spotsAvailable : Maybe Int
+    , spotsRemaining : Maybe Int
     , addToCartUrl : Maybe String
     , addToCartText : Maybe String
     , totalWithTax : Maybe String
@@ -510,6 +512,8 @@ decodeEvent =
         |> optional "no_registration_message" (nullable string) Nothing
         |> optional "registration_opens_at" (nullable string) Nothing
         |> optional "registration_closes_at" (nullable string) Nothing
+        |> optional "spots_available" (nullable int) Nothing
+        |> optional "spots_remaining" (nullable int) Nothing
         |> optional "add_to_cart_url" (nullable string) Nothing
         |> optional "add_to_cart_text" (nullable string) Nothing
         |> optional "total_with_tax" (nullable string) Nothing
@@ -2644,14 +2648,25 @@ viewDetails theme device translations event =
                     , el [] (text event.ageRange)
                     ]
                 ]
-            , if not (List.isEmpty event.potentialDiscounts) then
-                column [ El.width El.fill, El.spacing 5, El.htmlAttribute (class "cio__event_discounts") ]
-                    [ el [ Font.bold ] (text (translate translations "potential_discounts"))
-                    , column [ El.spacing 5, El.paddingXY 4 5 ] (List.map (\d -> el [] (text ("• " ++ d))) event.potentialDiscounts)
-                    ]
+            , row [ El.width El.fill, El.spacing 20 ]
+                [ case ( event.spotsAvailable, event.spotsRemaining ) of
+                    ( Just spotsAvailable, Just spotsRemaining ) ->
+                        column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_spots_available") ]
+                            [ el [ Font.bold ] (text (translate translations "spots_available"))
+                            , el [] (text (String.fromInt spotsRemaining ++ " / " ++ String.fromInt spotsAvailable))
+                            ]
 
-              else
-                El.none
+                    _ ->
+                        El.none
+                , if not (List.isEmpty event.potentialDiscounts) then
+                    column [ El.width El.fill, El.spacing 5, El.htmlAttribute (class "cio__event_discounts") ]
+                        [ el [ Font.bold ] (text (translate translations "potential_discounts"))
+                        , column [ El.spacing 5, El.paddingXY 4 5 ] (List.map (\d -> el [] (text ("• " ++ d))) event.potentialDiscounts)
+                        ]
+
+                  else
+                    El.none
+                ]
             ]
         , case event.sponsor of
             Just sponsor ->
