@@ -1527,7 +1527,7 @@ findTeamForSide teams side =
     List.Extra.find (\t -> Just t.id == side.teamId) teams
 
 
-sheetNameForGame : Event -> Maybe Game -> String
+sheetNameForGame : Event -> Game -> String
 sheetNameForGame event game =
     let
         drawHasGame : Game -> Draw -> Bool
@@ -1542,17 +1542,12 @@ sheetNameForGame event game =
             in
             List.Extra.findIndex matching draw.drawSheets
     in
-    case game of
-        Just game_ ->
-            case List.Extra.find (drawHasGame game_) event.draws of
-                Just draw ->
-                    case sheetNumber game_ draw of
-                        Just index ->
-                            List.Extra.getAt index event.sheetNames
-                                |> Maybe.withDefault ""
-
-                        Nothing ->
-                            ""
+    case List.Extra.find (drawHasGame game) event.draws of
+        Just draw ->
+            case sheetNumber game draw of
+                Just index ->
+                    List.Extra.getAt index event.sheetNames
+                        |> Maybe.withDefault ""
 
                 Nothing ->
                     ""
@@ -2546,7 +2541,7 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
                     ( Just draw, Just game ) ->
                         let
                             sheetLabel =
-                                sheetNameForGame event (Just game)
+                                sheetNameForGame event game
                         in
                         viewGame theme translations scoringHilight event sheetLabel True draw game
 
@@ -3590,16 +3585,16 @@ viewDraw theme translations scoringHilight event draw =
     let
         viewDrawSheet gameId =
             let
-                game =
+                maybeGame =
                     gamesFromStages event.stages
                         |> List.Extra.find (\g -> Just g.id == gameId)
 
-                sheetLabel =
+                sheetLabel game =
                     sheetNameForGame event game
             in
-            case game of
-                Just game_ ->
-                    viewGame theme translations scoringHilight event sheetLabel False draw game_
+            case maybeGame of
+                Just game ->
+                    viewGame theme translations scoringHilight event (sheetLabel game) False draw game
 
                 Nothing ->
                     El.none
@@ -4210,17 +4205,20 @@ viewTeam theme translations flags event team =
                     List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
                         |> Maybe.andThen (findTeamForSide event.teams)
 
+                drawAndSheetName draw game =
+                    draw.label ++ " - " ++ sheetNameForGame event game
+
                 viewTeamDrawLabel { draw, game } =
                     if event.endScoresEnabled then
                         tableCell
                             (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                                 { onPress = Just (NavigateTo (drawUrl event.id draw))
-                                , label = text draw.label
+                                , label = text (drawAndSheetName draw game)
                                 }
                             )
 
                     else
-                        tableCell (text draw.label)
+                        tableCell (text (drawAndSheetName draw game))
 
                 viewTeamDrawStartsAt { draw, game } =
                     if event.endScoresEnabled then
