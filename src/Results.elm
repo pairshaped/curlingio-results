@@ -4074,7 +4074,7 @@ viewTeam theme translations flags event team =
                                         [ el [] (text "Waivers:")
                                         , if List.isEmpty curler.waivers then
                                             if hasLoggedInCurler && isLoggedInCurler then
-                                                button [ Font.size 12, Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                                button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                                                     { onPress = Just (NavigateOut (baseClubSubdomainUrl flags ++ "/curlers"))
                                                     , label = text (translate translations "none")
                                                     }
