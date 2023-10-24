@@ -101,6 +101,7 @@ type alias Flags =
     , fullScreenToggle : Bool
     , section : ItemsSection
     , registration : Bool
+    , showWaiversForTeams : Bool
     , excludeEventSections : List String
     , defaultEventSection : Maybe String
     , eventId : Maybe Int
@@ -228,6 +229,7 @@ type alias TeamCurler =
     , clubName : Maybe String
     , clubCity : Maybe String
     , photoUrl : Maybe String
+    , waivers : List String
     }
 
 
@@ -411,6 +413,7 @@ decodeFlags =
         |> optional "fullScreenToggle" bool False
         |> optional "section" decodeSection LeaguesSection
         |> optional "registration" bool False
+        |> optional "showWaiversForTeams" bool False
         |> optional "excludeEventSections" (list string) []
         |> optional "defaultEventSection" (nullable string) Nothing
         |> optional "eventId" (nullable int) Nothing
@@ -594,6 +597,7 @@ decodeTeamCurler =
         |> optional "club_name" (nullable string) Nothing
         |> optional "club_city" (nullable string) Nothing
         |> optional "photo_url" (nullable string) Nothing
+        |> optional "waivers" (list string) []
 
 
 decodeRegistration : Decoder Registration
@@ -1040,6 +1044,7 @@ init flags_ =
                     , fullScreenToggle = False
                     , section = LeaguesSection
                     , registration = False
+                    , showWaiversForTeams = False
                     , excludeEventSections = []
                     , defaultEventSection = Nothing
                     , eventId = Nothing
@@ -4061,6 +4066,25 @@ viewTeam theme translations flags event team =
                                 , if hasClubCity then
                                     -- small
                                     el [ Font.size 12 ] (text (Maybe.withDefault "-" curler.clubCity))
+
+                                  else
+                                    El.none
+                                , if flags.showWaiversForTeams then
+                                    row [ El.spacing 5 ]
+                                        [ el [] (text "Waivers:")
+                                        , if List.isEmpty curler.waivers then
+                                            if hasLoggedInCurler && isLoggedInCurler then
+                                                button [ Font.size 12, Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                                    { onPress = Just (NavigateOut (baseClubSubdomainUrl flags ++ "/curlers"))
+                                                    , label = text (translate translations "none")
+                                                    }
+
+                                            else
+                                                el [] (text (translate translations "none"))
+
+                                          else
+                                            el [] (text (String.join ", " curler.waivers))
+                                        ]
 
                                   else
                                     El.none
