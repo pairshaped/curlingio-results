@@ -7,6 +7,7 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
+import Element.Input as Input exposing (button)
 import Html exposing (Html)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
@@ -312,6 +313,7 @@ type Msg
     | NavigateOut String
     | GotTranslations (WebData (List Translation))
     | GotSides (WebData (List Side))
+    | Reload
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -328,6 +330,34 @@ update msg model =
 
         GotSides response ->
             ( { model | sides = response, errorMsg = Nothing }, Cmd.none )
+
+        Reload ->
+            let
+                ( translations, translationsCmd ) =
+                    case model.translations of
+                        Success _ ->
+                            ( model.translations, Cmd.none )
+
+                        _ ->
+                            ( Loading, getTranslations model.flags )
+
+                ( sides, sidesCmd ) =
+                    case model.sides of
+                        Success _ ->
+                            ( model.sides, Cmd.none )
+
+                        _ ->
+                            ( Loading, getSides model.flags )
+            in
+            ( { model
+                | translations = translations
+                , sides = sides
+              }
+            , Cmd.batch
+                [ translationsCmd
+                , sidesCmd
+                ]
+            )
 
 
 
@@ -363,10 +393,32 @@ view model =
             ( Success translations, Success sides ) ->
                 viewGames model.flags translations sides
 
+            ( Failure error, _ ) ->
+                viewFetchError model.flags (errorMessage error)
+
+            ( _, Failure error ) ->
+                viewFetchError model.flags (errorMessage error)
+
             _ ->
-                -- TODO: Handle other states and errors.
-                el [] (text "Nothing")
+                el [] (text "Loading...")
         )
+
+
+viewFetchError : Flags -> String -> Element Msg
+viewFetchError { theme } message =
+    column [ El.spacing 10 ]
+        [ el [] (text message)
+        , button
+            [ Background.color theme.primary
+            , Font.color theme.white
+            , El.paddingXY 12 10
+            , Border.rounded 4
+            , El.focused [ Background.color theme.primary ]
+            ]
+            { onPress = Just Reload
+            , label = text "Reload"
+            }
+        ]
 
 
 viewGames : Flags -> List Translation -> List Side -> Element Msg
