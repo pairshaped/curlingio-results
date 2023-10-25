@@ -26,6 +26,7 @@ import RemoteData.Http
 import Task
 import Theme exposing (Theme, decodeTheme, defaultTheme)
 import Time
+import Translation exposing (Translation, decodeTranslations, translate)
 import Url
 import Url.Parser exposing ((</>), Parser)
 
@@ -107,12 +108,6 @@ type alias Flags =
     , eventId : Maybe Int
     , theme : Theme
     , loggedInCurlerIds : List Int
-    }
-
-
-type alias Translation =
-    { key : String
-    , label : String
     }
 
 
@@ -419,18 +414,6 @@ decodeFlags =
         |> optional "eventId" (nullable int) Nothing
         |> optional "theme" decodeTheme defaultTheme
         |> optional "loggedInCurlerIds" (list int) []
-
-
-decodeTranslations : Decoder (List Translation)
-decodeTranslations =
-    let
-        decodeTranslation : Decoder Translation
-        decodeTranslation =
-            Decode.succeed Translation
-                |> required "key" string
-                |> required "label" string
-    in
-    list decodeTranslation
 
 
 decodeItems : Decoder (List Item)
@@ -874,17 +857,6 @@ stageUrl eventId stage =
             String.fromInt stage.id
     in
     "/events/" ++ String.fromInt eventId ++ "/stages/" ++ String.fromInt stage.id
-
-
-translate : List Translation -> String -> String
-translate translations key =
-    -- Translates the passed key to the current labels (server determines locale by url).
-    case List.Extra.find (\translation -> String.toLower translation.key == String.toLower key) translations of
-        Just translation ->
-            translation.label
-
-        Nothing ->
-            key
 
 
 colorNameToRGB : String -> El.Color

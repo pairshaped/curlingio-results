@@ -15,6 +15,7 @@ import List.Extra
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Theme exposing (Theme, decodeTheme, defaultTheme)
+import Translation exposing (Translation, decodeTranslations, translate)
 
 
 
@@ -35,12 +36,6 @@ type alias Flags =
     , host : Maybe String
     , showEndScores : Bool
     , theme : Theme
-    }
-
-
-type alias Translation =
-    { key : String
-    , label : String
     }
 
 
@@ -89,18 +84,6 @@ decodeFlags =
         |> optional "host" (nullable string) Nothing
         |> optional "showEndScores" bool True
         |> optional "theme" decodeTheme defaultTheme
-
-
-decodeTranslations : Decoder (List Translation)
-decodeTranslations =
-    let
-        decodeTranslation : Decoder Translation
-        decodeTranslation =
-            Decode.succeed Translation
-                |> required "key" string
-                |> required "label" string
-    in
-    list decodeTranslation
 
 
 decodeSides : Decoder (List Side)
@@ -179,17 +162,6 @@ decodeSides =
 drawUrl : Int -> Int -> String
 drawUrl eventId drawId =
     "/events/" ++ String.fromInt eventId ++ "/draws/" ++ String.fromInt drawId
-
-
-translate : List Translation -> String -> String
-translate translations key =
-    -- Translates the passed key to the current labels (server determines locale by url).
-    case List.Extra.find (\translation -> String.toLower translation.key == String.toLower key) translations of
-        Just translation ->
-            translation.label
-
-        Nothing ->
-            key
 
 
 gameStateToString : List Translation -> GameState -> String
