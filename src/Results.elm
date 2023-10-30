@@ -283,6 +283,12 @@ type alias Stage =
     }
 
 
+type alias SkillRank =
+    { teamId : Int
+    , skillRank : Int
+    }
+
+
 type StageType
     = RoundRobin
     | Bracket
@@ -298,7 +304,6 @@ type RankingMethod
 type Tiebreaker
     = TiebreakerNone
     | TiebreakerHeadToHead
-    | TiebreakerHeadToHeadThenSkillRank
     | TiebreakerScores
 
 
@@ -367,6 +372,8 @@ type alias TeamResult =
     , losses : Int
     , ties : Int
     , points : Float
+    , scores : Int
+    , skillRank : Int
     }
 
 
@@ -658,9 +665,6 @@ decodeStage =
                         case String.toLower str of
                             "head_to_head" ->
                                 Decode.succeed TiebreakerHeadToHead
-
-                            "head_to_head_then_skill_rank" ->
-                                Decode.succeed TiebreakerHeadToHeadThenSkillRank
 
                             "scores" ->
                                 Decode.succeed TiebreakerScores
@@ -1397,6 +1401,12 @@ teamResultsFor onStage allStages allTeams allGames =
                 |> List.concat
                 |> List.filter (\side -> side.teamId == Just team.id)
 
+        scoresByTeamAndStage team stage =
+            sidesByTeamAndStage team stage
+                |> List.map (\side -> side.score)
+                |> List.filterMap identity
+                |> List.sum
+
         resultsByTeamAndStage team stage =
             sidesByTeamAndStage team stage
                 |> List.map (\side -> side.result)
@@ -1463,6 +1473,10 @@ teamResultsFor onStage allStages allTeams allGames =
             List.map gamesPlayedByStage includedStages
                 |> List.sum
 
+        scores team =
+            List.map (scoresByTeamAndStage team) includedStages
+                |> List.sum
+
         wins team =
             List.map (winsByTeamAndStage team) includedStages
                 |> List.sum
@@ -1478,16 +1492,26 @@ teamResultsFor onStage allStages allTeams allGames =
         points team =
             List.map (pointsByTeamAndStage team) includedStages
                 |> List.sum
+
+        skillRank team =
+            List.Extra.elemIndex team.id onStage.teamIds
+                |> Maybe.withDefault 0
+                |> (+) 1
     in
     List.map (\id -> List.Extra.find (\team -> team.id == id) allTeams) onStage.teamIds
         |> List.filterMap identity
-        |> List.map (\team -> TeamResult team (gamesPlayed team) (wins team) (losses team) (ties team) (points team))
-
-
-teamResultsRankedByPoints : List TeamResult -> List TeamResult
-teamResultsRankedByPoints teamResults =
-    List.sortBy .points teamResults
-        |> List.reverse
+        |> List.map
+            (\team ->
+                { team = team
+                , gamesPlayed = gamesPlayed team
+                , wins = wins team
+                , losses = losses team
+                , ties = ties team
+                , points = points team
+                , scores = scores team
+                , skillRank = skillRank team
+                }
+            )
 
 
 teamHasDetails : Team -> Bool
@@ -3189,7 +3213,45 @@ viewStages theme device translations event onStage =
             let
                 teamResults =
                     teamResultsFor onStage event.stages event.teams (gamesFromStages event.stages)
-                        |> teamResultsRankedByPoints
+
+                teamResultsRanked =
+                    let
+                        pointsComparison a b =
+                            let
+                                -- tieBreaker: TeamResult -> TeamResult -> List.Order
+                                tiebreaker =
+                                    case onStage.tiebreaker of
+                                        TiebreakerNone ->
+                                            compare a.skillRank b.skillRank
+
+                                        TiebreakerHeadToHead ->
+                                            -- Not yet implemented!
+                                            compare a.skillRank b.skillRank
+
+                                        TiebreakerScores ->
+                                            -- descending
+                                            case compare a.scores b.scores of
+                                                LT ->
+                                                    GT
+
+                                                GT ->
+                                                    LT
+
+                                                EQ ->
+                                                    compare a.skillRank b.skillRank
+                            in
+                            case compare a.points b.points of
+                                -- descending
+                                LT ->
+                                    GT
+
+                                GT ->
+                                    LT
+
+                                EQ ->
+                                    tiebreaker
+                    in
+                    List.sortWith pointsComparison teamResults
 
                 hasTies =
                     List.any (\teamResult -> teamResult.ties > 0) teamResults
@@ -3328,7 +3390,7 @@ viewStages theme device translations event onStage =
                     List.filterMap identity [ teamColumn, gamesColumn, winsColumn, lossesColumn, tiesColumn, pointsColumn ]
             in
             El.indexedTable [ El.htmlAttribute (class "cio__event_round_robin_table") ]
-                { data = teamResults
+                { data = teamResultsRanked
                 , columns = tableColumns
                 }
 
