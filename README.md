@@ -11,7 +11,7 @@ See the example.html file in this directory for an example of how you can includ
 
 ## Using the widget on your club's website
 
-You can review the [example.html file](example.html) for an example of how to embed this widget on your curling club's website.
+You can review the [example.html file](example.html#L13-L54) for an example of how to embed this widget on your curling club's website.
 You can save this file locally and open it in a browser to mess around with the settings and see the results.
 
 ### 1. Include the Widget's Javascript
@@ -35,13 +35,18 @@ It's important that the ID here is the same used in the next step.
       node: document.getElementById("curlingio_results"), // REQUIRED. Must match the ID of the div we're replacing, which is "results" in this example.
       flags: {
         subdomain: "demo", // REQUIRED. This is your club's Curling I/O subdomain. For example, if your Curling I/O URL begins with "demo.curling.io" then the "demo" part would be your subdomain.
-        fullScreenToggle: true, // OPTIONAL. Determines if the full screen toggle (two diagonal arrows in the top right) will be shown. Will default to false if omitted or an invalid value is passed.
-        section: "leagues", // OPTIONAL. Can be "leagues", "competition", or "products". Will default to "leagues" if omitted or an invalid value is passed.
-        registration: true, // OPTIONAL. Set to false if you don't want prices and the add to cart / register / waitlist buttons to show up.
+        // section: "leagues", // OPTIONAL. Can be "leagues", "competition", or "products". Will default to "leagues" if omitted or an invalid value is passed.
+        // fullScreenToggle: true, // OPTIONAL. Determines if the full screen toggle (two diagonal arrows in the top right) will be shown. Will default to false if omitted or an invalid value is passed.
+        // registration: true, // OPTIONAL. Set to false if you don't want prices and the add to cart / register / waitlist buttons to show up.
+        // showWaiversForTeams: true, // OPTIONAL. Set to true if you want the team pages to show which waivers a curler has agreed to or None if they haven't.
         // eventId: 3742, // OPTIONAL. If you only want to show one specific event, enter it's ID here.
         // excludeEventSections: ["details", "registrations"], // OPTIONAL. Event sections you don't want to show up. Possible values: "details", "registrations", "draws", "stages", "teams", "reports"
         // defaultEventSection: "draws", // OPTIONAL. If you want a default event section other than the details view. Possible values: "registrations", "spares", "draws", "stages", "teams", "reports"
-        lang: "en", // OPTIONAL. Options are "en" or "fr". Defaults to "en" if nothing is passed. If your using wordpress, it should expose a 2 letter language code that can be passed here.
+        // theme: { // OPTIONAL. You can customize the colors used.
+        //   primary: "#ed1940", // OPTIONAL. The primary color in hexadecimal (important buttons / links / backgrounds). Default is red: #ed1940
+        //   secondary: "#5c5c5c" // OPTIONAL. The secondary color in hexadecimal (minor buttons / links / backgrounds). Default is a dark grey: #5c5c5c
+        // },
+        // lang: "en", // OPTIONAL. Options are "en" or "fr". Defaults to "en" if nothing is passed. If your using wordpress, it should expose a 2 letter language code that can be passed here.
         host: document.location.host, // REQUIRED - DO NOT MODIFY. Let's us make slight behavioural changes when hosted offsite versus within your curling.io site.
         hash: document.location.hash, // REQUIRED - DO NOT MODIFY. This will allow users to bookmark and share specific event links.
       }
@@ -62,11 +67,15 @@ It's important that the ID here is the same used in the next step.
 
 Please review the comments in the embedded code to make configuration tweaks. Here are some examples of configuration changes and their effects:
 
-1. You can choose which list view to show; leagues, competitions, or products.
-2. You can include just the screens for a specific league or competition, instead of the listing views. Like if you're promoting a specific bonspiel on it's own page.
+1. You can choose which section to show; leagues, competitions, or products.
+2. You can choose whether or not the full screen toggle button is active.
 3. You can enable / disable the registration buttons for your leagues, competitions, and products. Like if you just want to display the results for your competitions.
-4. You can exclude / disable specific sections. Like if you don't want the details section (tab) to show up.
-5. You can specify which section should be the default for your leagues and competitions.
+4. You can choose whether or not to show which waivers team members have agreed to if any (so that they're coach / captain can follow up).
+5. You can include just the screens for a specific league or competition, instead of the listing views. Like if you're promoting a specific bonspiel on it's own page.
+6. You can exclude / disable specific sections. Like if you don't want the details section (tab) to show up.
+7. You can specify which section should be the default for your leagues and competitions.
+8. You can pass a hex color to reflect your primary brand color (used by buttons and links).
+9. You can pass a language parameter (en or fr).
 
 
 ## For Contributors
