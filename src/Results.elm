@@ -5290,10 +5290,10 @@ viewReportCompetitionMatrix theme translations event =
                                             text
                                                 (case game.state of
                                                     GameComplete ->
-                                                        "-"
+                                                        " "
 
                                                     _ ->
-                                                        "-"
+                                                        " "
                                                 )
                                     )
                                 )
@@ -5309,7 +5309,7 @@ viewReportCompetitionMatrix theme translations event =
                                 ]
                                 (text " ")
 
-                viewHeader content =
+                viewHeader team =
                     el
                         [ El.clip
                         , El.width (El.px 115)
@@ -5318,14 +5318,28 @@ viewReportCompetitionMatrix theme translations event =
                         , Border.widthEach { top = 1, right = 1, bottom = 0, left = 0 }
                         , Border.color theme.grey
                         ]
-                        (el [ El.centerX, El.centerY ] (text content))
+                        (case team of
+                            Just t ->
+                                button
+                                    [ El.centerX
+                                    , El.centerY
+                                    , Font.color theme.primary
+                                    , El.focused [ Background.color theme.transparent ]
+                                    ]
+                                    { onPress = Just (NavigateTo (teamUrl event.id t))
+                                    , label = text t.shortName
+                                    }
+
+                            Nothing ->
+                                text " "
+                        )
 
                 viewTableColumn idx =
                     let
                         team =
                             List.Extra.getAt idx teams
                     in
-                    { header = viewHeader (team |> Maybe.map .shortName |> Maybe.withDefault " ")
+                    { header = viewHeader team
                     , width = El.px 115
                     , view =
                         \teamA ->
@@ -5334,7 +5348,7 @@ viewReportCompetitionMatrix theme translations event =
                                     viewTeamCell teamA teamB
 
                                 Nothing ->
-                                    viewHeader " "
+                                    viewHeader Nothing
                     }
             in
             if List.isEmpty stage.games then
@@ -5346,9 +5360,9 @@ viewReportCompetitionMatrix theme translations event =
                     , El.table [ Border.widthEach { top = 0, right = 0, bottom = 1, left = 1 }, Border.color theme.grey, Font.size 14 ]
                         { data = teams
                         , columns =
-                            [ { header = viewHeader " "
+                            [ { header = viewHeader Nothing
                               , width = El.px 115
-                              , view = \team -> viewHeader team.shortName
+                              , view = \team -> viewHeader (Just team)
                               }
                             ]
                                 ++ List.map viewTableColumn (List.range 0 (List.length teams - 1))
