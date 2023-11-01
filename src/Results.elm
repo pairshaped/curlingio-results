@@ -1578,6 +1578,10 @@ gameScore game orderByTeamIds =
                 Nothing ->
                     game.sides
 
+        sideResults =
+            List.map (\s -> s.result) sides
+                |> List.filterMap identity
+
         intScores =
             List.map (\s -> s.score) sides
                 |> List.filterMap identity
@@ -1588,14 +1592,32 @@ gameScore game orderByTeamIds =
         fromScores =
             case game.state of
                 GameComplete ->
-                    if Maybe.withDefault 0 (List.head intScores) > Maybe.withDefault 0 (List.Extra.getAt 1 intScores) then
-                        String.join " > " strScores
+                    case ( Maybe.withDefault 0 (List.head intScores), Maybe.withDefault 0 (List.Extra.getAt 1 intScores) ) of
+                        ( 0, 0 ) ->
+                            -- Display a W if a won, an L if a lost, or a T if they tied.
+                            case List.head sideResults of
+                                Nothing ->
+                                    "-"
 
-                    else if Maybe.withDefault 0 (List.head intScores) < Maybe.withDefault 0 (List.Extra.getAt 1 intScores) then
-                        String.join " < " strScores
+                                Just SideResultWon ->
+                                    "W - L"
 
-                    else
-                        String.join " = " strScores
+                                Just SideResultTied ->
+                                    "T - T"
+
+                                _ ->
+                                    "L - W"
+
+                        ( a, b ) ->
+                            -- if a > b then
+                            --     String.join " > " strScores
+                            --
+                            -- else if a < b then
+                            --     String.join " < " strScores
+                            --
+                            -- else
+                            --     String.join " = " strScores
+                            String.join " - " strScores
 
                 _ ->
                     ""
@@ -5226,61 +5248,77 @@ viewReportCompetitionMatrix theme translations event =
                         Just game ->
                             el
                                 [ El.clip
-                                , El.width (El.px 100)
-                                , El.height (El.px 70)
-                                , El.centerX
-                                , El.padding 20
+                                , El.width (El.px 115)
+                                , El.height (El.px 47)
+                                , El.padding 7
                                 , Border.widthEach { top = 1, right = 1, bottom = 0, left = 0 }
                                 , Border.color theme.grey
                                 ]
-                                (case gameScore game (Just ( teamA.id, teamB.id )) of
-                                    Just score ->
-                                        if event.endScoresEnabled then
-                                            let
-                                                -- Only link if the game has been scheduled
-                                                gameHasBeenScheduled =
-                                                    case drawWithGameId event.draws game.id of
-                                                        Just _ ->
-                                                            True
+                                (el [ El.centerX, El.centerY ]
+                                    (case gameScore game (Just ( teamA.id, teamB.id )) of
+                                        Just score ->
+                                            if event.endScoresEnabled then
+                                                let
+                                                    -- Only link if the game has been scheduled
+                                                    gameHasBeenScheduled =
+                                                        case drawWithGameId event.draws game.id of
+                                                            Just _ ->
+                                                                True
 
-                                                        Nothing ->
-                                                            False
+                                                            Nothing ->
+                                                                False
 
-                                                gamePath =
-                                                    gameUrl event.id game
-                                            in
-                                            if gameHasBeenScheduled then
-                                                button
-                                                    [ Font.color theme.primary
-                                                    , El.focused [ Background.color theme.transparent ]
-                                                    ]
-                                                    { onPress = Just (NavigateTo gamePath)
-                                                    , label = text score
-                                                    }
+                                                    gamePath =
+                                                        gameUrl event.id game
+                                                in
+                                                if gameHasBeenScheduled then
+                                                    button
+                                                        [ Font.color theme.primary
+                                                        , El.focused [ Background.color theme.transparent ]
+                                                        ]
+                                                        { onPress = Just (NavigateTo gamePath)
+                                                        , label = text score
+                                                        }
+
+                                                else
+                                                    text score
 
                                             else
                                                 text score
 
-                                        else
-                                            text score
+                                        Nothing ->
+                                            text
+                                                (case game.state of
+                                                    GameComplete ->
+                                                        "-"
 
-                                    Nothing ->
-                                        text " "
+                                                    _ ->
+                                                        "-"
+                                                )
+                                    )
                                 )
 
                         Nothing ->
-                            el [ El.width (El.px 100), El.height (El.px 70), Background.color theme.greyLight, El.padding 20, Border.widthEach { top = 1, right = 1, bottom = 0, left = 0 }, Border.color theme.grey ] (text " ")
+                            el
+                                [ El.width (El.px 115)
+                                , El.height (El.px 47)
+                                , Background.color theme.greyLight
+                                , El.padding 20
+                                , Border.widthEach { top = 1, right = 1, bottom = 0, left = 0 }
+                                , Border.color theme.grey
+                                ]
+                                (text " ")
 
                 viewHeader content =
-                    El.paragraph
+                    el
                         [ El.clip
-                        , El.width (El.px 100)
-                        , El.height (El.px 70)
-                        , El.padding 6
+                        , El.width (El.px 115)
+                        , El.height (El.px 47)
+                        , El.padding 7
                         , Border.widthEach { top = 1, right = 1, bottom = 0, left = 0 }
                         , Border.color theme.grey
                         ]
-                        [ text content ]
+                        (el [ El.centerX, El.centerY ] (text content))
 
                 viewTableColumn idx =
                     let
@@ -5288,7 +5326,7 @@ viewReportCompetitionMatrix theme translations event =
                             List.Extra.getAt idx teams
                     in
                     { header = viewHeader (team |> Maybe.map .shortName |> Maybe.withDefault " ")
-                    , width = El.px 100
+                    , width = El.px 115
                     , view =
                         \teamA ->
                             case team of
@@ -5305,11 +5343,11 @@ viewReportCompetitionMatrix theme translations event =
             else
                 column [ El.spacing 10, El.alignTop ]
                     [ el [ Font.size 20 ] (text stage.name)
-                    , El.table [ Border.widthEach { top = 0, right = 0, bottom = 1, left = 1 }, Border.color theme.grey ]
+                    , El.table [ Border.widthEach { top = 0, right = 0, bottom = 1, left = 1 }, Border.color theme.grey, Font.size 14 ]
                         { data = teams
                         , columns =
                             [ { header = viewHeader " "
-                              , width = El.px 100
+                              , width = El.px 115
                               , view = \team -> viewHeader team.shortName
                               }
                             ]
