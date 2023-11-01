@@ -1600,13 +1600,13 @@ gameScore game orderByTeamIds =
                                     "-"
 
                                 Just SideResultWon ->
-                                    "W - L"
+                                    "W"
 
                                 Just SideResultTied ->
-                                    "T - T"
+                                    "T"
 
                                 _ ->
-                                    "L - W"
+                                    "L"
 
                         ( a, b ) ->
                             -- if a > b then
