@@ -399,7 +399,13 @@ decodeFlags =
                             "competitions" ->
                                 Decode.succeed CompetitionsSection
 
+                            "competition" ->
+                                Decode.succeed CompetitionsSection
+
                             "products" ->
+                                Decode.succeed ProductsSection
+
+                            "product" ->
                                 Decode.succeed ProductsSection
 
                             _ ->
@@ -3226,6 +3232,7 @@ viewStages theme device translations event onStage =
 
                                         TiebreakerHeadToHead ->
                                             -- Not yet implemented!
+                                            -- We need to retrieve a list all of the games each team played each other during the stage.
                                             compare a.skillRank b.skillRank
 
                                         TiebreakerScores ->
