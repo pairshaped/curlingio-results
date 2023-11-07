@@ -267,19 +267,11 @@ type alias Lineup =
 
 type alias Stage =
     { id : Int
-    , parentId : Maybe Int
     , stageType : StageType
     , name : String
-    , iterations : Int
-    , rankingMethod : RankingMethod
-    , pointsPerWin : Float
-    , pointsPerTie : Float
-    , pointsPerLoss : Float
-    , pointsPerEnd : List Float
-    , tiebreaker : Tiebreaker
     , groups : Maybe (List Group)
-    , teamIds : List Int
     , games : List Game
+    , standings : List Standing
     }
 
 
@@ -365,15 +357,14 @@ type SideResult
     | SideResultTimePenalized
 
 
-type alias TeamResult =
-    { team : Team
-    , gamesPlayed : Int
+type alias Standing =
+    { teamId : Int
+    , rank : Int
+    , played : Int
     , wins : Int
     , losses : Int
     , ties : Int
     , points : Float
-    , scores : Int
-    , skillRank : Int
     }
 
 
@@ -632,74 +623,30 @@ decodeStage =
                                 Decode.succeed RoundRobin
                     )
 
-        decodeRankingMethod : Decoder RankingMethod
-        decodeRankingMethod =
-            string
-                |> Decode.andThen
-                    (\str ->
-                        case String.toLower str of
-                            "wins" ->
-                                Decode.succeed WinsRanking
-
-                            "skins" ->
-                                Decode.succeed SkinsRanking
-
-                            "scores" ->
-                                Decode.succeed ScoresRanking
-
-                            _ ->
-                                Decode.succeed PointsRanking
-                    )
-
-        decodePointsPerEnd : Decoder (List Float)
-        decodePointsPerEnd =
-            string
-                |> Decode.andThen
-                    (\str ->
-                        String.replace " " "" str
-                            |> String.split ","
-                            |> List.map (\s -> String.toFloat s)
-                            |> List.filterMap identity
-                            |> Decode.succeed
-                    )
-
-        decodeTiebreaker : Decoder Tiebreaker
-        decodeTiebreaker =
-            string
-                |> Decode.andThen
-                    (\str ->
-                        case String.toLower str of
-                            "head_to_head" ->
-                                Decode.succeed TiebreakerHeadToHead
-
-                            "scores" ->
-                                Decode.succeed TiebreakerScores
-
-                            _ ->
-                                Decode.succeed TiebreakerNone
-                    )
-
         decodeGroup : Decoder Group
         decodeGroup =
             Decode.succeed Group
                 |> required "id" int
                 |> required "name" string
+
+        decodeStanding : Decoder Standing
+        decodeStanding =
+            Decode.succeed Standing
+                |> required "id" int
+                |> required "rank" int
+                |> required "played" int
+                |> required "wins" int
+                |> required "losses" int
+                |> optional "ties" int 0
+                |> optional "points" float 0.0
     in
     Decode.succeed Stage
         |> required "id" int
-        |> optional "parent_id" (nullable int) Nothing
         |> required "type" decodeStageType
         |> required "name" string
-        |> optional "iterations" int 1
-        |> optional "ranking_method" decodeRankingMethod PointsRanking
-        |> optional "points_per_win" float 0
-        |> optional "points_per_tie" float 0
-        |> optional "points_per_loss" float 0
-        |> optional "points_per_end" decodePointsPerEnd []
-        |> optional "tiebreaker" decodeTiebreaker TiebreakerNone
         |> optional "groups" (nullable (list decodeGroup)) Nothing
-        |> optional "team_ids" (list int) []
         |> optional "games" (list decodeGame) []
+        |> optional "standings" (list decodeStanding) []
 
 
 decodeDraw : Decoder Draw
@@ -852,9 +799,9 @@ gameUrl eventId game =
     "/events/" ++ String.fromInt eventId ++ "/games/" ++ game.id
 
 
-teamUrl : Int -> Team -> String
-teamUrl eventId team =
-    "/events/" ++ String.fromInt eventId ++ "/teams/" ++ String.fromInt team.id
+teamUrl : Int -> Int -> String
+teamUrl eventId teamId =
+    "/events/" ++ String.fromInt eventId ++ "/teams/" ++ String.fromInt teamId
 
 
 stageUrl : Int -> Stage -> String
@@ -1393,131 +1340,6 @@ teamsWithGames teams games =
             not (List.isEmpty (gamesForTeam games team))
     in
     List.filter teamHasGames teams
-
-
-teamResultsFor : Stage -> List Stage -> List Team -> List Game -> List TeamResult
-teamResultsFor onStage allStages allTeams allGames =
-    let
-        includedStages =
-            List.filter (\stage -> stage.id == onStage.id || stage.parentId == Just onStage.id) allStages
-
-        sidesByTeamAndStage team stage =
-            List.filter (\g -> g.state == GameComplete) stage.games
-                |> List.map .sides
-                |> List.concat
-                |> List.filter (\side -> side.teamId == Just team.id)
-
-        scoresByTeamAndStage team stage =
-            sidesByTeamAndStage team stage
-                |> List.map (\side -> side.score)
-                |> List.filterMap identity
-                |> List.sum
-
-        resultsByTeamAndStage team stage =
-            sidesByTeamAndStage team stage
-                |> List.map (\side -> side.result)
-                |> List.filterMap identity
-
-        winsByTeamAndStage team stage =
-            resultsByTeamAndStage team stage
-                |> List.filter (\result -> result == SideResultWon)
-                |> List.length
-
-        lossesByTeamAndStage team stage =
-            let
-                isLoss result =
-                    (result == SideResultLost)
-                        || (result == SideResultConceded)
-                        || (result == SideResultForfeited)
-                        || (result == SideResultTimePenalized)
-            in
-            resultsByTeamAndStage team stage
-                |> List.filter isLoss
-                |> List.length
-
-        tiesByTeamAndStage team stage =
-            resultsByTeamAndStage team stage
-                |> List.filter (\result -> result == SideResultTied)
-                |> List.length
-
-        pointsByTeamAndStage team stage =
-            case stage.rankingMethod of
-                PointsRanking ->
-                    (toFloat (winsByTeamAndStage team stage) * stage.pointsPerWin)
-                        + (toFloat (tiesByTeamAndStage team stage) * stage.pointsPerTie)
-                        + (toFloat (lossesByTeamAndStage team stage) * stage.pointsPerLoss)
-
-                WinsRanking ->
-                    toFloat (winsByTeamAndStage team stage)
-
-                SkinsRanking ->
-                    let
-                        pointsPerEnd index score =
-                            if score > 0 then
-                                List.Extra.getAt index stage.pointsPerEnd
-                                    |> Maybe.withDefault 0.0
-
-                            else
-                                0.0
-                    in
-                    List.map (\side -> side.endScores) (sidesByTeamAndStage team stage)
-                        |> List.map (\endScores -> List.indexedMap pointsPerEnd endScores)
-                        |> List.concat
-                        |> List.sum
-
-                ScoresRanking ->
-                    List.map (\side -> side.score) (sidesByTeamAndStage team stage)
-                        |> List.filterMap identity
-                        |> List.sum
-                        |> toFloat
-
-        gamesPlayed team =
-            let
-                gamesPlayedByStage stage =
-                    List.length (sidesByTeamAndStage team stage)
-            in
-            List.map gamesPlayedByStage includedStages
-                |> List.sum
-
-        scores team =
-            List.map (scoresByTeamAndStage team) includedStages
-                |> List.sum
-
-        wins team =
-            List.map (winsByTeamAndStage team) includedStages
-                |> List.sum
-
-        losses team =
-            List.map (lossesByTeamAndStage team) includedStages
-                |> List.sum
-
-        ties team =
-            List.map (tiesByTeamAndStage team) includedStages
-                |> List.sum
-
-        points team =
-            List.map (pointsByTeamAndStage team) includedStages
-                |> List.sum
-
-        skillRank team =
-            List.Extra.elemIndex team.id onStage.teamIds
-                |> Maybe.withDefault 0
-                |> (+) 1
-    in
-    List.map (\id -> List.Extra.find (\team -> team.id == id) allTeams) onStage.teamIds
-        |> List.filterMap identity
-        |> List.map
-            (\team ->
-                { team = team
-                , gamesPlayed = gamesPlayed team
-                , wins = wins team
-                , losses = losses team
-                , ties = ties team
-                , points = points team
-                , scores = scores team
-                , skillRank = skillRank team
-                }
-            )
 
 
 teamHasDetails : Team -> Bool
@@ -3148,7 +2970,7 @@ viewTeams theme translations event =
                             (if teamHasDetails team then
                                 button
                                     [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                    { onPress = Just (NavigateTo (teamUrl event.id team))
+                                    { onPress = Just (NavigateTo (teamUrl event.id team.id))
                                     , label = text team.name
                                     }
 
@@ -3208,9 +3030,6 @@ viewTeams theme translations event =
 viewStages : Theme -> El.Device -> List Translation -> Event -> Stage -> Element Msg
 viewStages theme device translations event onStage =
     let
-        teams =
-            teamsWithGames event.teams onStage.games
-
         viewStageLink stage =
             button
                 [ El.paddingXY 18 10
@@ -3239,54 +3058,18 @@ viewStages theme device translations event onStage =
 
         viewRoundRobin =
             let
-                teamResults =
-                    teamResultsFor onStage event.stages event.teams (gamesFromStages event.stages)
+                teams =
+                    -- Only teams that have IDs in the current stages standings.
+                    List.filter (\t -> List.any (\s -> s.teamId == t.id) onStage.standings) event.teams
 
-                teamResultsRanked =
-                    let
-                        pointsComparison a b =
-                            let
-                                -- tieBreaker: TeamResult -> TeamResult -> List.Order
-                                tiebreaker =
-                                    case onStage.tiebreaker of
-                                        TiebreakerNone ->
-                                            compare a.skillRank b.skillRank
-
-                                        TiebreakerHeadToHead ->
-                                            -- Not yet implemented!
-                                            -- We need to retrieve a list all of the games each team played each other during the stage.
-                                            compare a.skillRank b.skillRank
-
-                                        TiebreakerScores ->
-                                            -- descending
-                                            case compare a.scores b.scores of
-                                                LT ->
-                                                    GT
-
-                                                GT ->
-                                                    LT
-
-                                                EQ ->
-                                                    compare a.skillRank b.skillRank
-                            in
-                            case compare a.points b.points of
-                                -- descending
-                                LT ->
-                                    GT
-
-                                GT ->
-                                    LT
-
-                                EQ ->
-                                    tiebreaker
-                    in
-                    List.sortWith pointsComparison teamResults
+                teamForStanding standing =
+                    List.Extra.find (\t -> t.id == standing.teamId) teams
 
                 hasTies =
-                    List.any (\teamResult -> teamResult.ties > 0) teamResults
+                    List.any (\standing -> standing.ties > 0) onStage.standings
 
                 hasPoints =
-                    onStage.rankingMethod /= WinsRanking
+                    List.any (\standing -> standing.points > 0) onStage.standings
 
                 tableHeader content =
                     el
@@ -3315,26 +3098,31 @@ viewStages theme device translations event onStage =
                         { header = tableHeader " "
                         , width = El.fill
                         , view =
-                            \i teamResult ->
-                                let
-                                    teamName =
-                                        if device.class == El.Phone then
-                                            teamResult.team.shortName
+                            \i standing ->
+                                case teamForStanding standing of
+                                    Just team ->
+                                        let
+                                            teamName =
+                                                if device.class == El.Phone then
+                                                    team.shortName
 
-                                        else
-                                            teamResult.team.name
-                                in
-                                tableCell i
-                                    (if teamHasDetails teamResult.team then
-                                        button
-                                            [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                            { onPress = Just (NavigateTo (teamUrl event.id teamResult.team))
-                                            , label = text teamName
-                                            }
+                                                else
+                                                    team.name
+                                        in
+                                        tableCell i
+                                            (if teamHasDetails team then
+                                                button
+                                                    [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                                    { onPress = Just (NavigateTo (teamUrl event.id standing.teamId))
+                                                    , label = text teamName
+                                                    }
 
-                                     else
-                                        text teamName
-                                    )
+                                             else
+                                                text teamName
+                                            )
+
+                                    Nothing ->
+                                        text " "
                         }
 
                 gamesColumn =
@@ -3348,7 +3136,7 @@ viewStages theme device translations event onStage =
                                     "games"
                                 )
                         , width = El.fill
-                        , view = \i teamResult -> tableCell i (text (String.fromInt teamResult.gamesPlayed))
+                        , view = \i standing -> tableCell i (text (String.fromInt standing.played))
                         }
 
                 winsColumn =
@@ -3362,7 +3150,7 @@ viewStages theme device translations event onStage =
                                     "wins"
                                 )
                         , width = El.fill
-                        , view = \i teamResult -> tableCell i (text (String.fromInt teamResult.wins))
+                        , view = \i standing -> tableCell i (text (String.fromInt standing.wins))
                         }
 
                 lossesColumn =
@@ -3376,7 +3164,7 @@ viewStages theme device translations event onStage =
                                     "losses"
                                 )
                         , width = El.fill
-                        , view = \i teamResult -> tableCell i (text (String.fromInt teamResult.losses))
+                        , view = \i standing -> tableCell i (text (String.fromInt standing.losses))
                         }
 
                 tiesColumn =
@@ -3391,7 +3179,7 @@ viewStages theme device translations event onStage =
                                         "ties"
                                     )
                             , width = El.fill
-                            , view = \i teamResult -> tableCell i (text (String.fromInt teamResult.ties))
+                            , view = \i standing -> tableCell i (text (String.fromInt standing.ties))
                             }
 
                     else
@@ -3409,7 +3197,7 @@ viewStages theme device translations event onStage =
                                         "points"
                                     )
                             , width = El.fill
-                            , view = \i teamResult -> tableCell i (text (String.fromFloat teamResult.points))
+                            , view = \i standing -> tableCell i (text (String.fromFloat standing.points))
                             }
 
                     else
@@ -3419,7 +3207,7 @@ viewStages theme device translations event onStage =
                     List.filterMap identity [ teamColumn, gamesColumn, winsColumn, lossesColumn, tiesColumn, pointsColumn ]
             in
             El.indexedTable [ El.htmlAttribute (class "cio__event_round_robin_table") ]
-                { data = teamResultsRanked
+                { data = onStage.standings
                 , columns = tableColumns
                 }
 
@@ -3453,7 +3241,7 @@ viewStages theme device translations event onStage =
                                                 label =
                                                     case ( side.teamId, side.winnerId, side.loserId ) of
                                                         ( Just id, _, _ ) ->
-                                                            case List.Extra.find (\t -> t.id == id) teams of
+                                                            case List.Extra.find (\t -> t.id == id) event.teams of
                                                                 Just team ->
                                                                     team.name
 
@@ -4381,7 +4169,7 @@ viewTeam theme translations flags event team =
                         Just oppo ->
                             let
                                 oppoPath =
-                                    teamUrl event.id oppo
+                                    teamUrl event.id oppo.id
                             in
                             tableCell
                                 (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
@@ -4739,7 +4527,7 @@ viewReportScoringAnalysis theme translations scoringHilight event teams =
                                     [ Font.color theme.primary
                                     , El.focused [ Background.color theme.transparent ]
                                     ]
-                                    { onPress = Just (NavigateTo (teamUrl event.id team))
+                                    { onPress = Just (NavigateTo (teamUrl event.id team.id))
                                     , label =
                                         team.name
                                             |> text
@@ -5059,7 +4847,7 @@ viewReportScoringAnalysisByHammer theme translations event =
                                     [ Font.color theme.primary
                                     , El.focused [ Background.color theme.transparent ]
                                     ]
-                                    { onPress = Just (NavigateTo (teamUrl event.id team))
+                                    { onPress = Just (NavigateTo (teamUrl event.id team.id))
                                     , label = text team.name
                                     }
                             }
@@ -5326,7 +5114,7 @@ viewReportCompetitionMatrix theme translations event =
                                     , Font.color theme.primary
                                     , El.focused [ Background.color theme.transparent ]
                                     ]
-                                    { onPress = Just (NavigateTo (teamUrl event.id t))
+                                    { onPress = Just (NavigateTo (teamUrl event.id t.id))
                                     , label = text t.shortName
                                     }
 
