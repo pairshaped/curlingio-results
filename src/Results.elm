@@ -368,6 +368,14 @@ type alias Shot =
     }
 
 
+type alias HogLineViolation =
+    { drawLabel : String
+    , teamId : Int
+    , curlerId : Int
+    , endNumber : Int
+    }
+
+
 type alias Standing =
     { teamId : Int
     , rank : Int
@@ -4336,7 +4344,7 @@ viewReport theme translations scoringHilight event report =
             viewReportCumulativeStatisticsByTeam theme translations event.draws
 
         "hog_line_violation" ->
-            viewReportHogLineViolation theme translations event.draws
+            viewReportHogLineViolation theme translations event
 
         "positional_percentage_comparison" ->
             viewReportPositionalPercentageComparison theme translations event.draws
@@ -5249,13 +5257,119 @@ viewReportCumulativeStatisticsByTeam theme translations draws =
         ]
 
 
-viewReportHogLineViolation : Theme -> List Translation -> List Draw -> Element Msg
-viewReportHogLineViolation theme translations draws =
+viewReportHogLineViolation : Theme -> List Translation -> Event -> Element Msg
+viewReportHogLineViolation theme translations { teams, stages, draws } =
+    let
+        hogLineViolations : List HogLineViolation
+        hogLineViolations =
+            -- Kind of annoying, but we need to dig down to shots while picking up the draw label, and side's team id.
+            -- Ignore it if we're missing a draw (unscheduled), team (no point in reporting), curler (no point in reporting), or it's not a violation.
+            gamesFromStages stages
+                |> List.map
+                    (\game ->
+                        case drawWithGameId draws game.id of
+                            Just draw ->
+                                game.sides
+                                    |> List.map
+                                        (\side ->
+                                            case side.teamId of
+                                                Just teamId ->
+                                                    side.shots
+                                                        |> List.map
+                                                            (\shot ->
+                                                                case ( shot.curlerId, shot.rating ) of
+                                                                    ( Just curlerId, Just "V" ) ->
+                                                                        Just (HogLineViolation draw.label teamId curlerId shot.endNumber)
+
+                                                                    _ ->
+                                                                        Nothing
+                                                            )
+                                                        |> List.filterMap identity
+
+                                                Nothing ->
+                                                    []
+                                        )
+                                    -- Lift the shots up to the sides
+                                    |> List.concat
+
+                            Nothing ->
+                                []
+                    )
+                -- Lift the sides up to the games
+                |> List.concat
+
+        viewHeader label =
+            el
+                [ El.padding 15
+                , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                , Border.color theme.grey
+                , Font.semiBold
+                , Background.color theme.greyLight
+                ]
+                (text (translate translations label))
+
+        viewCell content =
+            el
+                [ El.padding 15
+                , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                , Border.color theme.grey
+                ]
+                (text content)
+
+        teamName teamId =
+            case List.Extra.find (\team -> team.id == teamId) teams of
+                Just team ->
+                    team.name
+
+                Nothing ->
+                    "TBD"
+
+        curlerName teamId curlerId =
+            case List.Extra.find (\team -> team.id == teamId) teams of
+                Just team ->
+                    case List.Extra.find (\tc -> tc.curlerId == curlerId) team.lineup of
+                        Just teamCurler ->
+                            teamCurler.name
+
+                        Nothing ->
+                            "TBD"
+
+                Nothing ->
+                    "TBD"
+    in
     -- We are looking for any shots with a rating value of "V" (for violation)
     -- Then we want to report the athlete name, the team name, the draw label, and the end number.
-    column [ El.spacing 20 ]
+    column [ El.spacing 20, El.width El.fill ]
         [ el [ Font.size 24 ] (text (translate translations "hog_line_violation"))
-        , el [] (text "Coming Soon!")
+        , El.table []
+            { data = hogLineViolations
+            , columns =
+                [ { header = viewHeader "curler"
+                  , width = El.fill
+                  , view =
+                        \hogLineViolation ->
+                            viewCell (curlerName hogLineViolation.teamId hogLineViolation.curlerId)
+                  }
+                , { header = viewHeader "team"
+                  , width = El.fill
+                  , view =
+                        \hogLineViolation ->
+                            viewCell (teamName hogLineViolation.teamId)
+                  }
+                , { header = viewHeader "draw"
+                  , width = El.fill |> El.maximum 100
+                  , view =
+                        \hogLineViolation ->
+                            viewCell hogLineViolation.drawLabel
+                  }
+                , { header = viewHeader "end_number"
+                  , width = El.fill |> El.maximum 100
+                  , view =
+                        \hogLineViolation ->
+                            viewCell (String.fromInt hogLineViolation.endNumber)
+                  }
+                ]
+            }
         ]
 
 
