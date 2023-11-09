@@ -345,6 +345,7 @@ type alias Side =
     , endScores : List Int
     , winnerId : Maybe String
     , loserId : Maybe String
+    , shots : List Shot
     }
 
 
@@ -355,6 +356,16 @@ type SideResult
     | SideResultConceded
     | SideResultForfeited
     | SideResultTimePenalized
+
+
+type alias Shot =
+    { endNumber : Int
+    , shotNumber : Int
+    , curlerId : Maybe Int
+    , turn : Maybe String
+    , throw : Maybe String
+    , rating : Maybe String
+    }
 
 
 type alias Standing =
@@ -715,6 +726,16 @@ decodeGame =
                                     _ ->
                                         Decode.succeed Nothing
                             )
+
+                decodeShot : Decoder Shot
+                decodeShot =
+                    Decode.succeed Shot
+                        |> required "end_number" int
+                        |> required "shot_number" int
+                        |> optional "curler_id" (nullable int) Nothing
+                        |> optional "turn" (nullable string) Nothing
+                        |> optional "throw" (nullable string) Nothing
+                        |> optional "rating" (nullable string) Nothing
             in
             Decode.succeed Side
                 |> optional "team_id" (nullable int) Nothing
@@ -725,6 +746,7 @@ decodeGame =
                 |> optional "end_scores" (list int) []
                 |> optional "winner_id" (nullable string) Nothing
                 |> optional "loser_id" (nullable string) Nothing
+                |> optional "shots" (list decodeShot) []
     in
     Decode.succeed Game
         |> required "id" string
@@ -5229,6 +5251,8 @@ viewReportCumulativeStatisticsByTeam theme translations draws =
 
 viewReportHogLineViolation : Theme -> List Translation -> List Draw -> Element Msg
 viewReportHogLineViolation theme translations draws =
+    -- We are looking for any shots with a rating value of "V" (for violation)
+    -- Then we want to report the athlete name, the team name, the draw label, and the end number.
     column [ El.spacing 20 ]
         [ el [ Font.size 24 ] (text (translate translations "hog_line_violation"))
         , el [] (text "Coming Soon!")
