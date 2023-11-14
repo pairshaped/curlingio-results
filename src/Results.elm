@@ -1831,7 +1831,6 @@ view model =
         viewMain =
             row
                 [ El.htmlAttribute (class "cio__main")
-                , El.htmlAttribute (style "z-index" "100")
                 , El.width
                     (if model.fullScreen then
                         El.fill
@@ -1892,6 +1891,7 @@ view model =
         , Font.color theme.defaultText
         , El.width El.fill
         , El.height El.fill
+        , El.htmlAttribute (style "z-index" "400")
         , Font.family
             [ Font.typeface "-apple-system"
             , Font.typeface "BlinkMacSystemFont"
