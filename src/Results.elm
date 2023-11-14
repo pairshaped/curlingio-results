@@ -2127,7 +2127,13 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
     in
     column [ El.spacing 10, El.width El.fill, El.height (El.fill |> El.minimum 210) ]
         [ row [ El.spacing 20 ]
-            [ Input.text [ El.width (El.px 200), El.padding 10, El.htmlAttribute (class "cio__search") ]
+            [ Input.text
+                [ El.width (El.px 200)
+                , Border.width 1
+                , Border.color theme.grey
+                , El.padding 10
+                , El.htmlAttribute (class "cio__search")
+                ]
                 { placeholder = Just (Input.placeholder [] (text (translate translations "search")))
                 , text = itemFilter.search
                 , onChange = UpdateSearch
