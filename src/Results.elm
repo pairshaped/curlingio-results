@@ -1852,7 +1852,6 @@ view model =
                                         1920
                                 )
                     )
-                , El.padding 10
                 , El.centerX
                 , El.scrollbarX
                 , El.clipY
@@ -1890,7 +1889,7 @@ view model =
         [ Font.size 16
         , Font.color theme.defaultText
         , El.width El.fill
-        , El.height El.fill
+        , El.padding 10
         , El.htmlAttribute (style "z-index" "400")
         , Font.family
             [ Font.typeface "-apple-system"
@@ -1911,7 +1910,7 @@ view model =
         , El.htmlAttribute (class "cio__container")
         , El.inFront
             (if model.fullScreen then
-                el [ El.width El.fill, El.padding 20, El.scrollbarY, Background.color theme.white ] viewMain
+                el [ El.width El.fill, El.height El.fill, El.padding 20, El.scrollbarY, Background.color theme.white ] viewMain
 
              else
                 El.none
