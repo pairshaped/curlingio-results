@@ -15,7 +15,7 @@ import Element.Font as Font
 import Element.Input as Input exposing (button)
 import Element.Region as Region
 import Html exposing (Html)
-import Html.Attributes exposing (class, style)
+import Html.Attributes exposing (attribute, class, style)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
 import Json.Decode.Pipeline exposing (optional, required)
@@ -1808,21 +1808,19 @@ update msg model =
 -- VIEWS
 
 
-viewButton textColor bgColor content msg =
+viewButtonPrimary theme content msg =
     button
-        [ Background.color bgColor
-        , Font.color textColor
+        [ Background.color theme.primary
+
+        -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
+        , El.htmlAttribute (attribute "style" "color: white !important")
         , El.paddingXY 12 10
         , Border.rounded 4
-        , El.focused [ Background.color bgColor ]
+        , El.focused [ Background.color theme.primary ]
         ]
         { onPress = Just msg
         , label = text content
         }
-
-
-viewButtonPrimary theme content msg =
-    viewButton theme.white theme.primary content msg
 
 
 view : Model -> Html Msg
@@ -2020,7 +2018,9 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                         [ Font.size 14
                         , El.padding 8
                         , Border.rounded 3
-                        , Font.color theme.white
+
+                        -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
+                        , El.htmlAttribute (attribute "style" "color: white !important")
                         , Background.color theme.primary
                         , El.focused [ Background.color theme.primary ]
                         ]
@@ -2203,7 +2203,9 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                                             ]
                                             (button
                                                 [ Background.color theme.primary
-                                                , Font.color theme.white
+
+                                                -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
+                                                , El.htmlAttribute (attribute "style" "color: white !important")
                                                 , Font.size 14
                                                 , El.alignRight
                                                 , El.padding 8
@@ -2348,7 +2350,9 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
                         [ El.paddingXY 16 12
                         , Border.rounded 4
                         , Background.color theme.primary
-                        , Font.color theme.white
+
+                        -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
+                        , El.htmlAttribute (attribute "style" "color: white !important")
                         , El.focused [ Background.color theme.primary ]
                         ]
                         { onPress = Just (NavigateTo newPath)
@@ -3571,7 +3575,9 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
                     button
                         [ El.alignRight
                         , El.padding 8
-                        , Font.color theme.white
+
+                        -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
+                        , El.htmlAttribute (attribute "style" "color: white !important")
                         , Border.rounded 4
                         , Background.color theme.secondary
                         , El.focused [ Background.color theme.secondary ]
