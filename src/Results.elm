@@ -3307,7 +3307,8 @@ viewStages theme device translations event onStage =
                                             el
                                                 [ El.width El.fill
                                                 , El.height (El.px 25)
-                                                , El.paddingEach { left = 3, right = 0, top = 3, bottom = 0 }
+                                                , El.clip
+                                                , El.paddingEach { left = 3, right = 0, top = 6, bottom = 0 }
                                                 , if side.result == Just SideResultWon then
                                                     Font.bold
 
@@ -3344,6 +3345,7 @@ viewStages theme device translations event onStage =
                                                 , Background.color theme.greyLight
                                                 , Border.width 1
                                                 , Border.color theme.grey
+                                                , Font.size 12
                                                 , El.htmlAttribute (style "position" "absolute")
                                                 , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
                                                 , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize) ++ "px"))
@@ -3353,7 +3355,6 @@ viewStages theme device translations event onStage =
                                                     [ El.width El.fill
                                                     , El.height (El.px 20)
                                                     , El.paddingXY 4 3
-                                                    , Font.size 12
                                                     , Font.color theme.white
                                                     , Background.color
                                                         (if game.state == GameActive then
