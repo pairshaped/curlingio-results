@@ -15,7 +15,7 @@ import Element.Font as Font
 import Element.Input as Input exposing (button)
 import Element.Region as Region
 import Html exposing (Html)
-import Html.Attributes exposing (class, style)
+import Html.Attributes exposing (attribute, class, style)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
 import Json.Decode.Pipeline exposing (optional, required)
@@ -224,7 +224,7 @@ type alias TeamCurler =
     , clubName : Maybe String
     , clubCity : Maybe String
     , photoUrl : Maybe String
-    , waivers : List String
+    , waiver : Bool
     }
 
 
@@ -609,7 +609,7 @@ decodeTeamCurler =
         |> optional "club_name" (nullable string) Nothing
         |> optional "club_city" (nullable string) Nothing
         |> optional "photo_url" (nullable string) Nothing
-        |> optional "waivers" (list string) []
+        |> optional "waiver" bool False
 
 
 decodeRegistration : Decoder Registration
@@ -1875,21 +1875,19 @@ update msg model =
 -- VIEWS
 
 
-viewButton textColor bgColor content msg =
+viewButtonPrimary theme content msg =
     button
-        [ Background.color bgColor
-        , Font.color textColor
+        [ Background.color theme.primary
+
+        -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
+        , El.htmlAttribute (attribute "style" "color: white !important")
         , El.paddingXY 12 10
         , Border.rounded 4
-        , El.focused [ Background.color bgColor ]
+        , El.focused [ Background.color theme.primary ]
         ]
         { onPress = Just msg
         , label = text content
         }
-
-
-viewButtonPrimary theme content msg =
-    viewButton theme.white theme.primary content msg
 
 
 view : Model -> Html Msg
@@ -1898,7 +1896,6 @@ view model =
         viewMain =
             row
                 [ El.htmlAttribute (class "cio__main")
-                , El.htmlAttribute (style "z-index" "100")
                 , El.width
                     (if model.fullScreen then
                         El.fill
@@ -1920,7 +1917,6 @@ view model =
                                         1920
                                 )
                     )
-                , El.padding 10
                 , El.centerX
                 , El.scrollbarX
                 , El.clipY
@@ -1958,7 +1954,8 @@ view model =
         [ Font.size 16
         , Font.color theme.defaultText
         , El.width El.fill
-        , El.height El.fill
+        , El.padding 10
+        , El.htmlAttribute (style "z-index" "400")
         , Font.family
             [ Font.typeface "-apple-system"
             , Font.typeface "BlinkMacSystemFont"
@@ -1978,7 +1975,7 @@ view model =
         , El.htmlAttribute (class "cio__container")
         , El.inFront
             (if model.fullScreen then
-                el [ El.width El.fill, El.padding 20, El.scrollbarY, Background.color theme.white ] viewMain
+                el [ El.width El.fill, El.height El.fill, El.padding 20, El.scrollbarY, Background.color theme.white ] viewMain
 
              else
                 El.none
@@ -2088,7 +2085,9 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                         [ Font.size 14
                         , El.padding 8
                         , Border.rounded 3
-                        , Font.color theme.white
+
+                        -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
+                        , El.htmlAttribute (attribute "style" "color: white !important")
                         , Background.color theme.primary
                         , El.focused [ Background.color theme.primary ]
                         ]
@@ -2195,7 +2194,13 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
     in
     column [ El.spacing 10, El.width El.fill, El.height (El.fill |> El.minimum 210) ]
         [ row [ El.spacing 20 ]
-            [ Input.text [ El.width (El.px 200), El.padding 10, El.htmlAttribute (class "cio__search") ]
+            [ Input.text
+                [ El.width (El.px 200)
+                , Border.width 1
+                , Border.color theme.grey
+                , El.padding 10
+                , El.htmlAttribute (class "cio__search")
+                ]
                 { placeholder = Just (Input.placeholder [] (text (translate translations "search")))
                 , text = itemFilter.search
                 , onChange = UpdateSearch
@@ -2265,7 +2270,9 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                                             ]
                                             (button
                                                 [ Background.color theme.primary
-                                                , Font.color theme.white
+
+                                                -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
+                                                , El.htmlAttribute (attribute "style" "color: white !important")
                                                 , Font.size 14
                                                 , El.alignRight
                                                 , El.padding 8
@@ -2410,7 +2417,9 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
                         [ El.paddingXY 16 12
                         , Border.rounded 4
                         , Background.color theme.primary
-                        , Font.color theme.white
+
+                        -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
+                        , El.htmlAttribute (attribute "style" "color: white !important")
                         , El.focused [ Background.color theme.primary ]
                         ]
                         { onPress = Just (NavigateTo newPath)
@@ -3365,7 +3374,8 @@ viewStages theme device translations event onStage =
                                             el
                                                 [ El.width El.fill
                                                 , El.height (El.px 25)
-                                                , El.paddingEach { left = 3, right = 0, top = 3, bottom = 0 }
+                                                , El.clip
+                                                , El.paddingEach { left = 3, right = 0, top = 6, bottom = 0 }
                                                 , if side.result == Just SideResultWon then
                                                     Font.bold
 
@@ -3402,6 +3412,7 @@ viewStages theme device translations event onStage =
                                                 , Background.color theme.greyLight
                                                 , Border.width 1
                                                 , Border.color theme.grey
+                                                , Font.size 12
                                                 , El.htmlAttribute (style "position" "absolute")
                                                 , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
                                                 , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize) ++ "px"))
@@ -3411,7 +3422,6 @@ viewStages theme device translations event onStage =
                                                     [ El.width El.fill
                                                     , El.height (El.px 20)
                                                     , El.paddingXY 4 3
-                                                    , Font.size 12
                                                     , Font.color theme.white
                                                     , Background.color
                                                         (if game.state == GameActive then
@@ -3633,7 +3643,9 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
                     button
                         [ El.alignRight
                         , El.padding 8
-                        , Font.color theme.white
+
+                        -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
+                        , El.htmlAttribute (attribute "style" "color: white !important")
                         , Border.rounded 4
                         , Background.color theme.secondary
                         , El.focused [ Background.color theme.secondary ]
@@ -3953,6 +3965,7 @@ viewTeam theme translations flags event team =
                     column
                         [ Border.width 1
                         , Border.color theme.grey
+                        , El.clip
                         , El.padding 20
                         , El.spacing 20
                         , El.width (El.px 250)
@@ -4019,19 +4032,18 @@ viewTeam theme translations flags event team =
                                     El.none
                                 , if flags.showWaiversForTeams then
                                     row [ El.spacing 5 ]
-                                        [ el [] (text "Waivers:")
-                                        , if List.isEmpty curler.waivers then
-                                            if hasLoggedInCurler && isLoggedInCurler then
-                                                button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                                    { onPress = Just (NavigateOut (baseClubSubdomainUrl flags ++ "/curlers"))
-                                                    , label = text (translate translations "none")
-                                                    }
+                                        [ el [] (text (translate translations "waiver" ++ ":"))
+                                        , if curler.waiver then
+                                            el [] (text "✓")
 
-                                            else
-                                                el [] (text (translate translations "none"))
+                                          else if hasLoggedInCurler && isLoggedInCurler then
+                                            button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                                { onPress = Just (NavigateOut (baseClubSubdomainUrl flags ++ "/curlers"))
+                                                , label = text (translate translations "none")
+                                                }
 
                                           else
-                                            el [] (text (String.join ", " curler.waivers))
+                                            el [] (text (translate translations "none"))
                                         ]
 
                                   else
