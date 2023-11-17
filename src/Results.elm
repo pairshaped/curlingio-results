@@ -224,7 +224,7 @@ type alias TeamCurler =
     , clubName : Maybe String
     , clubCity : Maybe String
     , photoUrl : Maybe String
-    , waivers : List String
+    , waiver : Bool
     }
 
 
@@ -603,7 +603,7 @@ decodeTeamCurler =
         |> optional "club_name" (nullable string) Nothing
         |> optional "club_city" (nullable string) Nothing
         |> optional "photo_url" (nullable string) Nothing
-        |> optional "waivers" (list string) []
+        |> optional "waiver" bool False
 
 
 decodeRegistration : Decoder Registration
@@ -3965,19 +3965,18 @@ viewTeam theme translations flags event team =
                                     El.none
                                 , if flags.showWaiversForTeams then
                                     row [ El.spacing 5 ]
-                                        [ el [] (text (translate translations "waivers" ++ ":"))
-                                        , if List.isEmpty curler.waivers then
-                                            if hasLoggedInCurler && isLoggedInCurler then
-                                                button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                                    { onPress = Just (NavigateOut (baseClubSubdomainUrl flags ++ "/curlers"))
-                                                    , label = text (translate translations "none")
-                                                    }
+                                        [ el [] (text (translate translations "waiver" ++ ":"))
+                                        , if curler.waiver then
+                                            el [] (text "✓")
 
-                                            else
-                                                el [] (text (translate translations "none"))
+                                          else if hasLoggedInCurler && isLoggedInCurler then
+                                            button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                                { onPress = Just (NavigateOut (baseClubSubdomainUrl flags ++ "/curlers"))
+                                                , label = text (translate translations "none")
+                                                }
 
                                           else
-                                            el [] (text "✓")
+                                            el [] (text (translate translations "none"))
                                         ]
 
                                   else
