@@ -3898,6 +3898,7 @@ viewTeam theme translations flags event team =
                     column
                         [ Border.width 1
                         , Border.color theme.grey
+                        , El.clip
                         , El.padding 20
                         , El.spacing 20
                         , El.width (El.px 250)
@@ -3964,7 +3965,7 @@ viewTeam theme translations flags event team =
                                     El.none
                                 , if flags.showWaiversForTeams then
                                     row [ El.spacing 5 ]
-                                        [ el [] (text "Waivers:")
+                                        [ el [] (text (translate translations "waivers" ++ ":"))
                                         , if List.isEmpty curler.waivers then
                                             if hasLoggedInCurler && isLoggedInCurler then
                                                 button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
@@ -3976,7 +3977,7 @@ viewTeam theme translations flags event team =
                                                 el [] (text (translate translations "none"))
 
                                           else
-                                            el [] (text (String.join ", " curler.waivers))
+                                            el [] (text "✓")
                                         ]
 
                                   else
