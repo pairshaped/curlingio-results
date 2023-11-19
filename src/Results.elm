@@ -1052,7 +1052,8 @@ baseUrl { host, lang } =
     let
         devUrl =
             -- Development
-            "http://api.curling.test:3000/" ++ lang
+            -- "http://api.curling.test:3000/" ++ lang
+            "https://api-curlingio.global.ssl.fastly.net/" ++ lang
 
         -- productionUrl =
         --     -- Production without caching
@@ -1370,15 +1371,6 @@ teamsWithGames teams games =
             not (List.isEmpty (gamesForTeam games team))
     in
     List.filter teamHasGames teams
-
-
-teamHasDetails : Team -> Bool
-teamHasDetails team =
-    -- Check if there are any team details to show.
-    not (List.isEmpty team.lineup)
-        || (team.contactName /= Nothing)
-        || (team.contactEmail /= Nothing)
-        || (team.contactPhone /= Nothing)
 
 
 findTeamForSide : List Team -> Side -> Maybe Team
@@ -3006,15 +2998,11 @@ viewTeams theme translations event =
                 , view =
                     \i team ->
                         tableCell i
-                            (if teamHasDetails team then
-                                button
-                                    [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                    { onPress = Just (NavigateTo (teamUrl event.id team.id))
-                                    , label = text team.name
-                                    }
-
-                             else
-                                text team.name
+                            (button
+                                [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                { onPress = Just (NavigateTo (teamUrl event.id team.id))
+                                , label = text team.name
+                                }
                             )
                 }
 
@@ -3149,15 +3137,11 @@ viewStages theme device translations event onStage =
                                                     team.name
                                         in
                                         tableCell i
-                                            (if teamHasDetails team then
-                                                button
-                                                    [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                                    { onPress = Just (NavigateTo (teamUrl event.id standing.teamId))
-                                                    , label = text teamName
-                                                    }
-
-                                             else
-                                                text teamName
+                                            (button
+                                                [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                                { onPress = Just (NavigateTo (teamUrl event.id standing.teamId))
+                                                , label = text teamName
+                                                }
                                             )
 
                                     Nothing ->
