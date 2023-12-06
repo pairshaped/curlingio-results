@@ -27,6 +27,13 @@ It's important that the ID here is the same used in the next step.
 
 ### 3. Configure and Load the Widget
 
+The widget is embedded using Javascript, which is how web browsers can enhance a site's functionality.
+
+The lines that start with `//` are commented out. This means these lines / flags are disabled until they are uncommented by removing the `//` in front of them and providing an appropriate value.
+Review each of the commented lines to see if it's something you want to enable or leave with their default value.
+For example, if you want to change which section is loaded, you would uncomment the `//` in front of the *section* flag below and change the *"leagues"* value to *"competitions"* or *"products"*.
+A full list and explanation of all the flags is listed below the code snippet.
+
 ```
 <script>
   // REQUIRED. This is how we initialize the widget. You have several options you can configure. Read them over for more information.
