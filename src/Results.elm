@@ -779,8 +779,37 @@ matchRoute defaultEventSection =
 
 matchNestedEventRoute : Maybe String -> Parser (NestedEventRoute -> a) a
 matchNestedEventRoute defaultEventSection =
+    let
+        defaultRoute =
+            case defaultEventSection of
+                Just section ->
+                    case section of
+                        "registrations" ->
+                            RegistrationsRoute
+
+                        "spares" ->
+                            SparesRoute
+
+                        "draws" ->
+                            DrawsRoute
+
+                        "stages" ->
+                            StagesRoute
+
+                        "teams" ->
+                            TeamsRoute
+
+                        "reports" ->
+                            ReportsRoute
+
+                        _ ->
+                            DetailsRoute
+
+                Nothing ->
+                    DetailsRoute
+    in
     Url.Parser.oneOf
-        [ Url.Parser.map DetailsRoute Url.Parser.top
+        [ Url.Parser.map defaultRoute Url.Parser.top
         , Url.Parser.map DetailsRoute (Url.Parser.s "details")
         , Url.Parser.map RegistrationsRoute (Url.Parser.s "registrations")
         , Url.Parser.map SparesRoute (Url.Parser.s "spares")
