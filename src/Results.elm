@@ -1081,9 +1081,9 @@ baseUrl { host, lang } =
     let
         devUrl =
             -- Development
-            -- "http://api.curling.test:3000/" ++ lang
-            "https://api-curlingio.global.ssl.fastly.net/" ++ lang
+            "http://api.curling.test:3000/" ++ lang
 
+        -- "https://api-curlingio.global.ssl.fastly.net/" ++ lang
         -- productionUrl =
         --     -- Production without caching
         --     "https://api.curling.io/" ++ lang
@@ -2298,8 +2298,10 @@ viewSponsor sponsor =
 viewProduct : Theme -> List Translation -> Bool -> Product -> Element Msg
 viewProduct theme translations fullScreen product =
     row
-        [ El.spacing 20
-        , El.width El.fill
+        [ El.width El.fill
+        , El.height El.fill
+        , El.paddingXY 0 20
+        , El.spacing 20
         , El.htmlAttribute (class "cio__product")
         ]
         [ column
@@ -2309,14 +2311,17 @@ viewProduct theme translations fullScreen product =
             , El.alignTop
             ]
             [ el [ Font.size 28 ] (text product.name)
-            , case ( product.description, product.summary ) of
-                ( Just description, _ ) ->
-                    El.paragraph [ El.htmlAttribute (class "cio__product_description") ] [ text description ]
-
-                ( _, Just summary ) ->
+            , case product.summary of
+                Just summary ->
                     El.paragraph [ El.htmlAttribute (class "cio__product_summary") ] [ text summary ]
 
-                ( Nothing, Nothing ) ->
+                Nothing ->
+                    El.none
+            , case product.description of
+                Just description ->
+                    El.paragraph [ El.htmlAttribute (class "cio__product_description") ] [ text description ]
+
+                Nothing ->
                     El.none
             , case product.totalWithTax of
                 Just totalWithTax ->
@@ -2498,14 +2503,17 @@ viewDetails : Theme -> Device -> List Translation -> Event -> Element Msg
 viewDetails theme device translations event =
     row [ El.spacing 20, El.htmlAttribute (class "cio__event_details") ]
         [ column [ El.spacing 20, El.width El.fill, El.alignTop ]
-            [ case ( event.description, event.summary ) of
-                ( Just description, _ ) ->
-                    El.paragraph [ El.htmlAttribute (class "cio__event_description") ] [ El.html (Markdown.toHtml [] description) ]
-
-                ( _, Just summary ) ->
+            [ case event.summary of
+                Just summary ->
                     El.paragraph [ El.htmlAttribute (class "cio__event_summary") ] [ text summary ]
 
-                ( Nothing, Nothing ) ->
+                Nothing ->
+                    El.none
+            , case event.description of
+                Just description ->
+                    El.paragraph [ El.htmlAttribute (class "cio__event_description") ] [ El.html (Markdown.toHtml [] description) ]
+
+                Nothing ->
                     El.none
             , case event.totalWithTax of
                 Just totalWithTax ->
