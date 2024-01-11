@@ -3920,15 +3920,15 @@ viewTeam theme translations flags event team =
                         [ Border.width 1
                         , Border.color theme.grey
                         , El.clip
-                        , El.padding 20
-                        , El.spacing 20
+                        , El.padding 15
+                        , El.spacing 15
                         , El.width (El.px 250)
                         ]
                         [ if hasPhotoUrl then
                             el [ El.width El.fill ]
                                 (case curler.photoUrl of
                                     Just photoUrl ->
-                                        El.image [ El.height (El.px 142), El.centerX ]
+                                        El.image [ El.height (El.px 150), El.centerX ]
                                             { src = photoUrl
                                             , description = curler.name
                                             }
@@ -4011,7 +4011,7 @@ viewTeam theme translations flags event team =
                                             }
 
                                     else
-                                        El.none
+                                        el [ Font.size 12 ] (text " ")
 
                                   else
                                     El.none
