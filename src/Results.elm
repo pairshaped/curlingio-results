@@ -1426,8 +1426,16 @@ sheetNameForGame event game =
         Just draw ->
             case sheetNumber game draw of
                 Just index ->
-                    List.Extra.getAt index event.sheetNames
-                        |> Maybe.withDefault ""
+                    case List.Extra.getAt index event.sheetNames of
+                        Just sheetName ->
+                            if sheetName == "" then
+                                "Sheet " ++ String.fromChar (Char.fromCode (index + 65))
+
+                            else
+                                sheetName
+
+                        Nothing ->
+                            ""
 
                 Nothing ->
                     ""
@@ -2912,15 +2920,7 @@ viewDraws theme translations scoringHilight event =
                         , El.htmlAttribute (class ("cio__event_draws_header cio__event_draws_header_" ++ contentId))
                         , Border.color theme.grey
                         ]
-                        [ el [ align ]
-                            (text
-                                (if content == "" then
-                                    " "
-
-                                 else
-                                    translate translations content
-                                )
-                            )
+                        [ el [ align ] (text (translate translations content))
                         ]
 
                 tableCell align isActive content =
@@ -2966,7 +2966,16 @@ viewDraws theme translations scoringHilight event =
 
                 sheetColumn columnIndex sheetName =
                     Just
-                        { header = tableHeader El.centerX sheetName
+                        { header =
+                            tableHeader El.centerX
+                                (if sheetName == "" then
+                                    -- String.fromInt (columnIndex + 1)
+                                    -- Converting the int to A, B, C, D, E, etc. The A char starts at 65.
+                                    "Sheet " ++ String.fromChar (Char.fromCode (columnIndex + 65))
+
+                                 else
+                                    sheetName
+                                )
                         , width = El.fill
                         , view =
                             \draw ->
@@ -3786,23 +3795,17 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
                     ]
                     [ text sheetLabel
                     , if detailed then
-                        -- Adding the empty text at inherited font size prevents a misalignment of borders.
-                        el [] (text " ")
+                        El.none
 
                       else
-                        row []
-                            [ button
-                                [ Font.color theme.primary
-                                , Font.size 12
-                                , El.focused [ Background.color theme.transparent ]
-                                ]
-                                { onPress = Just (NavigateTo gamePath)
-                                , label = text game.name
-                                }
-
-                            -- Adding the empty text at inherited font size prevents a misalignment of borders, which is why we're using a row.
-                            , el [] (text " ")
+                        button
+                            [ Font.color theme.primary
+                            , Font.size 12
+                            , El.focused [ Background.color theme.transparent ]
                             ]
+                            { onPress = Just (NavigateTo gamePath)
+                            , label = text game.name
+                            }
                     ]
             , width = El.fill
             , view = teamNameElement
