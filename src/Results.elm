@@ -2912,7 +2912,16 @@ viewDraws theme translations scoringHilight event =
                         , El.htmlAttribute (class ("cio__event_draws_header cio__event_draws_header_" ++ contentId))
                         , Border.color theme.grey
                         ]
-                        [ el [ align ] (text (translate translations content)) ]
+                        [ el [ align ]
+                            (text
+                                (if content == "" then
+                                    " "
+
+                                 else
+                                    translate translations content
+                                )
+                            )
+                        ]
 
                 tableCell align isActive content =
                     row
