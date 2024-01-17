@@ -3777,17 +3777,23 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
                     ]
                     [ text sheetLabel
                     , if detailed then
-                        El.none
+                        -- Adding the empty text at inherited font size prevents a misalignment of borders.
+                        el [] (text " ")
 
                       else
-                        button
-                            [ Font.color theme.primary
-                            , Font.size 12
-                            , El.focused [ Background.color theme.transparent ]
+                        row []
+                            [ button
+                                [ Font.color theme.primary
+                                , Font.size 12
+                                , El.focused [ Background.color theme.transparent ]
+                                ]
+                                { onPress = Just (NavigateTo gamePath)
+                                , label = text game.name
+                                }
+
+                            -- Adding the empty text at inherited font size prevents a misalignment of borders, which is why we're using a row.
+                            , el [] (text " ")
                             ]
-                            { onPress = Just (NavigateTo gamePath)
-                            , label = text game.name
-                            }
                     ]
             , width = El.fill
             , view = teamNameElement
