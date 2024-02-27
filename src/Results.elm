@@ -4324,6 +4324,9 @@ viewTeam theme translations flags event team =
 viewReports : Theme -> List Translation -> Event -> Element Msg
 viewReports theme translations event =
     let
+        hasCompetitionMatrix =
+            List.any (\stage -> stage.stageType == RoundRobin) event.stages
+
         hasAttendance =
             (List.map .attendance event.draws |> List.sum) > 0
 
@@ -4341,7 +4344,11 @@ viewReports theme translations event =
                 }
     in
     column [ El.spacing 15, El.padding 15, El.htmlAttribute (class "cio__event_reports") ]
-        ([ reportButton "competition_matrix"
+        ([ if hasCompetitionMatrix then
+            reportButton "competition_matrix"
+
+           else
+            El.none
          , reportButton "team_rosters"
          , if hasAttendance then
             reportButton "attendance"
