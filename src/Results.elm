@@ -130,6 +130,7 @@ type alias Item =
     , name : String
     , summary : Maybe String
     , occursOn : Maybe String
+    , timeZoneShort : Maybe String
     , location : Maybe String
     , noRegistrationMessage : Maybe String
     , price : Maybe String
@@ -178,6 +179,8 @@ type alias Event =
     , numberOfEnds : Int
     , topRock : String
     , botRock : String
+    , timeZone : Maybe String
+    , timeZoneShort : Maybe String
     , sheetNames : List String
     , teams : List Team
     , registrations : List Registration
@@ -449,6 +452,7 @@ decodeItems =
                 |> required "name" string
                 |> optional "summary" (nullable string) Nothing
                 |> optional "occurs_on" (nullable string) Nothing
+                |> optional "time_zone_short" (nullable string) Nothing
                 |> optional "location" (nullable string) Nothing
                 |> optional "no_registration_message" (nullable string) Nothing
                 |> optional "price" (nullable string) Nothing
@@ -532,6 +536,8 @@ decodeEvent =
         |> optional "number_of_ends" int 10
         |> optional "top_rock" string "red"
         |> optional "bot_rock" string "yellow"
+        |> optional "time_zone" (nullable string) Nothing
+        |> optional "time_zone_short" (nullable string) Nothing
         |> optional "sheet_names" (list string) []
         |> optional "teams" (list decodeTeam) []
         |> optional "registrations" (list decodeRegistration) []
@@ -2550,16 +2556,32 @@ viewDetails theme device translations event =
                     , el [] (text event.endsOn)
                     ]
                 ]
-            , row [ El.width El.fill, El.spacing 20 ]
-                [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_registration_opens_at") ]
-                    [ el [ Font.bold ] (text (translate translations "registration_opens_at"))
-                    , el [] (text (Maybe.withDefault "" event.registrationOpensAt))
-                    ]
-                , column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_registration_closes_at") ]
-                    [ el [ Font.bold ] (text (translate translations "registration_closes_at"))
-                    , el [] (text (Maybe.withDefault "" event.registrationClosesAt))
-                    ]
-                ]
+            , case ( event.registrationOpensAt, event.registrationClosesAt ) of
+                ( Just registrationOpensAt, Just registrationClosesAt ) ->
+                    row [ El.width El.fill, El.spacing 20 ]
+                        [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_registration_opens_at") ]
+                            [ el [ Font.bold ] (text (translate translations "registration_opens_at"))
+                            , el [] (text registrationOpensAt)
+                            ]
+                        , column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_registration_closes_at") ]
+                            [ el [ Font.bold ] (text (translate translations "registration_closes_at"))
+                            , el [] (text registrationClosesAt)
+                            ]
+                        ]
+
+                _ ->
+                    El.none
+            , case event.timeZone of
+                Just timeZone ->
+                    row [ El.width El.fill, El.spacing 20 ]
+                        [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_time_zone") ]
+                            [ el [ Font.bold ] (text (translate translations "time_zone"))
+                            , el [] (text timeZone)
+                            ]
+                        ]
+
+                Nothing ->
+                    El.none
             , row [ El.width El.fill, El.spacing 20 ]
                 [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_team_restriction") ]
                     [ el [ Font.bold ] (text (translate translations "team_restriction"))
@@ -3003,10 +3025,18 @@ viewDraws theme translations scoringHilight event =
             El.paragraph [] [ text (translate translations "no_draws") ]
 
          else
-            El.table [ El.htmlAttribute (class "cio__event_draws_table") ]
-                { data = event.draws
-                , columns = tableColumns
-                }
+            column [ El.spacing 10 ]
+                [ El.table [ El.htmlAttribute (class "cio__event_draws_table") ]
+                    { data = event.draws
+                    , columns = tableColumns
+                    }
+                , case event.timeZone of
+                    Just timeZone ->
+                        el [ Font.italic, Font.color theme.greyDark, El.padding 10 ] (text ("* " ++ timeZone))
+
+                    Nothing ->
+                        El.none
+                ]
         )
 
 
