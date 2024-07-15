@@ -4,3 +4,4 @@ current-games-dev.js
 prod.js
 current-games-prod.js
 node_modules
+.DS_Store
