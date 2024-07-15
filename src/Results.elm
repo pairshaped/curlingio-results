@@ -1,7 +1,5 @@
 port module Results exposing (init)
 
--- import Element.HexColor as HexColor
-
 import Browser
 import Browser.Dom
 import Browser.Events
@@ -368,11 +366,17 @@ type alias Shot =
     }
 
 
-type alias HogLineViolation =
-    { drawLabel : String
-    , teamId : Int
-    , curlerId : Int
+type alias ShotExpanded =
+    { stageId : Int
+    , draw : Draw
+    , team : Team
+    , curler : TeamCurler
     , endNumber : Int
+    , shotNumber : Int
+    , curlerId : Int
+    , turn : Maybe String
+    , throw : Maybe String
+    , rating : Maybe String
     }
 
 
@@ -1637,6 +1641,67 @@ drawWithGameId draws id =
             List.any matching draw.drawSheets
     in
     List.Extra.find hasGame draws
+
+
+shotsWithStageIdDrawTeamCurler : Event -> List ShotExpanded
+shotsWithStageIdDrawTeamCurler { stages, draws, teams } =
+    -- Kind of annoying, but we need to dig down to shots while picking up the draw label, and side's team id.
+    -- Ignore it if we're missing a draw (unscheduled), team (no point in reporting), curler (no point in reporting), or it's not a violation.
+    stages
+        |> List.map
+            (\stage ->
+                stage.games
+                    |> List.map
+                        (\game ->
+                            case drawWithGameId draws game.id of
+                                Just draw ->
+                                    game.sides
+                                        |> List.map
+                                            (\side ->
+                                                case findTeamForSide teams side of
+                                                    Just team ->
+                                                        side.shots
+                                                            |> List.map
+                                                                (\shot ->
+                                                                    case shot.curlerId of
+                                                                        Just curlerId ->
+                                                                            case List.Extra.find (\c -> c.curlerId == curlerId) team.lineup of
+                                                                                Just curler ->
+                                                                                    Just
+                                                                                        { stageId = stage.id
+                                                                                        , draw = draw
+                                                                                        , team = team
+                                                                                        , curler = curler
+                                                                                        , endNumber = shot.endNumber
+                                                                                        , shotNumber = shot.shotNumber
+                                                                                        , curlerId = curlerId
+                                                                                        , turn = shot.turn
+                                                                                        , throw = shot.throw
+                                                                                        , rating = shot.rating
+                                                                                        }
+
+                                                                                Nothing ->
+                                                                                    Nothing
+
+                                                                        Nothing ->
+                                                                            Nothing
+                                                                )
+                                                            |> List.filterMap identity
+
+                                                    Nothing ->
+                                                        []
+                                            )
+                                        -- Lift the shots up to the sides
+                                        |> List.concat
+
+                                Nothing ->
+                                    []
+                        )
+                    -- Lift the sides up to the games
+                    |> List.concat
+            )
+        -- Lift the games up to the stages
+        |> List.concat
 
 
 reloadEnabled { flags, hash, event } =
@@ -4405,7 +4470,8 @@ viewReport theme translations scoringHilight event report =
             viewReportHogLineViolation theme translations event
 
         "positional_percentage_comparison" ->
-            viewReportPositionalPercentageComparison theme translations event.draws
+            -- Tie in to routing to get the currently selected stage?
+            viewReportPositionalPercentageComparison theme translations event Nothing
 
         "scoring_and_percentages" ->
             viewReportScoringAndPercentages theme translations event.draws
@@ -5316,45 +5382,12 @@ viewReportCumulativeStatisticsByTeam theme translations draws =
 
 
 viewReportHogLineViolation : Theme -> List Translation -> Event -> Element Msg
-viewReportHogLineViolation theme translations { teams, stages, draws } =
+viewReportHogLineViolation theme translations event =
     let
-        hogLineViolations : List HogLineViolation
+        hogLineViolations : List ShotExpanded
         hogLineViolations =
-            -- Kind of annoying, but we need to dig down to shots while picking up the draw label, and side's team id.
-            -- Ignore it if we're missing a draw (unscheduled), team (no point in reporting), curler (no point in reporting), or it's not a violation.
-            gamesFromStages stages
-                |> List.map
-                    (\game ->
-                        case drawWithGameId draws game.id of
-                            Just draw ->
-                                game.sides
-                                    |> List.map
-                                        (\side ->
-                                            case side.teamId of
-                                                Just teamId ->
-                                                    side.shots
-                                                        |> List.map
-                                                            (\shot ->
-                                                                case ( shot.curlerId, shot.rating ) of
-                                                                    ( Just curlerId, Just "V" ) ->
-                                                                        Just (HogLineViolation draw.label teamId curlerId shot.endNumber)
-
-                                                                    _ ->
-                                                                        Nothing
-                                                            )
-                                                        |> List.filterMap identity
-
-                                                Nothing ->
-                                                    []
-                                        )
-                                    -- Lift the shots up to the sides
-                                    |> List.concat
-
-                            Nothing ->
-                                []
-                    )
-                -- Lift the sides up to the games
-                |> List.concat
+            shotsWithStageIdDrawTeamCurler event
+                |> List.filter (\s -> s.rating == Just "V")
 
         viewHeader label =
             el
@@ -5373,27 +5406,6 @@ viewReportHogLineViolation theme translations { teams, stages, draws } =
                 , Border.color theme.grey
                 ]
                 (text content)
-
-        teamName teamId =
-            case List.Extra.find (\team -> team.id == teamId) teams of
-                Just team ->
-                    team.name
-
-                Nothing ->
-                    "TBD"
-
-        curlerName teamId curlerId =
-            case List.Extra.find (\team -> team.id == teamId) teams of
-                Just team ->
-                    case List.Extra.find (\tc -> tc.curlerId == curlerId) team.lineup of
-                        Just teamCurler ->
-                            teamCurler.name
-
-                        Nothing ->
-                            "TBD"
-
-                Nothing ->
-                    "TBD"
     in
     -- We are looking for any shots with a rating value of "V" (for violation)
     -- Then we want to report the athlete name, the team name, the draw label, and the end number.
@@ -5406,19 +5418,19 @@ viewReportHogLineViolation theme translations { teams, stages, draws } =
                   , width = El.fill
                   , view =
                         \hogLineViolation ->
-                            viewCell (curlerName hogLineViolation.teamId hogLineViolation.curlerId)
+                            viewCell hogLineViolation.curler.name
                   }
                 , { header = viewHeader "team"
                   , width = El.fill
                   , view =
                         \hogLineViolation ->
-                            viewCell (teamName hogLineViolation.teamId)
+                            viewCell hogLineViolation.team.name
                   }
                 , { header = viewHeader "draw"
                   , width = El.fill |> El.maximum 100
                   , view =
                         \hogLineViolation ->
-                            viewCell hogLineViolation.drawLabel
+                            viewCell hogLineViolation.draw.label
                   }
                 , { header = viewHeader "end_number"
                   , width = El.fill |> El.maximum 100
@@ -5431,11 +5443,102 @@ viewReportHogLineViolation theme translations { teams, stages, draws } =
         ]
 
 
-viewReportPositionalPercentageComparison : Theme -> List Translation -> List Draw -> Element Msg
-viewReportPositionalPercentageComparison theme translations draws =
-    column [ El.spacing 20 ]
+viewReportPositionalPercentageComparison : Theme -> List Translation -> Event -> Maybe Int -> Element Msg
+viewReportPositionalPercentageComparison theme translations event onStageId =
+    --
+    -- Table for each position
+    -- Header Row: [Position Number, Draw Number, Draw Number, Cumulative, +/-
+    -- Data Row: [Curler name, percentage for draw, percentage for draw, percentage for draw, cumulative percentage, plus minus]
+    -- For example:
+    --    [Fourth Position, 2, 4, 5, 8, 10, 12, 14, 16, 18, Cumulative, +/-]
+    --    [Matt Dunstone, 81, 79, , 98 +, 89 +, 76, 88, 89 +, 89 +, 86, +4]
+    --    [Brad Jacobs, 85, 87, 75 -, , 73 -, 93 +, 89 +, 74 -, 93 +, 83, 0]
+    --
+    let
+        positions =
+            let
+                shotsForPosition position =
+                    let
+                        shotNumbers =
+                            case position of
+                                1 ->
+                                    [ 1, 2 ]
+
+                                2 ->
+                                    [ 3, 4 ]
+
+                                3 ->
+                                    [ 5, 6 ]
+
+                                4 ->
+                                    [ 7, 8 ]
+
+                                _ ->
+                                    []
+
+                        shots =
+                            case onStageId of
+                                Just stageId ->
+                                    shotsWithStageIdDrawTeamCurler event
+                                        |> List.filter (\s -> s.stageId == stageId)
+
+                                Nothing ->
+                                    shotsWithStageIdDrawTeamCurler event
+                    in
+                    shots
+                        |> List.filter (\s -> List.member s.shotNumber shotNumbers)
+            in
+            List.map (\p -> { position = p, shots = shotsForPosition p }) (List.range 1 4)
+
+        viewPosition position =
+            let
+                drawsForPosition =
+                    List.map (\s -> s.draw) position.shots
+                        |> List.filterMap identity
+
+                viewHeader label =
+                    el
+                        [ El.padding 15
+                        , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                        , Border.color theme.grey
+                        , Font.semiBold
+                        , Background.color theme.greyLight
+                        ]
+                        (text (translate translations label))
+
+                viewCell content =
+                    el
+                        [ El.padding 15
+                        , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                        , Border.color theme.grey
+                        ]
+                        (text content)
+            in
+            let
+                viewDrawCell draw =
+                    { header = viewHeader (String.fromInt draw)
+                    , width = El.fill
+                    , view =
+                        \curler ->
+                            viewCell "percentage"
+                    }
+            in
+            El.table []
+                { data = position
+                , columns =
+                    [ { header = viewHeader "Position"
+                      , width = El.fill
+                      , view =
+                            \curler ->
+                                viewCell "curler.name"
+                      }
+                    ]
+                        ++ List.map viewDrawCell drawsForPosition
+                }
+    in
+    column [ El.spacing 20, El.width El.fill ]
         [ el [ Font.size 24 ] (text (translate translations "positional_percentage_comparison"))
-        , el [] (text "Coming Soon!")
+        , column [] (List.map viewPosition positions)
         ]
 
 
