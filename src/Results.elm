@@ -1,7 +1,5 @@
 port module Results exposing (init)
 
--- import Element.HexColor as HexColor
-
 import Browser
 import Browser.Dom
 import Browser.Events
@@ -5401,41 +5399,100 @@ viewReportHogLineViolation theme translations event =
 
 viewReportPositionalPercentageComparison : Theme -> List Translation -> Event -> Maybe Int -> Element Msg
 viewReportPositionalPercentageComparison theme translations event onStageId =
+    --
+    -- Table for each position
+    -- Header Row: [Position Number, Draw Number, Draw Number, Cumulative, +/-
+    -- Data Row: [Curler name, percentage for draw, percentage for draw, percentage for draw, cumulative percentage, plus minus]
+    -- For example:
+    --    [Fourth Position, 2, 4, 5, 8, 10, 12, 14, 16, 18, Cumulative, +/-]
+    --    [Matt Dunstone, 81, 79, , 98 +, 89 +, 76, 88, 89 +, 89 +, 86, +4]
+    --    [Brad Jacobs, 85, 87, 75 -, , 73 -, 93 +, 89 +, 74 -, 93 +, 83, 0]
+    --
     let
-        shots =
-            case onStageId of
-                Just stageId ->
-                    shotsWithStageIdDrawTeamCurler event
-                        |> List.filter (\s -> s.stageId == stageId)
-
-                Nothing ->
-                    shotsWithStageIdDrawTeamCurler event
-
-        shotsForPosition position =
+        positions =
             let
-                shotNumbers =
-                    case position of
-                        1 ->
-                            [ 1, 2 ]
+                shotsForPosition position =
+                    let
+                        shotNumbers =
+                            case position of
+                                1 ->
+                                    [ 1, 2 ]
 
-                        2 ->
-                            [ 3, 4 ]
+                                2 ->
+                                    [ 3, 4 ]
 
-                        3 ->
-                            [ 5, 6 ]
+                                3 ->
+                                    [ 5, 6 ]
 
-                        4 ->
-                            [ 7, 8 ]
+                                4 ->
+                                    [ 7, 8 ]
 
-                        _ ->
-                            []
+                                _ ->
+                                    []
+
+                        shots =
+                            case onStageId of
+                                Just stageId ->
+                                    shotsWithStageIdDrawTeamCurler event
+                                        |> List.filter (\s -> s.stageId == stageId)
+
+                                Nothing ->
+                                    shotsWithStageIdDrawTeamCurler event
+                    in
+                    shots
+                        |> List.filter (\s -> List.member s.shotNumber shotNumbers)
             in
-            shots
-                |> List.filter (\s -> List.member s.shotNumber shotNumbers)
+            List.map (\p -> { position = p, shots = shotsForPosition p }) (List.range 1 4)
+
+        viewPosition position =
+            let
+                drawsForPosition =
+                    List.map (\s -> s.draw) position.shots
+                        |> List.filterMap identity
+
+                viewHeader label =
+                    el
+                        [ El.padding 15
+                        , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                        , Border.color theme.grey
+                        , Font.semiBold
+                        , Background.color theme.greyLight
+                        ]
+                        (text (translate translations label))
+
+                viewCell content =
+                    el
+                        [ El.padding 15
+                        , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                        , Border.color theme.grey
+                        ]
+                        (text content)
+            in
+            let
+                viewDrawCell draw =
+                    { header = viewHeader (String.fromInt draw)
+                    , width = El.fill
+                    , view =
+                        \curler ->
+                            viewCell "percentage"
+                    }
+            in
+            El.table []
+                { data = position
+                , columns =
+                    [ { header = viewHeader "Position"
+                      , width = El.fill
+                      , view =
+                            \curler ->
+                                viewCell "curler.name"
+                      }
+                    ]
+                        ++ List.map viewDrawCell drawsForPosition
+                }
     in
-    column [ El.spacing 20 ]
+    column [ El.spacing 20, El.width El.fill ]
         [ el [ Font.size 24 ] (text (translate translations "positional_percentage_comparison"))
-        , el [] (text "Coming Soon!")
+        , column [] (List.map viewPosition positions)
         ]
 
 
