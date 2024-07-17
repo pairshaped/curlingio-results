@@ -13,7 +13,7 @@
     <div id="curlingio_results"></div>
   </div>
   <script>
-    var scoring = Elm.Results.init(
+    var cio_results = Elm.Results.init(
       {
         node: document.getElementById("curlingio_results"),
         flags: {
@@ -33,14 +33,14 @@
       }
     )
 
-    scoring.ports.navigateTo.subscribe(function(newHash) {
+    cio_results.ports.navigateTo.subscribe(function(newHash) {
       // console.log("navigate to", newHash)
       document.location.hash = newHash
     })
 
     addEventListener("hashchange", (event) => {
       // console.log("navigated to", newHash)
-      scoring.ports.hashChangeReceiver.send(location.hash)
+      cio_results.ports.hashChangeReceiver.send(location.hash)
     })
   </script>
 </body>

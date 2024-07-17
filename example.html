@@ -19,7 +19,7 @@
 
   <!-- REQUIRED. This is how we initialize the widget. You have several options you can configure. Read them over for more information. -->
   <script>
-    var scoring = Elm.Results.init(
+    var cio_results = Elm.Results.init(
       {
         node: document.getElementById("curlingio_results"), // REQUIRED. Must match the ID of the div we're replacing, which is "results" in this example.
         flags: {
@@ -43,13 +43,13 @@
     )
 
     // REQUIRED - DO NOT MODIFY. Used for navigation to hopfully prevent third party script interference.
-    scoring.ports.navigateTo.subscribe(function(newHash) {
+    cio_results.ports.navigateTo.subscribe(function(newHash) {
       document.location.hash = newHash
     })
 
     // REQUIRED - DO NOT MODIFY. Used for navigation.
     addEventListener("hashchange", (event) => {
-      scoring.ports.hashChangeReceiver.send(location.hash)
+      cio_results.ports.hashChangeReceiver.send(location.hash)
     })
   </script>
 

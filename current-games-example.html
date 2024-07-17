@@ -15,13 +15,13 @@
   <script src="https://pairshaped.github.io/curlingio-results/current-games-prod.min.js"></script>
 
   <!-- REQUIRED. This is the div the widget replaces. The ID of this div must match the getElemenetById below that's passed to the node. If you change the ID here, make sure you also change it down there. -->
-  <div id="curlingio_current_draws"></div>
+  <div id="curlingio_current_games"></div>
 
   <!-- REQUIRED. This is how we initialize the widget. You have several options you can configure. Read them over for more information. -->
   <script>
-    var scoring = Elm.CurrentGames.init(
+    Elm.CurrentGames.init(
       {
-        node: document.getElementById("curlingio_current_draws"), // REQUIRED. Must match the ID of the div we're replacing, which is "results" in this example.
+        node: document.getElementById("curlingio_current_games"), // REQUIRED. Must match the ID of the div we're replacing, which is "results" in this example.
         flags: {
           subdomain: "demo", // REQUIRED. This is your club's Curling I/O subdomain. For example, if your Curling I/O URL begins with "demo.curling.io" then the "demo" part would be your subdomain.
           // lang: "en", // OPTIONAL. Options are "en" or "fr". Defaults to "en" if nothing is passed. If your using wordpress, it should expose a 2 letter language code that can be passed here.
