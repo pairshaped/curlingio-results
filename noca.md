@@ -89,3 +89,8 @@ Place the following raw javascript code into your sidebar widget to display the 
         }
       )
     </script>
+
+
+## Uninstall Legacy Widgets
+
+Once you have completed the V2 widget integrations above, please uninstall and remove all references to the Curling I/O legacy plugin.
