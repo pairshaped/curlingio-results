@@ -21,7 +21,7 @@ You'll need to include the widget's javascript.
 
 ### 2. Add the placeholder div to your page where you want the widget to be inserted.
 
-```<div id="curlingio_results"></div>```
+```<div id="cio_results"></div>```
 
 It's important that the ID here is the same used in the next step.
 
@@ -39,7 +39,7 @@ A full list and explanation of all the flags is listed below the code snippet.
   // REQUIRED. This is how we initialize the widget. You have several options you can configure. Read them over for more information.
   var cio_results = Elm.Results.init(
     {
-      node: document.getElementById("curlingio_results"), // REQUIRED. Must match the ID of the div we're replacing, which is "results" in this example.
+      node: document.getElementById("cio_results"), // REQUIRED. Must match the ID of the div we're replacing, which is "results" in this example.
       flags: {
         subdomain: "demo", // REQUIRED. This is your club's Curling I/O subdomain. For example, if your Curling I/O URL begins with "demo.curling.io" then the "demo" part would be your subdomain.
         // section: "leagues", // OPTIONAL. Can be "leagues", "competition", or "products". Will default to "leagues" if omitted or an invalid value is passed.
