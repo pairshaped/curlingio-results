@@ -1,3 +1,17 @@
+# Overview
+
+Instructions on embedding the Curling I/O V2 Widgets onto the NOCA wordpress site.
+
+You'll first need the ability to embed raw javascript code into your pages and sidebar.
+If you don't have a plugin or theme that allows this yet, you could potentially install: https://en-ca.wordpress.org/plugins/simple-embed-code/
+
+
+## Scoreboard Widget
+
+The scoreboard screen lists all of your "active" competitions. Clicking into a competition will load it's schedule and results.
+
+You can use this same javascript code, but customizing the parameters to load a specific competition, or a list of competitions / leagues / products with registration buttons.
+
 Place the following raw javascript code in to your scoreboard page, customizing the parameters as you see fit:
 
     <!-- REQUIRED. This script tag is required to load the widget. -->
@@ -43,6 +57,11 @@ Place the following raw javascript code in to your scoreboard page, customizing 
       })
     </script>
 
+
+## Current Games Widget
+
+The current games widget is meant to be embedded in a sidebar on the home page.
+It will list only the current games that are being played across all of your competitions with their scores.
 
 Place the following raw javascript code into your sidebar widget to display the current games widget:
 
