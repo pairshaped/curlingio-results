@@ -52,7 +52,7 @@ type alias Model =
     , device : Device
     , fullScreen : Bool
     , translations : WebData (List Translation)
-    , items : WebData (List Item)
+    , items : WebData ItemsResult
     , itemFilter : ItemFilter
     , product : WebData Product
     , event : WebData Event
@@ -123,6 +123,18 @@ type alias ItemFilter =
     , seasonDelta : Int
     , search : String
     , seasonSearchOpen : Bool
+    }
+
+
+type alias ItemsResult =
+    { seasons : List Season
+    , items : List Item
+    }
+
+
+type alias Season =
+    { display : String
+    , delta : Int
     }
 
 
@@ -443,9 +455,15 @@ decodeFlags =
         |> optional "loggedInCurlerIds" (list int) []
 
 
-decodeItems : Decoder (List Item)
-decodeItems =
+decodeItemsResult : Decoder ItemsResult
+decodeItemsResult =
     let
+        decodeSeason : Decoder Season
+        decodeSeason =
+            Decode.succeed Season
+                |> required "display" string
+                |> required "delta" int
+
         decodeItem : Decoder Item
         decodeItem =
             Decode.succeed Item
@@ -461,7 +479,9 @@ decodeItems =
                 |> optional "add_to_cart_text" (nullable string) Nothing
                 |> optional "publish_results" bool False
     in
-    list decodeItem
+    Decode.succeed ItemsResult
+        |> optional "seasons" (list decodeSeason) []
+        |> required "items" (list decodeItem)
 
 
 decodeSponsor : Decoder Sponsor
@@ -1154,7 +1174,7 @@ baseClubSubdomainUrl flags =
             productionUrl
 
 
-getItemsMaybe : Model -> String -> Bool -> ( WebData (List Item), Cmd Msg )
+getItemsMaybe : Model -> String -> Bool -> ( WebData ItemsResult, Cmd Msg )
 getItemsMaybe { flags, itemFilter, items } hash reload =
     case toRoute flags.defaultEventSection hash of
         ItemsRoute ->
@@ -1260,7 +1280,7 @@ getItems flags itemFilter =
                 ++ itemsSectionName flags.section
                 ++ params
     in
-    RemoteData.Http.get url GotItems decodeItems
+    RemoteData.Http.get url GotItems decodeItemsResult
 
 
 getEvent : Flags -> Int -> Cmd Msg
@@ -1672,7 +1692,7 @@ type Msg
     | HashChanged Bool String
     | Reload
     | GotTranslations (WebData (List Translation))
-    | GotItems (WebData (List Item))
+    | GotItems (WebData ItemsResult)
     | IncrementPageBy Int
     | ToggleSeasonSearch
     | UpdateSearch String
@@ -2038,7 +2058,7 @@ viewFetchError { flags, fullScreen, hash } message =
         ]
 
 
-viewItems : Theme -> List Translation -> Model -> List Item -> Element Msg
+viewItems : Theme -> List Translation -> Model -> ItemsResult -> Element Msg
 viewItems theme translations { flags, fullScreen, itemFilter } items =
     let
         viewPaging =
@@ -2073,15 +2093,7 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
 
         viewSeasonDropDown =
             let
-                times =
-                    [ ( 1, "next_season" )
-                    , ( 0, "this_season" )
-                    , ( -1, "Last_season" )
-                    , ( -2, "two_seasons_ago" )
-                    , ( -3, "three_seasons_ago" )
-                    ]
-
-                seasonOption ( delta, label ) =
+                seasonOption { display, delta } =
                     el
                         [ El.width El.fill
                         , El.padding 10
@@ -2092,27 +2104,36 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                           else
                             Background.color theme.transparent
                         ]
-                        (text (translate translations label))
+                        (text (translate translations display))
 
                 seasonOptions =
                     if itemFilter.seasonSearchOpen then
+                        let
+                            scrolling =
+                                if List.length items.seasons > 5 then
+                                    [ El.height (El.fill |> El.minimum 210), El.scrollbarY ]
+
+                                else
+                                    []
+                        in
                         column
-                            [ El.width El.fill
-                            , Border.width 1
-                            , Border.color theme.grey
-                            , Background.color theme.white
-                            ]
-                            (List.map seasonOption times)
+                            ([ El.width El.fill
+                             , Border.width 1
+                             , Border.color theme.grey
+                             , Background.color theme.white
+                             ]
+                                ++ scrolling
+                            )
+                            (List.map seasonOption items.seasons)
 
                     else
                         El.none
 
                 seasonSelected =
-                    List.filter (\time -> Tuple.first time == itemFilter.seasonDelta) times
-                        |> List.map Tuple.second
+                    List.filter (\season -> season.delta == itemFilter.seasonDelta) items.seasons
+                        |> List.map .display
                         |> List.head
-                        |> Maybe.withDefault "this_season"
-                        |> translate translations
+                        |> Maybe.withDefault "-"
             in
             row
                 [ El.width (El.px 184)
@@ -2139,7 +2160,7 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
         filteredItems =
             case String.trim itemFilter.search of
                 "" ->
-                    items
+                    items.items
 
                 _ ->
                     let
@@ -2153,7 +2174,7 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                                             False
                                    )
                     in
-                    List.filter matches items
+                    List.filter matches items.items
 
         pagedItems =
             filteredItems
@@ -2161,7 +2182,7 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                 |> Array.slice ((itemFilter.page - 1) * 10) (itemFilter.page * 10)
                 |> Array.toList
     in
-    column [ El.spacing 10, El.width El.fill, El.height (El.fill |> El.minimum 210) ]
+    column [ El.spacing 10, El.width El.fill, El.height (El.fill |> El.minimum 250) ]
         [ row [ El.spacing 20 ]
             [ Input.text
                 [ El.width (El.px 200)
@@ -2175,7 +2196,11 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                 , onChange = UpdateSearch
                 , label = Input.labelHidden ""
                 }
-            , viewSeasonDropDown
+            , if List.length items.seasons > 1 then
+                viewSeasonDropDown
+
+              else
+                El.none
             ]
         , if List.isEmpty filteredItems then
             el [ El.padding 10 ] (text "No results found.")
