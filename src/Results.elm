@@ -2,6 +2,7 @@ port module Results exposing (init)
 
 -- import Element.HexColor as HexColor
 
+import Array
 import Browser
 import Browser.Dom
 import Browser.Events
@@ -1247,18 +1248,12 @@ getItems : Flags -> ItemFilter -> Cmd Msg
 getItems flags itemFilter =
     let
         params =
-            case ( itemFilter.page, itemFilter.seasonDelta ) of
-                ( 0, 0 ) ->
+            case itemFilter.seasonDelta of
+                0 ->
                     ""
 
-                ( 0, seasonDelta ) ->
+                seasonDelta ->
                     "?occurred=" ++ String.fromInt seasonDelta
-
-                ( page, 0 ) ->
-                    "?page=" ++ String.fromInt page
-
-                ( page, seasonDelta ) ->
-                    "?page=" ++ String.fromInt page ++ "&occurred=" ++ String.fromInt seasonDelta
 
         url =
             baseClubUrl flags
@@ -1787,12 +1782,12 @@ update msg model =
                 updatedModel =
                     { model | itemFilter = updatedItemFilter model.itemFilter }
             in
-            ( updatedModel, getItems model.flags updatedModel.itemFilter )
+            ( updatedModel, Cmd.none )
 
         UpdateSearch val ->
             let
                 updatedItemFilter itemFilter =
-                    { itemFilter | search = String.toLower val }
+                    { itemFilter | page = 1, search = String.toLower val }
             in
             ( { model | itemFilter = updatedItemFilter model.itemFilter }, Cmd.none )
 
@@ -1806,7 +1801,7 @@ update msg model =
         UpdateSeasonDelta seasonDelta ->
             let
                 updatedItemFilter itemFilter =
-                    { itemFilter | seasonDelta = seasonDelta }
+                    { itemFilter | page = 1, seasonDelta = seasonDelta }
 
                 updatedModel =
                     { model | itemFilter = updatedItemFilter model.itemFilter }
@@ -2063,14 +2058,14 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                         , label = text content
                         }
             in
-            row [ El.htmlAttribute (class "cio__paging") ]
-                [ if List.length items >= 10 then
-                    viewPageButton "Next >" (IncrementPageBy 1)
+            row [ El.htmlAttribute (class "cio__paging"), El.spacing 10 ]
+                [ if itemFilter.page > 1 then
+                    viewPageButton "< Previous" (IncrementPageBy -1)
 
                   else
                     El.none
-                , if itemFilter.page > 1 then
-                    viewPageButton "< Previous" (IncrementPageBy -1)
+                , if List.length filteredItems >= (itemFilter.page * 10) then
+                    viewPageButton "Next >" (IncrementPageBy 1)
 
                   else
                     El.none
@@ -2159,6 +2154,12 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                                    )
                     in
                     List.filter matches items
+
+        pagedItems =
+            filteredItems
+                |> Array.fromList
+                |> Array.slice ((itemFilter.page - 1) * 10) (itemFilter.page * 10)
+                |> Array.toList
     in
     column [ El.spacing 10, El.width El.fill, El.height (El.fill |> El.minimum 210) ]
         [ row [ El.spacing 20 ]
@@ -2260,7 +2261,7 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
             in
             row [ El.width El.fill ]
                 [ El.table [ El.spacingXY 0 15, El.htmlAttribute (class "cio__items_table") ]
-                    { data = filteredItems
+                    { data = pagedItems
                     , columns =
                         [ { header = El.none
                           , width = El.fill
