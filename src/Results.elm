@@ -145,6 +145,7 @@ type alias Item =
     , occursOn : Maybe String
     , timeZoneShort : Maybe String
     , location : Maybe String
+    , venue : Maybe String
     , noRegistrationMessage : Maybe String
     , price : Maybe String
     , addToCartUrl : Maybe String
@@ -178,6 +179,10 @@ type alias Event =
     , startsOn : String
     , endsOn : String
     , state : EventState
+    , timeZone : Maybe String
+    , timeZoneShort : Maybe String
+    , location : Maybe String
+    , venue : Maybe String
     , noRegistrationMessage : Maybe String
     , registrationOpensAt : Maybe String
     , registrationClosesAt : Maybe String
@@ -192,8 +197,6 @@ type alias Event =
     , numberOfEnds : Int
     , topRock : String
     , botRock : String
-    , timeZone : Maybe String
-    , timeZoneShort : Maybe String
     , sheetNames : List String
     , teams : List Team
     , registrations : List Registration
@@ -473,6 +476,7 @@ decodeItemsResult =
                 |> optional "occurs_on" (nullable string) Nothing
                 |> optional "time_zone_short" (nullable string) Nothing
                 |> optional "location" (nullable string) Nothing
+                |> optional "venue" (nullable string) Nothing
                 |> optional "no_registration_message" (nullable string) Nothing
                 |> optional "price" (nullable string) Nothing
                 |> optional "add_to_cart_url" (nullable string) Nothing
@@ -543,6 +547,10 @@ decodeEvent =
         |> required "starts_on" string
         |> required "ends_on" string
         |> optional "state" decodeEventState EventStateComplete
+        |> optional "time_zone" (nullable string) Nothing
+        |> optional "time_zone_short" (nullable string) Nothing
+        |> optional "location" (nullable string) Nothing
+        |> optional "venue" (nullable string) Nothing
         |> optional "no_registration_message" (nullable string) Nothing
         |> optional "registration_opens_at" (nullable string) Nothing
         |> optional "registration_closes_at" (nullable string) Nothing
@@ -557,8 +565,6 @@ decodeEvent =
         |> optional "number_of_ends" int 10
         |> optional "top_rock" string "red"
         |> optional "bot_rock" string "yellow"
-        |> optional "time_zone" (nullable string) Nothing
-        |> optional "time_zone_short" (nullable string) Nothing
         |> optional "sheet_names" (list string) []
         |> optional "teams" (list decodeTeam) []
         |> optional "registrations" (list decodeRegistration) []
@@ -2246,6 +2252,18 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                 viewItemOccursOn item =
                     viewItemCell (el [ El.centerX, El.htmlAttribute (class "cio__item_occurs_on") ] (text (Maybe.withDefault " " item.occursOn)))
 
+                viewItemLocation item =
+                    column
+                        [ El.spacingXY 0 5
+                        , El.paddingXY 10 15
+                        , Border.color theme.grey
+                        , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                        , El.htmlAttribute (class "cio__item_location")
+                        ]
+                        [ el [] (text (Maybe.withDefault " " item.location))
+                        , el [ Font.size 13 ] (text (Maybe.withDefault " " item.venue))
+                        ]
+
                 viewItemPrice item =
                     if flags.registration then
                         viewItemCell (el [ El.alignRight, El.htmlAttribute (class "cio__item_price") ] (text (Maybe.withDefault " " item.price)))
@@ -2301,6 +2319,10 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                         , { header = El.none
                           , width = El.fill
                           , view = viewItemOccursOn
+                          }
+                        , { header = El.none
+                          , width = El.fill
+                          , view = viewItemLocation
                           }
                         , { header = El.none
                           , width = El.fill
@@ -2613,6 +2635,18 @@ viewDetails theme device translations event =
                         ]
 
                 Nothing ->
+                    El.none
+            , case ( event.location, event.venue ) of
+                ( Just location, Just venue ) ->
+                    row [ El.width El.fill, El.spacing 20 ]
+                        [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_location") ]
+                            [ el [ Font.bold ] (text (translate translations "location"))
+                            , el [] (text location)
+                            , el [ Font.size 13 ] (text venue)
+                            ]
+                        ]
+
+                _ ->
                     El.none
             , row [ El.width El.fill, El.spacing 20 ]
                 [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_team_restriction") ]
