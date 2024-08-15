@@ -1268,12 +1268,18 @@ getItems : Flags -> ItemFilter -> Cmd Msg
 getItems flags itemFilter =
     let
         params =
-            case itemFilter.seasonDelta of
-                0 ->
-                    ""
+            "?occurred="
+                ++ String.fromInt itemFilter.seasonDelta
+                ++ (case ( flags.section, flags.registration ) of
+                        ( ProductsSection, _ ) ->
+                            ""
 
-                seasonDelta ->
-                    "?occurred=" ++ String.fromInt seasonDelta
+                        ( _, False ) ->
+                            "&registrations=f"
+
+                        _ ->
+                            ""
+                   )
 
         url =
             baseClubUrl flags
