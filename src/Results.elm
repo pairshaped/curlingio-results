@@ -183,6 +183,7 @@ type alias Event =
     , timeZoneShort : Maybe String
     , location : Maybe String
     , venue : Maybe String
+    , videoUrl : Maybe String
     , noRegistrationMessage : Maybe String
     , registrationOpensAt : Maybe String
     , registrationClosesAt : Maybe String
@@ -551,6 +552,7 @@ decodeEvent =
         |> optional "time_zone_short" (nullable string) Nothing
         |> optional "location" (nullable string) Nothing
         |> optional "venue" (nullable string) Nothing
+        |> optional "video_url" (nullable string) Nothing
         |> optional "no_registration_message" (nullable string) Nothing
         |> optional "registration_opens_at" (nullable string) Nothing
         |> optional "registration_closes_at" (nullable string) Nothing
@@ -2474,6 +2476,22 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
         [ el [ Font.size 28, El.width El.fill, Font.medium, El.htmlAttribute (class "cio__event_name") ] (text event.name)
         , El.wrappedRow [ El.width El.fill, El.htmlAttribute (class "cio__event_nav") ]
             (List.map viewNavItem (eventSections flags.excludeEventSections event)
+                ++ (case event.videoUrl of
+                        Just videoUrl ->
+                            [ button
+                                [ El.padding 16
+                                , Font.color theme.primary
+                                , Border.rounded 4
+                                , El.focused [ Background.color theme.white ]
+                                ]
+                                { onPress = Just (NavigateOut videoUrl)
+                                , label = text (translate translations "video")
+                                }
+                            ]
+
+                        Nothing ->
+                            []
+                   )
                 ++ (if flags.eventId == Nothing then
                         [ el [ El.alignRight ]
                             (button
@@ -2647,6 +2665,14 @@ viewDetails theme device translations event =
                         ]
 
                 _ ->
+                    El.none
+            , case event.videoUrl of
+                Just videoUrl ->
+                    row [ El.width El.fill, El.spacing 20 ]
+                        [ viewButtonPrimary theme (translate translations "video") (NavigateOut videoUrl)
+                        ]
+
+                Nothing ->
                     El.none
             , row [ El.width El.fill, El.spacing 20 ]
                 [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_team_restriction") ]
