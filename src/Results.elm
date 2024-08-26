@@ -338,6 +338,7 @@ type alias Game =
     { id : String
     , name : String
     , state : GameState
+    , videoUrl : Maybe String
     , coords : Maybe GameCoords
     , sides : List Side
     }
@@ -795,6 +796,7 @@ decodeGame =
         |> required "id" string
         |> required "name" string
         |> required "state" decodeGameState
+        |> optional "video_url" (nullable string) Nothing
         |> optional "coords" (nullable decodeGameCoords) Nothing
         |> required "game_positions" (list decodeSide)
 
@@ -2481,11 +2483,9 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
                             [ button
                                 [ El.padding 16
                                 , Font.color theme.primary
-                                , Border.rounded 4
-                                , El.focused [ Background.color theme.white ]
                                 ]
                                 { onPress = Just (NavigateOut videoUrl)
-                                , label = text (translate translations "video")
+                                , label = text (translate translations "video" ++ " »")
                                 }
                             ]
 
@@ -3994,6 +3994,12 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
                         )
                     , el [] (text "/")
                     , el [] (text game.name)
+                    , case game.videoUrl of
+                        Just videoUrl ->
+                            el [ El.alignRight ] (text game.name)
+
+                        Nothing ->
+                            El.none
                     ]
                 )
 
