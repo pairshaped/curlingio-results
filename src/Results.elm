@@ -43,7 +43,7 @@ gridSize =
 
 timeBetweenReloads : Int
 timeBetweenReloads =
-    60
+    30
 
 
 type alias Model =
