@@ -350,6 +350,12 @@ type GameState
     | GameComplete
 
 
+type DrawState
+    = DrawPending
+    | DrawActive
+    | DrawComplete
+
+
 type alias GameCoords =
     { groupId : Int
     , row : Int
@@ -2947,29 +2953,56 @@ viewSpares theme translations flags eventId spares =
 viewDraws : Theme -> List Translation -> Maybe ScoringHilight -> Event -> Element Msg
 viewDraws theme translations scoringHilight event =
     let
-        isDrawActive : Draw -> Bool
-        isDrawActive draw =
+        drawState : Draw -> DrawState
+        drawState draw =
             let
                 findGame gameId =
                     gamesFromStages event.stages
                         |> List.Extra.find (\g -> Just g.id == gameId)
 
-                activeGame : Game -> Bool
-                activeGame game =
-                    List.any (\g -> g.id == game.id && g.state == GameActive) (gamesFromStages event.stages)
-            in
-            -- Are there any games in the draw that are active
-            List.map findGame draw.drawSheets
-                |> List.filterMap identity
-                |> List.filter activeGame
-                |> List.isEmpty
-                |> not
+                hasActiveGame =
+                    let
+                        isActiveGame game =
+                            List.any (\g -> g.id == game.id && g.state == GameActive) (gamesFromStages event.stages)
+                    in
+                    List.map findGame draw.drawSheets
+                        |> List.filterMap identity
+                        |> List.filter isActiveGame
+                        |> List.isEmpty
+                        |> not
 
-        drawLink : Draw -> String -> Element Msg
-        drawLink draw label =
+                hasPendingGame =
+                    let
+                        isPendingGame game =
+                            List.any (\g -> g.id == game.id && g.state == GamePending) (gamesFromStages event.stages)
+                    in
+                    List.map findGame draw.drawSheets
+                        |> List.filterMap identity
+                        |> List.filter isPendingGame
+                        |> List.isEmpty
+                        |> not
+            in
+            if hasActiveGame then
+                DrawActive
+
+            else if hasPendingGame then
+                DrawPending
+
+            else
+                DrawComplete
+
+        drawLink : Draw -> String -> DrawState -> Element Msg
+        drawLink draw label drawState_ =
             if event.endScoresEnabled then
                 button
-                    [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                    [ case drawState_ of
+                        DrawPending ->
+                            Font.color theme.secondary
+
+                        _ ->
+                            Font.color theme.primary
+                    , El.focused [ Background.color theme.white ]
+                    ]
                     { onPress = Just (NavigateTo (drawUrl event.id draw))
                     , label = text label
                     }
@@ -2977,8 +3010,8 @@ viewDraws theme translations scoringHilight event =
             else
                 text label
 
-        gameLink : Game -> Element Msg
-        gameLink game =
+        gameLink : Game -> DrawState -> Element Msg
+        gameLink game drawState_ =
             let
                 gameNameWithResult =
                     case game.state of
@@ -3016,10 +3049,10 @@ viewDraws theme translations scoringHilight event =
                             String.join
                                 (String.toLower
                                     (if tied then
-                                        " " ++ translate translations "tied" ++ " "
+                                        " = "
 
                                      else
-                                        " " ++ translate translations "defeated" ++ " "
+                                        " > "
                                     )
                                 )
                                 sortedTeamNames
@@ -3029,7 +3062,12 @@ viewDraws theme translations scoringHilight event =
             in
             if event.endScoresEnabled then
                 button
-                    [ Font.color theme.primary
+                    [ case drawState_ of
+                        DrawPending ->
+                            Font.color theme.secondary
+
+                        _ ->
+                            Font.color theme.primary
                     , El.focused [ Background.color theme.white ]
                     , case game.state of
                         GameActive ->
@@ -3039,7 +3077,7 @@ viewDraws theme translations scoringHilight event =
                             Font.regular
                     ]
                     { onPress = Just (NavigateTo (gameUrl event.id game))
-                    , label = text game.name
+                    , label = text gameNameWithResult
                     }
 
             else
@@ -3066,17 +3104,21 @@ viewDraws theme translations scoringHilight event =
                         [ el [ align ] (text (translate translations content))
                         ]
 
-                tableCell align isActive content =
+                tableCell align drawState_ content =
                     row
                         [ El.paddingXY 12 16
                         , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
                         , Border.color theme.grey
                         , El.htmlAttribute (class "cio__event_draws_cell")
-                        , if isActive then
-                            Background.color theme.greyLight
+                        , case drawState_ of
+                            DrawComplete ->
+                                Background.color theme.greyLightest
 
-                          else
-                            Background.color theme.transparent
+                            DrawActive ->
+                                Background.color theme.greyLight
+
+                            DrawPending ->
+                                Background.color theme.transparent
                         ]
                         [ el [ align ] content ]
 
@@ -3084,14 +3126,14 @@ viewDraws theme translations scoringHilight event =
                     Just
                         { header = tableHeader El.alignLeft "draw"
                         , width = El.px 65
-                        , view = \draw -> tableCell El.alignLeft (isDrawActive draw) (drawLink draw draw.label)
+                        , view = \draw -> tableCell El.alignLeft (drawState draw) (drawLink draw draw.label (drawState draw))
                         }
 
                 startsAtColumn =
                     Just
                         { header = tableHeader El.alignLeft "starts_at"
                         , width = El.px 220
-                        , view = \draw -> tableCell El.alignLeft (isDrawActive draw) (drawLink draw draw.startsAt)
+                        , view = \draw -> tableCell El.alignLeft (drawState draw) (drawLink draw draw.startsAt (drawState draw))
                         }
 
                 attendanceColumn =
@@ -3101,7 +3143,7 @@ viewDraws theme translations scoringHilight event =
                             , width = El.px 65
                             , view =
                                 \draw ->
-                                    tableCell El.alignLeft (isDrawActive draw) (text (String.fromInt draw.attendance))
+                                    tableCell El.alignLeft (drawState draw) (text (String.fromInt draw.attendance))
                             }
 
                     else
@@ -3123,12 +3165,12 @@ viewDraws theme translations scoringHilight event =
                         , view =
                             \draw ->
                                 tableCell El.centerX
-                                    (isDrawActive draw)
+                                    (drawState draw)
                                     (case List.Extra.getAt columnIndex draw.drawSheets of
                                         Just (Just gameId) ->
                                             case List.Extra.find (\g -> g.id == gameId) (gamesFromStages event.stages) of
                                                 Just game ->
-                                                    gameLink game
+                                                    gameLink game (drawState draw)
 
                                                 Nothing ->
                                                     text "-"

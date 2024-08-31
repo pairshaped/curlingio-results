@@ -11,6 +11,7 @@ type alias Theme =
     , white : Color
     , transparent : Color
     , grey : Color
+    , greyLightest : Color
     , greyLight : Color
     , greyDark : Color
     , primary : Color
@@ -24,6 +25,7 @@ defaultTheme =
     , white = rgb255 255 255 255
     , transparent = rgba 1 1 1 0
     , grey = rgb255 210 210 210
+    , greyLightest = rgb255 251 251 251
     , greyLight = rgb255 248 248 248
     , greyDark = rgb255 52 58 64
     , primary = hexToColor "#ed1940"
@@ -48,6 +50,7 @@ decodeTheme =
         |> hardcoded defaultTheme.white
         |> hardcoded defaultTheme.transparent
         |> hardcoded defaultTheme.grey
+        |> hardcoded defaultTheme.greyLightest
         |> hardcoded defaultTheme.greyLight
         |> hardcoded defaultTheme.greyDark
         |> optional "primary" decodeStringColor defaultTheme.primary
