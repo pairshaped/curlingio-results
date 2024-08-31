@@ -2068,7 +2068,7 @@ viewReloadButton theme model =
             , Font.color theme.secondary
             , El.htmlAttribute (class "cio__reload_button")
             ]
-            (text ("Refresh in " ++ String.fromInt model.reloadIn ++ "s"))
+            (text (String.fromInt model.reloadIn ++ "s to Refresh"))
 
     else
         El.none
