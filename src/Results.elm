@@ -1310,6 +1310,17 @@ getEvent flags id =
     RemoteData.Http.get url GotEvent decodeEvent
 
 
+reloadEvent : Flags -> Int -> Cmd Msg
+reloadEvent flags id =
+    let
+        url =
+            baseClubUrl flags
+                ++ "events/"
+                ++ String.fromInt id
+    in
+    RemoteData.Http.get url ReloadedEvent decodeEvent
+
+
 getProduct : Flags -> Int -> Cmd Msg
 getProduct flags id =
     let
@@ -1715,6 +1726,7 @@ type Msg
     | UpdateSeasonDelta Int
     | NavigateOut String
     | GotEvent (WebData Event)
+    | ReloadedEvent (WebData Event)
     | GotProduct (WebData Product)
     | ToggleScoringHilight ScoringHilight
 
@@ -1743,7 +1755,12 @@ update msg model =
             if reloadEnabled model then
                 -- We only want to decrement the counter or do the reload when the event supports it and we're on a relevant reload screen.
                 if newReloadIn == 0 then
-                    update (HashChanged True model.hash) { model | reloadIn = timeBetweenReloads }
+                    case model.event of
+                        Success event ->
+                            ( { model | reloadIn = timeBetweenReloads }, reloadEvent model.flags event.id )
+
+                        _ ->
+                            ( { model | reloadIn = timeBetweenReloads }, Cmd.none )
 
                 else
                     ( { model | reloadIn = newReloadIn }, Cmd.none )
@@ -1849,6 +1866,18 @@ update msg model =
 
         GotEvent response ->
             ( { model | event = response, reloadIn = timeBetweenReloads }
+            , Cmd.none
+            )
+
+        ReloadedEvent response ->
+            -- The different between this and GetEvent is that we only update the event on the model
+            -- when the request succeeds.
+            ( case response of
+                Success event ->
+                    { model | event = response, reloadIn = timeBetweenReloads }
+
+                _ ->
+                    { model | reloadIn = timeBetweenReloads }
             , Cmd.none
             )
 
