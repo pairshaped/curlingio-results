@@ -2988,7 +2988,7 @@ viewDraws theme translations scoringHilight event =
                 DrawActive
 
             else if hasPendingGame then
-                -- if there's a pending game, but the draw start time has passed, then we assume it is the active draw.
+                -- if there's a pending game, and the draw start time has passed recently, then we assume it is the active draw.
                 if draw.recent then
                     DrawActive
 
