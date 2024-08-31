@@ -322,6 +322,7 @@ type Tiebreaker
 type alias Draw =
     { id : Int
     , startsAt : String
+    , started : Bool
     , label : String
     , attendance : Int
     , drawSheets : List (Maybe String)
@@ -715,6 +716,7 @@ decodeDraw =
     Decode.succeed Draw
         |> required "id" int
         |> required "starts_at" string
+        |> optional "started" bool False
         |> required "label" string
         |> optional "attendance" int 0
         |> required "draw_sheets" (list (nullable string))
@@ -2986,7 +2988,12 @@ viewDraws theme translations scoringHilight event =
                 DrawActive
 
             else if hasPendingGame then
-                DrawPending
+                -- if there's a pending game, but the draw start time has passed, then we assume it is the active draw.
+                if draw.started then
+                    DrawActive
+
+                else
+                    DrawPending
 
             else
                 DrawComplete
