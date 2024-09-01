@@ -1960,7 +1960,12 @@ view model =
                     (row [ El.alignRight, El.spacing 10, El.paddingXY 0 10 ]
                         [ el [ El.alignTop ] (viewReloadButton theme model)
                         , if model.flags.fullScreenToggle then
-                            el [] (viewFullScreenButton theme model.fullScreen)
+                            case model.device.class of
+                                El.Phone ->
+                                    El.none
+
+                                _ ->
+                                    el [] (viewFullScreenButton theme model.fullScreen)
 
                           else
                             El.none
