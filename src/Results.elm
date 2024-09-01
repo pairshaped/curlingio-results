@@ -3136,15 +3136,15 @@ viewDraws theme translations scoringHilight event =
 
                 labelColumn =
                     Just
-                        { header = tableHeader El.alignLeft "draw"
-                        , width = El.px 65
+                        { header = tableHeader El.alignLeft " "
+                        , width = El.px 35
                         , view = \draw -> tableCell El.alignLeft (drawState draw) (drawLink draw draw.label (drawState draw))
                         }
 
                 startsAtColumn =
                     Just
-                        { header = tableHeader El.alignLeft "starts_at"
-                        , width = El.px 220
+                        { header = tableHeader El.alignLeft "draw"
+                        , width = El.px 180
                         , view = \draw -> tableCell El.alignLeft (drawState draw) (drawLink draw draw.startsAt (drawState draw))
                         }
 
