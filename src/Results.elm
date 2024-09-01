@@ -1954,8 +1954,8 @@ view model =
                                 )
                     )
                 , El.centerX
-                , El.scrollbarX
                 , El.clipY
+                , El.scrollbarX
                 , El.inFront
                     (row [ El.alignRight, El.spacing 10, El.paddingXY 0 10 ]
                         [ el [ El.alignTop ] (viewReloadButton theme model)
@@ -2117,7 +2117,7 @@ viewFetchError { flags, fullScreen, hash } message =
 
 
 viewItems : Theme -> List Translation -> Model -> ItemsResult -> Element Msg
-viewItems theme translations { flags, fullScreen, itemFilter } items =
+viewItems theme translations { flags, fullScreen, itemFilter, device } items =
     let
         viewPaging =
             let
@@ -2194,7 +2194,7 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                         |> Maybe.withDefault "-"
             in
             row
-                [ El.width (El.px 184)
+                [ El.width (El.px 150)
                 , El.padding 10
                 , Border.width 1
                 , Border.color theme.grey
@@ -2243,7 +2243,16 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
     column [ El.spacing 10, El.width El.fill, El.height (El.fill |> El.minimum 250) ]
         [ row [ El.spacing 20 ]
             [ Input.text
-                [ El.width (El.px 200)
+                [ El.width
+                    (El.px
+                        (case device.class of
+                            El.Phone ->
+                                180
+
+                            _ ->
+                                250
+                        )
+                    )
                 , Border.width 1
                 , Border.color theme.grey
                 , El.padding 10
@@ -2518,38 +2527,24 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
         , El.htmlAttribute (class "cio__event")
         ]
         [ el [ Font.size 28, El.width El.fill, Font.medium, El.htmlAttribute (class "cio__event_name") ] (text event.name)
-        , El.wrappedRow [ El.width El.fill, El.htmlAttribute (class "cio__event_nav") ]
+        , El.wrappedRow [ El.width El.fill, El.spacingXY 0 8, El.htmlAttribute (class "cio__event_nav") ]
             (List.map viewNavItem (eventSections flags.excludeEventSections event)
                 ++ (case event.videoUrl of
                         Just videoUrl ->
-                            [ button
-                                [ El.padding 16
-                                , Font.color theme.primary
+                            [ el [ El.padding 8 ] (text "")
+                            , button
+                                [ El.padding 8
+                                , Border.rounded 4
+                                , Font.color theme.white
+                                , Background.color theme.secondary
                                 ]
                                 { onPress = Just (NavigateOut videoUrl)
-                                , label = text (translate translations "video" ++ " »")
+                                , label = text (translate translations "video")
                                 }
                             ]
 
                         Nothing ->
                             []
-                   )
-                ++ (if flags.eventId == Nothing then
-                        [ el [ El.alignRight ]
-                            (button
-                                [ El.padding 16
-                                , Font.color theme.primary
-                                , Border.rounded 4
-                                , El.focused [ Background.color theme.white ]
-                                ]
-                                { onPress = Just (NavigateTo "/events")
-                                , label = text (translate translations (itemsSectionName flags.section) ++ " »")
-                                }
-                            )
-                        ]
-
-                    else
-                        []
                    )
             )
         , case nestedRoute of
