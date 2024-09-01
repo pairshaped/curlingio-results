@@ -2526,8 +2526,21 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
         , El.spacing 20
         , El.htmlAttribute (class "cio__event")
         ]
-        [ el [ Font.size 28, El.width El.fill, Font.medium, El.htmlAttribute (class "cio__event_name") ] (text event.name)
-        , El.wrappedRow [ El.width El.fill, El.spacingXY 0 8, El.htmlAttribute (class "cio__event_nav") ]
+        [ el
+            [ Font.size
+                (case device.class of
+                    El.Phone ->
+                        22
+
+                    _ ->
+                        28
+                )
+            , El.width El.fill
+            , Font.medium
+            , El.htmlAttribute (class "cio__event_name")
+            ]
+            (text event.name)
+        , El.row [ El.width El.fill, El.htmlAttribute (class "cio__event_nav") ]
             (List.map viewNavItem (eventSections flags.excludeEventSections event)
                 ++ (case event.videoUrl of
                         Just videoUrl ->
