@@ -2545,13 +2545,13 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
                 ++ (case event.videoUrl of
                         Just videoUrl ->
                             [ el [ El.padding 8 ] (text "")
-                            , button
+                            , El.newTabLink
                                 [ El.padding 8
                                 , Border.rounded 4
                                 , Font.color theme.white
                                 , Background.color theme.secondary
                                 ]
-                                { onPress = Just (NavigateOut videoUrl)
+                                { url = videoUrl
                                 , label = text (translate translations "video")
                                 }
                             ]
@@ -2715,14 +2715,6 @@ viewDetails theme device translations event =
                         ]
 
                 _ ->
-                    El.none
-            , case event.videoUrl of
-                Just videoUrl ->
-                    row [ El.width El.fill, El.spacing 20 ]
-                        [ viewButtonPrimary theme (translate translations "video") (NavigateOut videoUrl)
-                        ]
-
-                Nothing ->
                     El.none
             , row [ El.width El.fill, El.spacing 20 ]
                 [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_team_restriction") ]
@@ -4087,7 +4079,16 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
                     , el [] (text game.name)
                     , case game.videoUrl of
                         Just videoUrl ->
-                            el [ El.alignRight ] (text game.name)
+                            El.newTabLink
+                                [ El.alignRight
+                                , El.padding 8
+                                , Border.rounded 4
+                                , Font.color theme.white
+                                , Background.color theme.secondary
+                                ]
+                                { url = videoUrl
+                                , label = text (translate translations "video")
+                                }
 
                         Nothing ->
                             El.none
