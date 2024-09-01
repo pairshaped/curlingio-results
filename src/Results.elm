@@ -2541,23 +2541,38 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
             ]
             (text event.name)
         , El.row [ El.width El.fill, El.htmlAttribute (class "cio__event_nav") ]
-            (List.map viewNavItem (eventSections flags.excludeEventSections event)
-                ++ (case event.videoUrl of
-                        Just videoUrl ->
-                            [ el [ El.padding 8 ] (text "")
-                            , El.newTabLink
-                                [ El.padding 8
-                                , Border.rounded 4
-                                , Font.color theme.white
-                                , Background.color theme.secondary
-                                ]
-                                { url = videoUrl
-                                , label = text (translate translations "video")
-                                }
-                            ]
+            ((if flags.eventId == Nothing then
+                button
+                    [ Font.color theme.primary
+                    , Font.size 22
+                    , El.padding 8
+                    , El.focused [ Background.color theme.transparent ]
+                    ]
+                    { onPress = Just (NavigateTo "/events")
+                    , label = text "«"
+                    }
 
-                        Nothing ->
-                            []
+              else
+                El.none
+             )
+                :: (List.map viewNavItem (eventSections flags.excludeEventSections event)
+                        ++ (case event.videoUrl of
+                                Just videoUrl ->
+                                    [ el [ El.padding 8 ] (text "")
+                                    , El.newTabLink
+                                        [ El.padding 8
+                                        , Border.rounded 4
+                                        , Font.color theme.white
+                                        , Background.color theme.secondary
+                                        ]
+                                        { url = videoUrl
+                                        , label = text (translate translations "video")
+                                        }
+                                    ]
+
+                                Nothing ->
+                                    []
+                           )
                    )
             )
         , case nestedRoute of
