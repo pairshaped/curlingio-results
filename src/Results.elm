@@ -2566,7 +2566,7 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
                                         , Background.color theme.secondary
                                         ]
                                         { url = videoUrl
-                                        , label = text (translate translations "video")
+                                        , label = text (translate translations "video" ++ " ▶")
                                         }
                                     ]
 
@@ -4102,7 +4102,7 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
                                 , Background.color theme.secondary
                                 ]
                                 { url = videoUrl
-                                , label = text (translate translations "video")
+                                , label = text (translate translations "video" ++ " ▶")
                                 }
 
                         Nothing ->
