@@ -2081,7 +2081,7 @@ viewReloadButton theme model =
             , Font.color theme.secondary
             , El.htmlAttribute (class "cio__reload_button")
             ]
-            (text (String.fromInt model.reloadIn ++ "s to Refresh"))
+            (text "Refresh every 30s")
 
     else
         El.none
@@ -3810,7 +3810,7 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
                     [ Font.color theme.primary
                     , Font.italic
                     , El.padding 8
-                    , El.focused [ Background.color theme.primary ]
+                    , El.focused [ Background.color theme.transparent ]
                     ]
                     { onPress = Just (NavigateTo gamePath), label = label }
 
