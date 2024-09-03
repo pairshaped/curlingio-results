@@ -3564,22 +3564,24 @@ viewStages theme device translations event onStage =
                                                             "TBD"
                                             in
                                             el
-                                                [ El.width El.fill
-                                                , El.height (El.px 25)
-                                                , El.clip
-                                                , El.paddingEach { left = 3, right = 0, top = 6, bottom = 0 }
-                                                , if side.result == Just SideResultWon then
-                                                    Font.bold
-
-                                                  else
-                                                    Font.regular
-                                                , if position == 0 then
+                                                ([ El.width El.fill
+                                                 , El.height (El.px 25)
+                                                 , El.clip
+                                                 , El.paddingEach { left = 3, right = 0, top = 6, bottom = 0 }
+                                                 , if position == 0 then
                                                     Border.widthEach { left = 0, right = 0, top = 0, bottom = 1 }
 
-                                                  else
+                                                   else
                                                     Border.width 0
-                                                , Border.color theme.grey
-                                                ]
+                                                 , Border.color theme.grey
+                                                 ]
+                                                    ++ (if side.result == Just SideResultWon then
+                                                            [ Font.bold, Font.color theme.primary ]
+
+                                                        else
+                                                            [ Font.regular ]
+                                                       )
+                                                )
                                                 (text label)
 
                                         -- Only link if the game has been scheduled
