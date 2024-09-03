@@ -228,8 +228,8 @@ type alias Team =
     , affiliation : Maybe String
     , location : Maybe String
     , contactName : Maybe String
-    , contactEmail : Maybe String
-    , contactPhone : Maybe String
+    , email : Maybe String
+    , phone : Maybe String
     , imageUrl : Maybe String
     , lineup : List TeamCurler
     }
@@ -593,8 +593,8 @@ decodeTeam =
         |> optional "affiliation" (nullable string) Nothing
         |> optional "location" (nullable string) Nothing
         |> optional "contact_name" (nullable string) Nothing
-        |> optional "contact_email" (nullable string) Nothing
-        |> optional "contact_phone" (nullable string) Nothing
+        |> optional "email" (nullable string) Nothing
+        |> optional "phone" (nullable string) Nothing
         |> optional "image_url" (nullable string) Nothing
         |> optional "lineup" (list decodeTeamCurler) []
 
@@ -4280,7 +4280,7 @@ viewTeam theme translations flags event team =
         viewTeamInfo =
             let
                 hasTeamContactInfo =
-                    [ team.contactName, team.contactEmail, team.contactPhone ]
+                    [ team.contactName, team.email, team.phone ]
                         |> List.filterMap identity
                         |> List.isEmpty
                         |> not
@@ -4296,8 +4296,8 @@ viewTeam theme translations flags event team =
                     El.table [ El.width El.fill ]
                         { data =
                             [ { label = "contact_name", data = team.contactName }
-                            , { label = "contact_email", data = team.contactEmail }
-                            , { label = "contact_phone", data = team.contactPhone }
+                            , { label = "email", data = team.email }
+                            , { label = "phone", data = team.phone }
                             ]
                         , columns =
                             [ { header = El.none
