@@ -21,18 +21,25 @@ You'll need to include the widget's javascript.
 
 ### 2. Add the placeholder div to your page where you want the widget to be inserted.
 
-```<div id="curlingio_results"></div>```
+```<div id="cio_results"></div>```
 
 It's important that the ID here is the same used in the next step.
 
 ### 3. Configure and Load the Widget
 
+The widget is embedded using Javascript, which is how web browsers can enhance a site's functionality.
+
+The lines that start with `//` are commented out. This means these lines / flags are disabled until they are uncommented by removing the `//` in front of them and providing an appropriate value.
+Review each of the commented lines to see if it's something you want to enable or leave with their default value.
+For example, if you want to change which section is loaded, you would uncomment the `//` in front of the *section* flag below and change the *"leagues"* value to *"competitions"* or *"products"*.
+A full list and explanation of all the flags is listed below the code snippet.
+
 ```
 <script>
   // REQUIRED. This is how we initialize the widget. You have several options you can configure. Read them over for more information.
-  var scoring = Elm.Results.init(
+  var cio_results = Elm.Results.init(
     {
-      node: document.getElementById("curlingio_results"), // REQUIRED. Must match the ID of the div we're replacing, which is "results" in this example.
+      node: document.getElementById("cio_results"), // REQUIRED. Must match the ID of the div we're replacing, which is "results" in this example.
       flags: {
         subdomain: "demo", // REQUIRED. This is your club's Curling I/O subdomain. For example, if your Curling I/O URL begins with "demo.curling.io" then the "demo" part would be your subdomain.
         // section: "leagues", // OPTIONAL. Can be "leagues", "competition", or "products". Will default to "leagues" if omitted or an invalid value is passed.
@@ -54,13 +61,13 @@ It's important that the ID here is the same used in the next step.
   )
 
   // REQUIRED - DO NOT MODIFY. Used for navigation to hopfully prevent third party script interference.
-  scoring.ports.navigateTo.subscribe(function(newHash) {
+  cio_results.ports.navigateTo.subscribe(function(newHash) {
     document.location.hash = newHash
   })
 
   // REQUIRED - DO NOT MODIFY. Used for navigation.
   addEventListener("hashchange", (event) => {
-    scoring.ports.hashChangeReceiver.send(location.hash)
+    cio_results.ports.hashChangeReceiver.send(location.hash)
   })
 </script>
 ```

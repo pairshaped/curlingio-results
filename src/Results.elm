@@ -1,5 +1,8 @@
 port module Results exposing (init)
 
+-- import Element.HexColor as HexColor
+
+import Array
 import Browser
 import Browser.Dom
 import Browser.Events
@@ -40,7 +43,7 @@ gridSize =
 
 timeBetweenReloads : Int
 timeBetweenReloads =
-    60
+    30
 
 
 type alias Model =
@@ -49,7 +52,7 @@ type alias Model =
     , device : Device
     , fullScreen : Bool
     , translations : WebData (List Translation)
-    , items : WebData (List Item)
+    , items : WebData ItemsResult
     , itemFilter : ItemFilter
     , product : WebData Product
     , event : WebData Event
@@ -123,12 +126,26 @@ type alias ItemFilter =
     }
 
 
+type alias ItemsResult =
+    { seasons : List Season
+    , items : List Item
+    }
+
+
+type alias Season =
+    { display : String
+    , delta : Int
+    }
+
+
 type alias Item =
     { id : Int
     , name : String
     , summary : Maybe String
     , occursOn : Maybe String
+    , timeZoneShort : Maybe String
     , location : Maybe String
+    , venue : Maybe String
     , noRegistrationMessage : Maybe String
     , price : Maybe String
     , addToCartUrl : Maybe String
@@ -162,6 +179,11 @@ type alias Event =
     , startsOn : String
     , endsOn : String
     , state : EventState
+    , timeZone : Maybe String
+    , timeZoneShort : Maybe String
+    , location : Maybe String
+    , venue : Maybe String
+    , videoUrl : Maybe String
     , noRegistrationMessage : Maybe String
     , registrationOpensAt : Maybe String
     , registrationClosesAt : Maybe String
@@ -206,8 +228,8 @@ type alias Team =
     , affiliation : Maybe String
     , location : Maybe String
     , contactName : Maybe String
-    , contactEmail : Maybe String
-    , contactPhone : Maybe String
+    , email : Maybe String
+    , phone : Maybe String
     , imageUrl : Maybe String
     , lineup : List TeamCurler
     }
@@ -300,6 +322,7 @@ type Tiebreaker
 type alias Draw =
     { id : Int
     , startsAt : String
+    , recent : Bool
     , label : String
     , attendance : Int
     , drawSheets : List (Maybe String)
@@ -316,6 +339,7 @@ type alias Game =
     { id : String
     , name : String
     , state : GameState
+    , videoUrl : Maybe String
     , coords : Maybe GameCoords
     , sides : List Side
     }
@@ -325,6 +349,12 @@ type GameState
     = GamePending
     | GameActive
     | GameComplete
+
+
+type DrawState
+    = DrawPending
+    | DrawActive
+    | DrawComplete
 
 
 type alias GameCoords =
@@ -443,9 +473,15 @@ decodeFlags =
         |> optional "loggedInCurlerIds" (list int) []
 
 
-decodeItems : Decoder (List Item)
-decodeItems =
+decodeItemsResult : Decoder ItemsResult
+decodeItemsResult =
     let
+        decodeSeason : Decoder Season
+        decodeSeason =
+            Decode.succeed Season
+                |> required "display" string
+                |> required "delta" int
+
         decodeItem : Decoder Item
         decodeItem =
             Decode.succeed Item
@@ -453,14 +489,18 @@ decodeItems =
                 |> required "name" string
                 |> optional "summary" (nullable string) Nothing
                 |> optional "occurs_on" (nullable string) Nothing
+                |> optional "time_zone_short" (nullable string) Nothing
                 |> optional "location" (nullable string) Nothing
+                |> optional "venue" (nullable string) Nothing
                 |> optional "no_registration_message" (nullable string) Nothing
                 |> optional "price" (nullable string) Nothing
                 |> optional "add_to_cart_url" (nullable string) Nothing
                 |> optional "add_to_cart_text" (nullable string) Nothing
                 |> optional "publish_results" bool False
     in
-    list decodeItem
+    Decode.succeed ItemsResult
+        |> optional "seasons" (list decodeSeason) []
+        |> required "items" (list decodeItem)
 
 
 decodeSponsor : Decoder Sponsor
@@ -522,6 +562,11 @@ decodeEvent =
         |> required "starts_on" string
         |> required "ends_on" string
         |> optional "state" decodeEventState EventStateComplete
+        |> optional "time_zone" (nullable string) Nothing
+        |> optional "time_zone_short" (nullable string) Nothing
+        |> optional "location" (nullable string) Nothing
+        |> optional "venue" (nullable string) Nothing
+        |> optional "video_url" (nullable string) Nothing
         |> optional "no_registration_message" (nullable string) Nothing
         |> optional "registration_opens_at" (nullable string) Nothing
         |> optional "registration_closes_at" (nullable string) Nothing
@@ -554,8 +599,8 @@ decodeTeam =
         |> optional "affiliation" (nullable string) Nothing
         |> optional "location" (nullable string) Nothing
         |> optional "contact_name" (nullable string) Nothing
-        |> optional "contact_email" (nullable string) Nothing
-        |> optional "contact_phone" (nullable string) Nothing
+        |> optional "email" (nullable string) Nothing
+        |> optional "phone" (nullable string) Nothing
         |> optional "image_url" (nullable string) Nothing
         |> optional "lineup" (list decodeTeamCurler) []
 
@@ -677,6 +722,7 @@ decodeDraw =
     Decode.succeed Draw
         |> required "id" int
         |> required "starts_at" string
+        |> optional "recent" bool False
         |> required "label" string
         |> optional "attendance" int 0
         |> required "draw_sheets" (list (nullable string))
@@ -764,6 +810,7 @@ decodeGame =
         |> required "id" string
         |> required "name" string
         |> required "state" decodeGameState
+        |> optional "video_url" (nullable string) Nothing
         |> optional "coords" (nullable decodeGameCoords) Nothing
         |> required "game_positions" (list decodeSide)
 
@@ -783,8 +830,37 @@ matchRoute defaultEventSection =
 
 matchNestedEventRoute : Maybe String -> Parser (NestedEventRoute -> a) a
 matchNestedEventRoute defaultEventSection =
+    let
+        defaultRoute =
+            case defaultEventSection of
+                Just section ->
+                    case section of
+                        "registrations" ->
+                            RegistrationsRoute
+
+                        "spares" ->
+                            SparesRoute
+
+                        "draws" ->
+                            DrawsRoute
+
+                        "stages" ->
+                            StagesRoute
+
+                        "teams" ->
+                            TeamsRoute
+
+                        "reports" ->
+                            ReportsRoute
+
+                        _ ->
+                            DetailsRoute
+
+                Nothing ->
+                    DetailsRoute
+    in
     Url.Parser.oneOf
-        [ Url.Parser.map DetailsRoute Url.Parser.top
+        [ Url.Parser.map defaultRoute Url.Parser.top
         , Url.Parser.map DetailsRoute (Url.Parser.s "details")
         , Url.Parser.map RegistrationsRoute (Url.Parser.s "registrations")
         , Url.Parser.map SparesRoute (Url.Parser.s "spares")
@@ -1058,6 +1134,7 @@ baseUrl { host, lang } =
             -- Development
             "http://api.curling.test:3000/" ++ lang
 
+        -- "https://api-curlingio.global.ssl.fastly.net/" ++ lang
         -- productionUrl =
         --     -- Production without caching
         --     "https://api.curling.io/" ++ lang
@@ -1121,7 +1198,7 @@ baseClubSubdomainUrl flags =
             productionUrl
 
 
-getItemsMaybe : Model -> String -> Bool -> ( WebData (List Item), Cmd Msg )
+getItemsMaybe : Model -> String -> Bool -> ( WebData ItemsResult, Cmd Msg )
 getItemsMaybe { flags, itemFilter, items } hash reload =
     case toRoute flags.defaultEventSection hash of
         ItemsRoute ->
@@ -1215,25 +1292,25 @@ getItems : Flags -> ItemFilter -> Cmd Msg
 getItems flags itemFilter =
     let
         params =
-            case ( itemFilter.page, itemFilter.seasonDelta ) of
-                ( 0, 0 ) ->
-                    ""
+            "?occurred="
+                ++ String.fromInt itemFilter.seasonDelta
+                ++ (case ( flags.section, flags.registration ) of
+                        ( ProductsSection, _ ) ->
+                            ""
 
-                ( 0, seasonDelta ) ->
-                    "?occurred=" ++ String.fromInt seasonDelta
+                        ( _, False ) ->
+                            "&registrations=f"
 
-                ( page, 0 ) ->
-                    "?page=" ++ String.fromInt page
-
-                ( page, seasonDelta ) ->
-                    "?page=" ++ String.fromInt page ++ "&occurred=" ++ String.fromInt seasonDelta
+                        _ ->
+                            ""
+                   )
 
         url =
             baseClubUrl flags
                 ++ itemsSectionName flags.section
                 ++ params
     in
-    RemoteData.Http.get url GotItems decodeItems
+    RemoteData.Http.get url GotItems decodeItemsResult
 
 
 getEvent : Flags -> Int -> Cmd Msg
@@ -1245,6 +1322,17 @@ getEvent flags id =
                 ++ String.fromInt id
     in
     RemoteData.Http.get url GotEvent decodeEvent
+
+
+reloadEvent : Flags -> Int -> Cmd Msg
+reloadEvent flags id =
+    let
+        url =
+            baseClubUrl flags
+                ++ "events/"
+                ++ String.fromInt id
+    in
+    RemoteData.Http.get url ReloadedEvent decodeEvent
 
 
 getProduct : Flags -> Int -> Cmd Msg
@@ -1376,15 +1464,6 @@ teamsWithGames teams games =
     List.filter teamHasGames teams
 
 
-teamHasDetails : Team -> Bool
-teamHasDetails team =
-    -- Check if there are any team details to show.
-    not (List.isEmpty team.lineup)
-        || (team.contactName /= Nothing)
-        || (team.contactEmail /= Nothing)
-        || (team.contactPhone /= Nothing)
-
-
 findTeamForSide : List Team -> Side -> Maybe Team
 findTeamForSide teams side =
     List.Extra.find (\t -> Just t.id == side.teamId) teams
@@ -1409,8 +1488,16 @@ sheetNameForGame event game =
         Just draw ->
             case sheetNumber game draw of
                 Just index ->
-                    List.Extra.getAt index event.sheetNames
-                        |> Maybe.withDefault ""
+                    case List.Extra.getAt index event.sheetNames of
+                        Just sheetName ->
+                            if sheetName == "" then
+                                "Sheet " ++ String.fromChar (Char.fromCode (index + 65))
+
+                            else
+                                sheetName
+
+                        Nothing ->
+                            ""
 
                 Nothing ->
                     ""
@@ -1614,8 +1701,8 @@ drawWithGameId draws id =
     List.Extra.find hasGame draws
 
 
-shotsWithStageIdDrawTeamCurler : Event -> List ShotExpanded
-shotsWithStageIdDrawTeamCurler { stages, draws, teams } =
+expandShots : Event -> List ShotExpanded
+expandShots { stages, draws, teams } =
     -- Kind of annoying, but we need to dig down to shots while picking up the draw label, and side's team id.
     -- Ignore it if we're missing a draw (unscheduled), team (no point in reporting), curler (no point in reporting), or it's not a violation.
     stages
@@ -1707,13 +1794,14 @@ type Msg
     | HashChanged Bool String
     | Reload
     | GotTranslations (WebData (List Translation))
-    | GotItems (WebData (List Item))
+    | GotItems (WebData ItemsResult)
     | IncrementPageBy Int
     | ToggleSeasonSearch
     | UpdateSearch String
     | UpdateSeasonDelta Int
     | NavigateOut String
     | GotEvent (WebData Event)
+    | ReloadedEvent (WebData Event)
     | GotProduct (WebData Product)
     | ToggleScoringHilight ScoringHilight
 
@@ -1742,7 +1830,12 @@ update msg model =
             if reloadEnabled model then
                 -- We only want to decrement the counter or do the reload when the event supports it and we're on a relevant reload screen.
                 if newReloadIn == 0 then
-                    update (HashChanged True model.hash) { model | reloadIn = timeBetweenReloads }
+                    case model.event of
+                        Success event ->
+                            ( { model | reloadIn = timeBetweenReloads }, reloadEvent model.flags event.id )
+
+                        _ ->
+                            ( { model | reloadIn = timeBetweenReloads }, Cmd.none )
 
                 else
                     ( { model | reloadIn = newReloadIn }, Cmd.none )
@@ -1817,12 +1910,12 @@ update msg model =
                 updatedModel =
                     { model | itemFilter = updatedItemFilter model.itemFilter }
             in
-            ( updatedModel, getItems model.flags updatedModel.itemFilter )
+            ( updatedModel, Cmd.none )
 
         UpdateSearch val ->
             let
                 updatedItemFilter itemFilter =
-                    { itemFilter | search = String.toLower val }
+                    { itemFilter | page = 1, search = String.toLower val }
             in
             ( { model | itemFilter = updatedItemFilter model.itemFilter }, Cmd.none )
 
@@ -1836,7 +1929,7 @@ update msg model =
         UpdateSeasonDelta seasonDelta ->
             let
                 updatedItemFilter itemFilter =
-                    { itemFilter | seasonDelta = seasonDelta }
+                    { itemFilter | page = 1, seasonDelta = seasonDelta }
 
                 updatedModel =
                     { model | itemFilter = updatedItemFilter model.itemFilter }
@@ -1848,6 +1941,18 @@ update msg model =
 
         GotEvent response ->
             ( { model | event = response, reloadIn = timeBetweenReloads }
+            , Cmd.none
+            )
+
+        ReloadedEvent response ->
+            -- The different between this and GetEvent is that we only update the event on the model
+            -- when the request succeeds.
+            ( case response of
+                Success event ->
+                    { model | event = response, reloadIn = timeBetweenReloads }
+
+                _ ->
+                    { model | reloadIn = timeBetweenReloads }
             , Cmd.none
             )
 
@@ -1916,13 +2021,18 @@ view model =
                                 )
                     )
                 , El.centerX
-                , El.scrollbarX
                 , El.clipY
+                , El.scrollbarX
                 , El.inFront
                     (row [ El.alignRight, El.spacing 10, El.paddingXY 0 10 ]
                         [ el [ El.alignTop ] (viewReloadButton theme model)
                         , if model.flags.fullScreenToggle then
-                            el [] (viewFullScreenButton theme model.fullScreen)
+                            case model.device.class of
+                                El.Phone ->
+                                    El.none
+
+                                _ ->
+                                    el [] (viewFullScreenButton theme model.fullScreen)
 
                           else
                             El.none
@@ -2038,7 +2148,7 @@ viewReloadButton theme model =
             , Font.color theme.secondary
             , El.htmlAttribute (class "cio__reload_button")
             ]
-            (text ("Refresh in " ++ String.fromInt model.reloadIn ++ "s"))
+            (text "Refresh every 30s")
 
     else
         El.none
@@ -2073,8 +2183,8 @@ viewFetchError { flags, fullScreen, hash } message =
         ]
 
 
-viewItems : Theme -> List Translation -> Model -> List Item -> Element Msg
-viewItems theme translations { flags, fullScreen, itemFilter } items =
+viewItems : Theme -> List Translation -> Model -> ItemsResult -> Element Msg
+viewItems theme translations { flags, fullScreen, itemFilter, device } items =
     let
         viewPaging =
             let
@@ -2093,14 +2203,14 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                         , label = text content
                         }
             in
-            row [ El.htmlAttribute (class "cio__paging") ]
-                [ if List.length items >= 10 then
-                    viewPageButton "Next >" (IncrementPageBy 1)
+            row [ El.htmlAttribute (class "cio__paging"), El.spacing 10 ]
+                [ if itemFilter.page > 1 then
+                    viewPageButton "< Previous" (IncrementPageBy -1)
 
                   else
                     El.none
-                , if itemFilter.page > 1 then
-                    viewPageButton "< Previous" (IncrementPageBy -1)
+                , if List.length filteredItems >= (itemFilter.page * 10) then
+                    viewPageButton "Next >" (IncrementPageBy 1)
 
                   else
                     El.none
@@ -2108,15 +2218,7 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
 
         viewSeasonDropDown =
             let
-                times =
-                    [ ( 1, "next_season" )
-                    , ( 0, "this_season" )
-                    , ( -1, "Last_season" )
-                    , ( -2, "two_seasons_ago" )
-                    , ( -3, "three_seasons_ago" )
-                    ]
-
-                seasonOption ( delta, label ) =
+                seasonOption { display, delta } =
                     el
                         [ El.width El.fill
                         , El.padding 10
@@ -2127,30 +2229,39 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                           else
                             Background.color theme.transparent
                         ]
-                        (text (translate translations label))
+                        (text (translate translations display))
 
                 seasonOptions =
                     if itemFilter.seasonSearchOpen then
+                        let
+                            scrolling =
+                                if List.length items.seasons > 5 then
+                                    [ El.height (El.fill |> El.minimum 210), El.scrollbarY ]
+
+                                else
+                                    []
+                        in
                         column
-                            [ El.width El.fill
-                            , Border.width 1
-                            , Border.color theme.grey
-                            , Background.color theme.white
-                            ]
-                            (List.map seasonOption times)
+                            ([ El.width El.fill
+                             , Border.width 1
+                             , Border.color theme.grey
+                             , Background.color theme.white
+                             ]
+                                ++ scrolling
+                            )
+                            (List.map seasonOption items.seasons)
 
                     else
                         El.none
 
                 seasonSelected =
-                    List.filter (\time -> Tuple.first time == itemFilter.seasonDelta) times
-                        |> List.map Tuple.second
+                    List.filter (\season -> season.delta == itemFilter.seasonDelta) items.seasons
+                        |> List.map .display
                         |> List.head
-                        |> Maybe.withDefault "this_season"
-                        |> translate translations
+                        |> Maybe.withDefault "-"
             in
             row
-                [ El.width (El.px 184)
+                [ El.width (El.px 150)
                 , El.padding 10
                 , Border.width 1
                 , Border.color theme.grey
@@ -2174,7 +2285,7 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
         filteredItems =
             case String.trim itemFilter.search of
                 "" ->
-                    items
+                    items.items
 
                 _ ->
                     let
@@ -2188,12 +2299,27 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                                             False
                                    )
                     in
-                    List.filter matches items
+                    List.filter matches items.items
+
+        pagedItems =
+            filteredItems
+                |> Array.fromList
+                |> Array.slice ((itemFilter.page - 1) * 10) (itemFilter.page * 10)
+                |> Array.toList
     in
-    column [ El.spacing 10, El.width El.fill, El.height (El.fill |> El.minimum 210) ]
+    column [ El.spacing 10, El.width El.fill, El.height (El.fill |> El.minimum 250) ]
         [ row [ El.spacing 20 ]
             [ Input.text
-                [ El.width (El.px 200)
+                [ El.width
+                    (El.px
+                        (case device.class of
+                            El.Phone ->
+                                180
+
+                            _ ->
+                                250
+                        )
+                    )
                 , Border.width 1
                 , Border.color theme.grey
                 , El.padding 10
@@ -2204,7 +2330,11 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                 , onChange = UpdateSearch
                 , label = Input.labelHidden ""
                 }
-            , viewSeasonDropDown
+            , if List.length items.seasons > 1 then
+                viewSeasonDropDown
+
+              else
+                El.none
             ]
         , if List.isEmpty filteredItems then
             el [ El.padding 10 ] (text "No results found.")
@@ -2243,6 +2373,18 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
 
                 viewItemOccursOn item =
                     viewItemCell (el [ El.centerX, El.htmlAttribute (class "cio__item_occurs_on") ] (text (Maybe.withDefault " " item.occursOn)))
+
+                viewItemLocation item =
+                    column
+                        [ El.spacingXY 0 5
+                        , El.paddingXY 10 15
+                        , Border.color theme.grey
+                        , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                        , El.htmlAttribute (class "cio__item_location")
+                        ]
+                        [ el [] (text (Maybe.withDefault " " item.location))
+                        , el [ Font.size 13 ] (text (Maybe.withDefault " " item.venue))
+                        ]
 
                 viewItemPrice item =
                     if flags.registration then
@@ -2290,7 +2432,7 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
             in
             row [ El.width El.fill ]
                 [ El.table [ El.spacingXY 0 15, El.htmlAttribute (class "cio__items_table") ]
-                    { data = filteredItems
+                    { data = pagedItems
                     , columns =
                         [ { header = El.none
                           , width = El.fill
@@ -2299,6 +2441,10 @@ viewItems theme translations { flags, fullScreen, itemFilter } items =
                         , { header = El.none
                           , width = El.fill
                           , view = viewItemOccursOn
+                          }
+                        , { header = El.none
+                          , width = El.fill
+                          , view = viewItemLocation
                           }
                         , { header = El.none
                           , width = El.fill
@@ -2342,8 +2488,10 @@ viewSponsor sponsor =
 viewProduct : Theme -> List Translation -> Bool -> Product -> Element Msg
 viewProduct theme translations fullScreen product =
     row
-        [ El.spacing 20
-        , El.width El.fill
+        [ El.width El.fill
+        , El.height El.fill
+        , El.paddingXY 0 20
+        , El.spacing 20
         , El.htmlAttribute (class "cio__product")
         ]
         [ column
@@ -2353,14 +2501,17 @@ viewProduct theme translations fullScreen product =
             , El.alignTop
             ]
             [ el [ Font.size 28 ] (text product.name)
-            , case ( product.description, product.summary ) of
-                ( Just description, _ ) ->
-                    El.paragraph [ El.htmlAttribute (class "cio__product_description") ] [ text description ]
-
-                ( _, Just summary ) ->
+            , case product.summary of
+                Just summary ->
                     El.paragraph [ El.htmlAttribute (class "cio__product_summary") ] [ text summary ]
 
-                ( Nothing, Nothing ) ->
+                Nothing ->
+                    El.none
+            , case product.description of
+                Just description ->
+                    El.paragraph [ El.htmlAttribute (class "cio__product_description") ] [ text description ]
+
+                Nothing ->
                     El.none
             , case product.totalWithTax of
                 Just totalWithTax ->
@@ -2442,25 +2593,53 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
         , El.spacing 20
         , El.htmlAttribute (class "cio__event")
         ]
-        [ el [ Font.size 28, El.width El.fill, Font.medium, El.htmlAttribute (class "cio__event_name") ] (text event.name)
-        , El.wrappedRow [ El.width El.fill, El.htmlAttribute (class "cio__event_nav") ]
-            (List.map viewNavItem (eventSections flags.excludeEventSections event)
-                ++ (if flags.eventId == Nothing then
-                        [ el [ El.alignRight ]
-                            (button
-                                [ El.padding 16
-                                , Font.color theme.primary
-                                , Border.rounded 4
-                                , El.focused [ Background.color theme.white ]
-                                ]
-                                { onPress = Just (NavigateTo "/events")
-                                , label = text (translate translations (itemsSectionName flags.section) ++ " »")
-                                }
-                            )
-                        ]
+        [ el
+            [ Font.size
+                (case device.class of
+                    El.Phone ->
+                        22
 
-                    else
-                        []
+                    _ ->
+                        28
+                )
+            , El.width El.fill
+            , Font.medium
+            , El.htmlAttribute (class "cio__event_name")
+            ]
+            (text event.name)
+        , El.row [ El.width El.fill, El.htmlAttribute (class "cio__event_nav") ]
+            ((if flags.eventId == Nothing then
+                button
+                    [ Font.color theme.primary
+                    , Font.size 22
+                    , El.padding 8
+                    , El.focused [ Background.color theme.transparent ]
+                    ]
+                    { onPress = Just (NavigateTo "/events")
+                    , label = text "«"
+                    }
+
+              else
+                El.none
+             )
+                :: (List.map viewNavItem (eventSections flags.excludeEventSections event)
+                        ++ (case event.videoUrl of
+                                Just videoUrl ->
+                                    [ el [ El.padding 8 ] (text "")
+                                    , El.newTabLink
+                                        [ El.padding 8
+                                        , Border.rounded 4
+                                        , Font.color theme.white
+                                        , Background.color theme.secondary
+                                        ]
+                                        { url = videoUrl
+                                        , label = text (translate translations "video" ++ " ▶")
+                                        }
+                                    ]
+
+                                Nothing ->
+                                    []
+                           )
                    )
             )
         , case nestedRoute of
@@ -2542,14 +2721,17 @@ viewDetails : Theme -> Device -> List Translation -> Event -> Element Msg
 viewDetails theme device translations event =
     row [ El.spacing 20, El.htmlAttribute (class "cio__event_details") ]
         [ column [ El.spacing 20, El.width El.fill, El.alignTop ]
-            [ case ( event.description, event.summary ) of
-                ( Just description, _ ) ->
-                    El.paragraph [ El.htmlAttribute (class "cio__event_description") ] [ El.html (Markdown.toHtml [] description) ]
-
-                ( _, Just summary ) ->
+            [ case event.summary of
+                Just summary ->
                     El.paragraph [ El.htmlAttribute (class "cio__event_summary") ] [ text summary ]
 
-                ( Nothing, Nothing ) ->
+                Nothing ->
+                    El.none
+            , case event.description of
+                Just description ->
+                    El.paragraph [ El.htmlAttribute (class "cio__event_description") ] [ El.html (Markdown.toHtml [] description) ]
+
+                Nothing ->
                     El.none
             , case event.totalWithTax of
                 Just totalWithTax ->
@@ -2578,16 +2760,44 @@ viewDetails theme device translations event =
                     , el [] (text event.endsOn)
                     ]
                 ]
-            , row [ El.width El.fill, El.spacing 20 ]
-                [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_registration_opens_at") ]
-                    [ el [ Font.bold ] (text (translate translations "registration_opens_at"))
-                    , el [] (text (Maybe.withDefault "" event.registrationOpensAt))
-                    ]
-                , column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_registration_closes_at") ]
-                    [ el [ Font.bold ] (text (translate translations "registration_closes_at"))
-                    , el [] (text (Maybe.withDefault "" event.registrationClosesAt))
-                    ]
-                ]
+            , case ( event.registrationOpensAt, event.registrationClosesAt ) of
+                ( Just registrationOpensAt, Just registrationClosesAt ) ->
+                    row [ El.width El.fill, El.spacing 20 ]
+                        [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_registration_opens_at") ]
+                            [ el [ Font.bold ] (text (translate translations "registration_opens_at"))
+                            , el [] (text registrationOpensAt)
+                            ]
+                        , column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_registration_closes_at") ]
+                            [ el [ Font.bold ] (text (translate translations "registration_closes_at"))
+                            , el [] (text registrationClosesAt)
+                            ]
+                        ]
+
+                _ ->
+                    El.none
+            , case event.timeZone of
+                Just timeZone ->
+                    row [ El.width El.fill, El.spacing 20 ]
+                        [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_time_zone") ]
+                            [ el [ Font.bold ] (text (translate translations "time_zone"))
+                            , el [] (text timeZone)
+                            ]
+                        ]
+
+                Nothing ->
+                    El.none
+            , case ( event.location, event.venue ) of
+                ( Just location, Just venue ) ->
+                    row [ El.width El.fill, El.spacing 20 ]
+                        [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_location") ]
+                            [ el [ Font.bold ] (text (translate translations "location"))
+                            , el [] (text location)
+                            , el [ Font.size 13 ] (text venue)
+                            ]
+                        ]
+
+                _ ->
+                    El.none
             , row [ El.width El.fill, El.spacing 20 ]
                 [ column [ El.width El.fill, El.spacing 10, El.htmlAttribute (class "cio__event_team_restriction") ]
                     [ el [ Font.bold ] (text (translate translations "team_restriction"))
@@ -2832,29 +3042,61 @@ viewSpares theme translations flags eventId spares =
 viewDraws : Theme -> List Translation -> Maybe ScoringHilight -> Event -> Element Msg
 viewDraws theme translations scoringHilight event =
     let
-        isDrawActive : Draw -> Bool
-        isDrawActive draw =
+        drawState : Draw -> DrawState
+        drawState draw =
             let
                 findGame gameId =
                     gamesFromStages event.stages
                         |> List.Extra.find (\g -> Just g.id == gameId)
 
-                activeGame : Game -> Bool
-                activeGame game =
-                    List.any (\g -> g.id == game.id && g.state == GameActive) (gamesFromStages event.stages)
-            in
-            -- Are there any games in the draw that are active
-            List.map findGame draw.drawSheets
-                |> List.filterMap identity
-                |> List.filter activeGame
-                |> List.isEmpty
-                |> not
+                hasActiveGame =
+                    let
+                        isActiveGame game =
+                            List.any (\g -> g.id == game.id && g.state == GameActive) (gamesFromStages event.stages)
+                    in
+                    List.map findGame draw.drawSheets
+                        |> List.filterMap identity
+                        |> List.filter isActiveGame
+                        |> List.isEmpty
+                        |> not
 
-        drawLink : Draw -> String -> Element Msg
-        drawLink draw label =
+                hasPendingGame =
+                    let
+                        isPendingGame game =
+                            List.any (\g -> g.id == game.id && g.state == GamePending) (gamesFromStages event.stages)
+                    in
+                    List.map findGame draw.drawSheets
+                        |> List.filterMap identity
+                        |> List.filter isPendingGame
+                        |> List.isEmpty
+                        |> not
+            in
+            if hasActiveGame then
+                DrawActive
+
+            else if hasPendingGame then
+                -- if there's a pending game, and the draw start time has passed recently, then we assume it is the active draw.
+                if draw.recent then
+                    DrawActive
+
+                else
+                    DrawPending
+
+            else
+                DrawComplete
+
+        drawLink : Draw -> String -> DrawState -> Element Msg
+        drawLink draw label drawState_ =
             if event.endScoresEnabled then
                 button
-                    [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
+                    [ case drawState_ of
+                        DrawPending ->
+                            Font.color theme.secondary
+
+                        _ ->
+                            Font.color theme.primary
+                    , El.focused [ Background.color theme.white ]
+                    ]
                     { onPress = Just (NavigateTo (drawUrl event.id draw))
                     , label = text label
                     }
@@ -2862,8 +3104,8 @@ viewDraws theme translations scoringHilight event =
             else
                 text label
 
-        gameLink : Game -> Element Msg
-        gameLink game =
+        gameLink : Game -> DrawState -> Element Msg
+        gameLink game drawState_ =
             let
                 gameNameWithResult =
                     case game.state of
@@ -2901,10 +3143,10 @@ viewDraws theme translations scoringHilight event =
                             String.join
                                 (String.toLower
                                     (if tied then
-                                        " " ++ translate translations "tied" ++ " "
+                                        " = "
 
                                      else
-                                        " " ++ translate translations "defeated" ++ " "
+                                        " > "
                                     )
                                 )
                                 sortedTeamNames
@@ -2914,7 +3156,12 @@ viewDraws theme translations scoringHilight event =
             in
             if event.endScoresEnabled then
                 button
-                    [ Font.color theme.primary
+                    [ case drawState_ of
+                        DrawPending ->
+                            Font.color theme.secondary
+
+                        _ ->
+                            Font.color theme.primary
                     , El.focused [ Background.color theme.white ]
                     , case game.state of
                         GameActive ->
@@ -2924,7 +3171,7 @@ viewDraws theme translations scoringHilight event =
                             Font.regular
                     ]
                     { onPress = Just (NavigateTo (gameUrl event.id game))
-                    , label = text game.name
+                    , label = text gameNameWithResult
                     }
 
             else
@@ -2948,34 +3195,39 @@ viewDraws theme translations scoringHilight event =
                         , El.htmlAttribute (class ("cio__event_draws_header cio__event_draws_header_" ++ contentId))
                         , Border.color theme.grey
                         ]
-                        [ el [ align ] (text (translate translations content)) ]
+                        [ el [ align ] (text (translate translations content))
+                        ]
 
-                tableCell align isActive content =
+                tableCell align drawState_ content =
                     row
                         [ El.paddingXY 12 16
                         , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
                         , Border.color theme.grey
                         , El.htmlAttribute (class "cio__event_draws_cell")
-                        , if isActive then
-                            Background.color theme.greyLight
+                        , case drawState_ of
+                            DrawComplete ->
+                                Background.color theme.greyLightest
 
-                          else
-                            Background.color theme.transparent
+                            DrawActive ->
+                                Background.color theme.greyLight
+
+                            DrawPending ->
+                                Background.color theme.transparent
                         ]
                         [ el [ align ] content ]
 
                 labelColumn =
                     Just
-                        { header = tableHeader El.alignLeft "draw"
-                        , width = El.px 65
-                        , view = \draw -> tableCell El.alignLeft (isDrawActive draw) (drawLink draw draw.label)
+                        { header = tableHeader El.alignLeft " "
+                        , width = El.px 35
+                        , view = \draw -> tableCell El.alignLeft (drawState draw) (drawLink draw draw.label (drawState draw))
                         }
 
                 startsAtColumn =
                     Just
-                        { header = tableHeader El.alignLeft "starts_at"
-                        , width = El.px 220
-                        , view = \draw -> tableCell El.alignLeft (isDrawActive draw) (drawLink draw draw.startsAt)
+                        { header = tableHeader El.alignLeft "draw"
+                        , width = El.px 180
+                        , view = \draw -> tableCell El.alignLeft (drawState draw) (drawLink draw draw.startsAt (drawState draw))
                         }
 
                 attendanceColumn =
@@ -2985,7 +3237,7 @@ viewDraws theme translations scoringHilight event =
                             , width = El.px 65
                             , view =
                                 \draw ->
-                                    tableCell El.alignLeft (isDrawActive draw) (text (String.fromInt draw.attendance))
+                                    tableCell El.alignLeft (drawState draw) (text (String.fromInt draw.attendance))
                             }
 
                     else
@@ -2993,17 +3245,26 @@ viewDraws theme translations scoringHilight event =
 
                 sheetColumn columnIndex sheetName =
                     Just
-                        { header = tableHeader El.centerX sheetName
+                        { header =
+                            tableHeader El.centerX
+                                (if sheetName == "" then
+                                    -- String.fromInt (columnIndex + 1)
+                                    -- Converting the int to A, B, C, D, E, etc. The A char starts at 65.
+                                    "Sheet " ++ String.fromChar (Char.fromCode (columnIndex + 65))
+
+                                 else
+                                    sheetName
+                                )
                         , width = El.fill
                         , view =
                             \draw ->
                                 tableCell El.centerX
-                                    (isDrawActive draw)
+                                    (drawState draw)
                                     (case List.Extra.getAt columnIndex draw.drawSheets of
                                         Just (Just gameId) ->
                                             case List.Extra.find (\g -> g.id == gameId) (gamesFromStages event.stages) of
                                                 Just game ->
-                                                    gameLink game
+                                                    gameLink game (drawState draw)
 
                                                 Nothing ->
                                                     text "-"
@@ -3021,10 +3282,18 @@ viewDraws theme translations scoringHilight event =
             El.paragraph [] [ text (translate translations "no_draws") ]
 
          else
-            El.table [ El.htmlAttribute (class "cio__event_draws_table") ]
-                { data = event.draws
-                , columns = tableColumns
-                }
+            column [ El.spacing 10 ]
+                [ El.table [ El.htmlAttribute (class "cio__event_draws_table") ]
+                    { data = event.draws
+                    , columns = tableColumns
+                    }
+                , case event.timeZone of
+                    Just timeZone ->
+                        el [ Font.italic, Font.color theme.greyDark, El.padding 10 ] (text ("* " ++ timeZone))
+
+                    Nothing ->
+                        El.none
+                ]
         )
 
 
@@ -3071,15 +3340,11 @@ viewTeams theme translations event =
                 , view =
                     \i team ->
                         tableCell i
-                            (if teamHasDetails team then
-                                button
-                                    [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                    { onPress = Just (NavigateTo (teamUrl event.id team.id))
-                                    , label = text team.name
-                                    }
-
-                             else
-                                text team.name
+                            (button
+                                [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                { onPress = Just (NavigateTo (teamUrl event.id team.id))
+                                , label = text team.name
+                                }
                             )
                 }
 
@@ -3214,15 +3479,11 @@ viewStages theme device translations event onStage =
                                                     team.name
                                         in
                                         tableCell i
-                                            (if teamHasDetails team then
-                                                button
-                                                    [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                                    { onPress = Just (NavigateTo (teamUrl event.id standing.teamId))
-                                                    , label = text teamName
-                                                    }
-
-                                             else
-                                                text teamName
+                                            (button
+                                                [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                                { onPress = Just (NavigateTo (teamUrl event.id standing.teamId))
+                                                , label = text teamName
+                                                }
                                             )
 
                                     Nothing ->
@@ -3370,22 +3631,24 @@ viewStages theme device translations event onStage =
                                                             "TBD"
                                             in
                                             el
-                                                [ El.width El.fill
-                                                , El.height (El.px 25)
-                                                , El.clip
-                                                , El.paddingEach { left = 3, right = 0, top = 6, bottom = 0 }
-                                                , if side.result == Just SideResultWon then
-                                                    Font.bold
-
-                                                  else
-                                                    Font.regular
-                                                , if position == 0 then
+                                                ([ El.width El.fill
+                                                 , El.height (El.px 25)
+                                                 , El.clip
+                                                 , El.paddingEach { left = 3, right = 0, top = 6, bottom = 0 }
+                                                 , if position == 0 then
                                                     Border.widthEach { left = 0, right = 0, top = 0, bottom = 1 }
 
-                                                  else
+                                                   else
                                                     Border.width 0
-                                                , Border.color theme.grey
-                                                ]
+                                                 , Border.color theme.grey
+                                                 ]
+                                                    ++ (if side.result == Just SideResultWon then
+                                                            [ Font.bold, Font.color theme.primary ]
+
+                                                        else
+                                                            [ Font.regular ]
+                                                       )
+                                                )
                                                 (text label)
 
                                         -- Only link if the game has been scheduled
@@ -3631,7 +3894,7 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
                     [ Font.color theme.primary
                     , Font.italic
                     , El.padding 8
-                    , El.focused [ Background.color theme.primary ]
+                    , El.focused [ Background.color theme.transparent ]
                     ]
                     { onPress = Just (NavigateTo gamePath), label = label }
 
@@ -3898,6 +4161,21 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
                         )
                     , el [] (text "/")
                     , el [] (text game.name)
+                    , case game.videoUrl of
+                        Just videoUrl ->
+                            El.newTabLink
+                                [ El.alignRight
+                                , El.padding 8
+                                , Border.rounded 4
+                                , Font.color theme.white
+                                , Background.color theme.secondary
+                                ]
+                                { url = videoUrl
+                                , label = text (translate translations "video" ++ " ▶")
+                                }
+
+                        Nothing ->
+                            El.none
                     ]
                 )
 
@@ -3964,15 +4242,15 @@ viewTeam theme translations flags event team =
                         [ Border.width 1
                         , Border.color theme.grey
                         , El.clip
-                        , El.padding 20
-                        , El.spacing 20
+                        , El.padding 15
+                        , El.spacing 15
                         , El.width (El.px 250)
                         ]
                         [ if hasPhotoUrl then
                             el [ El.width El.fill ]
                                 (case curler.photoUrl of
                                     Just photoUrl ->
-                                        El.image [ El.height (El.px 142), El.centerX ]
+                                        El.image [ El.height (El.px 150), El.centerX ]
                                             { src = photoUrl
                                             , description = curler.name
                                             }
@@ -4055,7 +4333,7 @@ viewTeam theme translations flags event team =
                                             }
 
                                     else
-                                        El.none
+                                        el [ Font.size 12 ] (text " ")
 
                                   else
                                     El.none
@@ -4069,7 +4347,7 @@ viewTeam theme translations flags event team =
         viewTeamInfo =
             let
                 hasTeamContactInfo =
-                    [ team.contactName, team.contactEmail, team.contactPhone ]
+                    [ team.contactName, team.email, team.phone ]
                         |> List.filterMap identity
                         |> List.isEmpty
                         |> not
@@ -4085,8 +4363,8 @@ viewTeam theme translations flags event team =
                     El.table [ El.width El.fill ]
                         { data =
                             [ { label = "contact_name", data = team.contactName }
-                            , { label = "contact_email", data = team.contactEmail }
-                            , { label = "contact_phone", data = team.contactPhone }
+                            , { label = "email", data = team.email }
+                            , { label = "phone", data = team.phone }
                             ]
                         , columns =
                             [ { header = El.none
@@ -4350,6 +4628,9 @@ viewTeam theme translations flags event team =
 viewReports : Theme -> List Translation -> Event -> Element Msg
 viewReports theme translations event =
     let
+        hasCompetitionMatrix =
+            List.any (\stage -> stage.stageType == RoundRobin) event.stages
+
         hasAttendance =
             (List.map .attendance event.draws |> List.sum) > 0
 
@@ -4367,7 +4648,11 @@ viewReports theme translations event =
                 }
     in
     column [ El.spacing 15, El.padding 15, El.htmlAttribute (class "cio__event_reports") ]
-        ([ reportButton "competition_matrix"
+        ([ if hasCompetitionMatrix then
+            reportButton "competition_matrix"
+
+           else
+            El.none
          , reportButton "team_rosters"
          , if hasAttendance then
             reportButton "attendance"
@@ -5340,7 +5625,7 @@ viewReportHogLineViolation theme translations event =
     let
         hogLineViolations : List ShotExpanded
         hogLineViolations =
-            shotsWithStageIdDrawTeamCurler event
+            expandShots event
                 |> List.filter (\s -> s.rating == Just "V")
 
         viewHeader label =
@@ -5433,22 +5718,21 @@ viewReportPositionalPercentageComparison theme translations event onStageId =
                         shots =
                             case onStageId of
                                 Just stageId ->
-                                    shotsWithStageIdDrawTeamCurler event
+                                    expandShots event
                                         |> List.filter (\s -> s.stageId == stageId)
 
                                 Nothing ->
-                                    shotsWithStageIdDrawTeamCurler event
+                                    expandShots event
                     in
                     shots
                         |> List.filter (\s -> List.member s.shotNumber shotNumbers)
             in
             List.map (\p -> { position = p, shots = shotsForPosition p }) (List.range 1 4)
 
-        viewPosition position =
+        viewPosition posWithShots =
             let
                 drawsForPosition =
-                    List.map (\s -> s.draw) position.shots
-                        |> List.filterMap identity
+                    List.map (\s -> s.draw) posWithShots.shots
 
                 viewHeader label =
                     el
@@ -5470,7 +5754,7 @@ viewReportPositionalPercentageComparison theme translations event onStageId =
             in
             let
                 viewDrawCell draw =
-                    { header = viewHeader (String.fromInt draw)
+                    { header = viewHeader (String.fromInt draw.id)
                     , width = El.fill
                     , view =
                         \curler ->
@@ -5478,7 +5762,7 @@ viewReportPositionalPercentageComparison theme translations event onStageId =
                     }
             in
             El.table []
-                { data = position
+                { data = posWithShots.shots
                 , columns =
                     [ { header = viewHeader "Position"
                       , width = El.fill
