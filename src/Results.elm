@@ -1905,16 +1905,12 @@ update msg model =
             ( { model | flags = updatedFlags model.flags }, Cmd.none )
 
         Tick _ ->
-            if reloadEnabled model.flags model.hash model.event then
-                case model.event of
-                    Success event ->
-                        ( model, reloadEvent model.flags event.id )
+            case model.event of
+                Success event ->
+                    ( model, reloadEvent model.flags event.id )
 
-                    _ ->
-                        ( model, Cmd.none )
-
-            else
-                ( model, Cmd.none )
+                _ ->
+                    ( model, Cmd.none )
 
         SetDevice width height ->
             let
@@ -4237,9 +4233,6 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
 
         tableColumns =
             [ teamColumn ] ++ List.map endColumn (List.range 1 maxNumberOfEnds) ++ [ totalColumn ]
-
-        _ =
-            Debug.log "render" "viewGame"
     in
     column [ El.width El.fill, El.spacing 10 ]
         -- Breadcrumb
@@ -5903,9 +5896,6 @@ viewReportPositionalPercentageComparison theme translations event onStageId =
                     ]
                         ++ List.map viewDrawCell drawsForPosition
                 }
-
-        _ =
-            Debug.log "positions" positions
     in
     column [ El.spacing 20, El.width El.fill ]
         [ el [ Font.size 24 ] (text (translate translations "positional_percentage_comparison"))
@@ -6060,11 +6050,15 @@ port hashChangeReceiver : (String -> msg) -> Sub msg
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
+subscriptions model =
     Sub.batch
         [ hashChangeReceiver (HashChanged False)
         , Browser.Events.onResize (\values -> SetDevice values)
-        , Time.every 30000 Tick
+        , if reloadEnabled model.flags model.hash model.event then
+            Time.every 30000 Tick
+
+          else
+            Sub.none
         ]
 
 
