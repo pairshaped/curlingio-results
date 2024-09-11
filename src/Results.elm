@@ -397,17 +397,38 @@ type alias Shot =
 
 
 type alias ShotExpanded =
-    { stageId : Int
-    , draw : Draw
-    , team : Team
-    , curler : TeamCurler
-    , endNumber : Int
-    , shotNumber : Int
+    { gameId : String
+    , drawId : Int
+    , drawLabel : String
+    , stageId : Int
+    , teamId : Int
+    , teamShortName : String
     , curlerId : Int
-    , turn : Maybe String
-    , throw : Maybe String
+    , curlerName : String
+    , endNumber : Int
+    , position : Int
     , rating : Maybe String
     }
+
+
+type alias ShotSummaryByPosition =
+    { position : Int
+    , teamId : Int
+    , teamName : String
+    , curlerId : Int
+    , curlerName : String
+    , numberOfShots : Int
+    , totalRatings : Int
+    }
+
+
+
+-- stage.id
+-- draw.label
+-- team.shortName
+-- team.curlerName
+-- shot.endNumber
+-- shot.rating
 
 
 type alias Standing =
@@ -819,6 +840,11 @@ decodeGame =
 -- HELPERS
 
 
+fromNonempty : ( a, List a ) -> List a
+fromNonempty ( x, xs ) =
+    x :: xs
+
+
 matchRoute : Maybe String -> Parser (Route -> a) a
 matchRoute defaultEventSection =
     Url.Parser.oneOf
@@ -899,14 +925,14 @@ toRoute defaultEventSection hash =
     parsed
 
 
-drawUrl : Int -> Draw -> String
-drawUrl eventId draw =
-    "/events/" ++ String.fromInt eventId ++ "/draws/" ++ String.fromInt draw.id
+drawUrl : Int -> Int -> String
+drawUrl eventId drawId =
+    "/events/" ++ String.fromInt eventId ++ "/draws/" ++ String.fromInt drawId
 
 
-gameUrl : Int -> Game -> String
-gameUrl eventId game =
-    "/events/" ++ String.fromInt eventId ++ "/games/" ++ game.id
+gameUrl : Int -> String -> String
+gameUrl eventId gameId =
+    "/events/" ++ String.fromInt eventId ++ "/games/" ++ gameId
 
 
 teamUrl : Int -> Int -> String
@@ -1469,6 +1495,16 @@ findTeamForSide teams side =
     List.Extra.find (\t -> Just t.id == side.teamId) teams
 
 
+gameForDrawSheet : Event -> Maybe String -> Maybe Game
+gameForDrawSheet { stages } drawSheet =
+    case drawSheet of
+        Just id ->
+            findGameById stages id
+
+        Nothing ->
+            Nothing
+
+
 sheetNameForGame : Event -> Game -> String
 sheetNameForGame event game =
     let
@@ -1701,64 +1737,111 @@ drawWithGameId draws id =
     List.Extra.find hasGame draws
 
 
-expandShots : Event -> List ShotExpanded
-expandShots { stages, draws, teams } =
+stageWithGameId : List Stage -> String -> Maybe Stage
+stageWithGameId stages id =
+    let
+        hasGame stage =
+            List.any (\g -> g.id == id) stage.games
+    in
+    List.Extra.find hasGame stages
+
+
+shotNumberToPosition : Int -> Int
+shotNumberToPosition shotNumber =
+    case shotNumber of
+        1 ->
+            1
+
+        2 ->
+            1
+
+        3 ->
+            2
+
+        4 ->
+            2
+
+        5 ->
+            3
+
+        6 ->
+            3
+
+        _ ->
+            4
+
+
+expandShotsForGame : Event -> Game -> List ShotExpanded
+expandShotsForGame { teams, draws, stages } game =
+    let
+        findStage =
+            stageWithGameId stages game.id
+
+        findDraw =
+            drawWithGameId draws game.id
+    in
+    case ( findStage, findDraw ) of
+        ( Just stage, Just draw ) ->
+            game.sides
+                |> List.map
+                    (\side ->
+                        case findTeamForSide teams side of
+                            Just team ->
+                                side.shots
+                                    |> List.map
+                                        (\shot ->
+                                            case shot.curlerId of
+                                                Just curlerId ->
+                                                    case List.Extra.find (\c -> c.curlerId == curlerId) team.lineup of
+                                                        Just curler ->
+                                                            Just
+                                                                { gameId = game.id
+                                                                , drawId = draw.id
+                                                                , drawLabel = draw.label
+                                                                , stageId = stage.id
+                                                                , teamId = team.id
+                                                                , teamShortName = team.shortName
+                                                                , curlerId = curlerId
+                                                                , curlerName = curler.name
+                                                                , endNumber = shot.endNumber
+                                                                , position = shotNumberToPosition shot.shotNumber
+                                                                , rating = shot.rating
+                                                                }
+
+                                                        Nothing ->
+                                                            Nothing
+
+                                                Nothing ->
+                                                    Nothing
+                                        )
+                                    |> List.filterMap identity
+
+                            Nothing ->
+                                []
+                    )
+                -- Lift the shots up to the sides
+                |> List.concat
+
+        _ ->
+            []
+
+
+expandShotsForStage : Event -> Stage -> List ShotExpanded
+expandShotsForStage event stage =
     -- Kind of annoying, but we need to dig down to shots while picking up the draw label, and side's team id.
-    -- Ignore it if we're missing a draw (unscheduled), team (no point in reporting), curler (no point in reporting), or it's not a violation.
-    stages
-        |> List.map
-            (\stage ->
-                stage.games
-                    |> List.map
-                        (\game ->
-                            case drawWithGameId draws game.id of
-                                Just draw ->
-                                    game.sides
-                                        |> List.map
-                                            (\side ->
-                                                case findTeamForSide teams side of
-                                                    Just team ->
-                                                        side.shots
-                                                            |> List.map
-                                                                (\shot ->
-                                                                    case shot.curlerId of
-                                                                        Just curlerId ->
-                                                                            case List.Extra.find (\c -> c.curlerId == curlerId) team.lineup of
-                                                                                Just curler ->
-                                                                                    Just
-                                                                                        { stageId = stage.id
-                                                                                        , draw = draw
-                                                                                        , team = team
-                                                                                        , curler = curler
-                                                                                        , endNumber = shot.endNumber
-                                                                                        , shotNumber = shot.shotNumber
-                                                                                        , curlerId = curlerId
-                                                                                        , turn = shot.turn
-                                                                                        , throw = shot.throw
-                                                                                        , rating = shot.rating
-                                                                                        }
+    -- Ignore it if we're missing a draw (unscheduled), team (no point in reporting), curler (no point in reporting).
+    List.map (expandShotsForGame event) stage.games
+        -- Lift the games up to the root
+        |> List.concat
 
-                                                                                Nothing ->
-                                                                                    Nothing
 
-                                                                        Nothing ->
-                                                                            Nothing
-                                                                )
-                                                            |> List.filterMap identity
-
-                                                    Nothing ->
-                                                        []
-                                            )
-                                        -- Lift the shots up to the sides
-                                        |> List.concat
-
-                                Nothing ->
-                                    []
-                        )
-                    -- Lift the sides up to the games
-                    |> List.concat
-            )
-        -- Lift the games up to the stages
+expandShotsForEvent : Event -> List ShotExpanded
+expandShotsForEvent event =
+    -- Kind of annoying, but we need to dig down to shots while picking up the draw label, and side's team id.
+    -- Ignore it if we're missing a draw (unscheduled), team (no point in reporting), curler (no point in reporting).
+    event.stages
+        |> List.map (expandShotsForStage event)
+        -- Lift the stages up to the root
         |> List.concat
 
 
@@ -3097,7 +3180,7 @@ viewDraws theme translations scoringHilight event =
                             Font.color theme.primary
                     , El.focused [ Background.color theme.white ]
                     ]
-                    { onPress = Just (NavigateTo (drawUrl event.id draw))
+                    { onPress = Just (NavigateTo (drawUrl event.id draw.id))
                     , label = text label
                     }
 
@@ -3170,7 +3253,7 @@ viewDraws theme translations scoringHilight event =
                         _ ->
                             Font.regular
                     ]
-                    { onPress = Just (NavigateTo (gameUrl event.id game))
+                    { onPress = Just (NavigateTo (gameUrl event.id game.id))
                     , label = text gameNameWithResult
                     }
 
@@ -3663,7 +3746,7 @@ viewStages theme device translations event onStage =
                                     button [ El.focused [ Background.color theme.transparent ] ]
                                         { onPress =
                                             if gameHasBeenScheduled then
-                                                Just (NavigateTo (gameUrl event.id game))
+                                                Just (NavigateTo (gameUrl event.id game.id))
 
                                             else
                                                 Nothing
@@ -3947,10 +4030,10 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
                     El.none
 
         gamePath =
-            gameUrl event.id game
+            gameUrl event.id game.id
 
         drawPath =
-            drawUrl event.id draw
+            drawUrl event.id draw.id
 
         viewEndScore : Int -> Side -> Element Msg
         viewEndScore endNumber side =
@@ -4193,6 +4276,16 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
             [ viewGameCaption
             , viewGameHilight
             ]
+
+        -- Shot Percentage
+        , if detailed && event.shotByShotEnabled then
+            column [ El.width El.fill, El.paddingXY 0 10, El.spacing 20 ]
+                [ el [ Font.size 24 ] (text (translate translations "shots"))
+                , viewReportScoringAndPercentagesForGame theme translations event game
+                ]
+
+          else
+            El.none
 
         -- Scaring Analysis
         , if detailed then
@@ -4472,7 +4565,7 @@ viewTeam theme translations flags event team =
                     if event.endScoresEnabled then
                         tableCell
                             (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                { onPress = Just (NavigateTo (drawUrl event.id draw))
+                                { onPress = Just (NavigateTo (drawUrl event.id draw.id))
                                 , label = text (drawAndSheetName draw game)
                                 }
                             )
@@ -4484,7 +4577,7 @@ viewTeam theme translations flags event team =
                     if event.endScoresEnabled then
                         tableCell
                             (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                { onPress = Just (NavigateTo (drawUrl event.id draw))
+                                { onPress = Just (NavigateTo (drawUrl event.id draw.id))
                                 , label = text draw.startsAt
                                 }
                             )
@@ -4516,7 +4609,7 @@ viewTeam theme translations flags event team =
                             if event.endScoresEnabled then
                                 tableCell
                                     (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                        { onPress = Just (NavigateTo (gameUrl event.id game))
+                                        { onPress = Just (NavigateTo (gameUrl event.id game.id))
                                         , label = text t
                                         }
                                     )
@@ -4535,7 +4628,7 @@ viewTeam theme translations flags event team =
                                     if event.endScoresEnabled then
                                         tableCell
                                             (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                                { onPress = Just (NavigateTo (gameUrl event.id game))
+                                                { onPress = Just (NavigateTo (gameUrl event.id game.id))
                                                 , label = text score
                                                 }
                                             )
@@ -4713,7 +4806,7 @@ viewReport theme translations scoringHilight event report =
             viewReportPositionalPercentageComparison theme translations event Nothing
 
         "scoring_and_percentages" ->
-            viewReportScoringAndPercentages theme translations event.draws
+            viewReportScoringAndPercentagesForDraw theme translations event Nothing
 
         "statistics_by_team" ->
             viewReportStatisticsByTeam theme translations event.draws
@@ -5450,7 +5543,7 @@ viewReportCompetitionMatrix theme translations event =
                                                                 False
 
                                                     gamePath =
-                                                        gameUrl event.id game
+                                                        gameUrl event.id game.id
                                                 in
                                                 if gameHasBeenScheduled then
                                                     button
@@ -5625,10 +5718,10 @@ viewReportHogLineViolation theme translations event =
     let
         hogLineViolations : List ShotExpanded
         hogLineViolations =
-            expandShots event
+            expandShotsForEvent event
                 |> List.filter (\s -> s.rating == Just "V")
 
-        viewHeader label =
+        viewHeader align label =
             el
                 [ El.padding 15
                 , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
@@ -5636,15 +5729,15 @@ viewReportHogLineViolation theme translations event =
                 , Font.semiBold
                 , Background.color theme.greyLight
                 ]
-                (text (translate translations label))
+                (el [ align ] (text (translate translations label)))
 
-        viewCell content =
+        viewCell align content =
             el
                 [ El.padding 15
                 , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
                 , Border.color theme.grey
                 ]
-                (text content)
+                (el [ align ] content)
     in
     -- We are looking for any shots with a rating value of "V" (for violation)
     -- Then we want to report the athlete name, the team name, the draw label, and the end number.
@@ -5653,29 +5746,47 @@ viewReportHogLineViolation theme translations event =
         , El.table []
             { data = hogLineViolations
             , columns =
-                [ { header = viewHeader "curler"
+                [ { header = viewHeader El.alignLeft "curler"
                   , width = El.fill
                   , view =
                         \hogLineViolation ->
-                            viewCell hogLineViolation.curler.name
+                            viewCell El.alignLeft (text hogLineViolation.curlerName)
                   }
-                , { header = viewHeader "team"
+                , { header = viewHeader El.alignLeft "team"
                   , width = El.fill
                   , view =
                         \hogLineViolation ->
-                            viewCell hogLineViolation.team.name
+                            viewCell El.alignLeft
+                                (button
+                                    [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                    { onPress = Just (NavigateTo (teamUrl event.id hogLineViolation.teamId))
+                                    , label = text hogLineViolation.teamShortName
+                                    }
+                                )
                   }
-                , { header = viewHeader "draw"
+                , { header = viewHeader El.alignRight "draw"
                   , width = El.fill |> El.maximum 100
                   , view =
                         \hogLineViolation ->
-                            viewCell hogLineViolation.draw.label
+                            viewCell El.alignRight
+                                (button
+                                    [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                    { onPress = Just (NavigateTo (drawUrl event.id hogLineViolation.drawId))
+                                    , label = text hogLineViolation.drawLabel
+                                    }
+                                )
                   }
-                , { header = viewHeader "end_number"
+                , { header = viewHeader El.alignRight "end_number"
                   , width = El.fill |> El.maximum 100
                   , view =
                         \hogLineViolation ->
-                            viewCell (String.fromInt hogLineViolation.endNumber)
+                            viewCell El.alignRight
+                                (button
+                                    [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                    { onPress = Just (NavigateTo (gameUrl event.id hogLineViolation.gameId))
+                                    , label = text (String.fromInt hogLineViolation.endNumber)
+                                    }
+                                )
                   }
                 ]
             }
@@ -5685,54 +5796,67 @@ viewReportHogLineViolation theme translations event =
 viewReportPositionalPercentageComparison : Theme -> List Translation -> Event -> Maybe Int -> Element Msg
 viewReportPositionalPercentageComparison theme translations event onStageId =
     --
-    -- Table for each position
+    -- Table for each position (grouped)
+    -- The percentage is theri cumulative shot rating divided by the max show rating (4 is max rating, multiplied by number of shots).
+    --  So for example, say Brad gets 3, 3, 4, 2, 4 ratings for 5 shots. The would be: (3+3+4+2+4) / (4+4+4+4+4) = 16/20 = 80%.
+    --  If Brad's opposite (throwing the same shot numbers) scored a lower percentage, then Brad get's a +, so 80 +, if we was lower then 80 -
     -- Header Row: [Position Number, Draw Number, Draw Number, Cumulative, +/-
-    -- Data Row: [Curler name, percentage for draw, percentage for draw, percentage for draw, cumulative percentage, plus minus]
+    -- Data Row: [Curler name, percentage for game (if played in draw), percentage for game, percentage for draw, cumulative percentage, plus minus]
     -- For example:
-    --    [Fourth Position, 2, 4, 5, 8, 10, 12, 14, 16, 18, Cumulative, +/-]
-    --    [Matt Dunstone, 81, 79, , 98 +, 89 +, 76, 88, 89 +, 89 +, 86, +4]
-    --    [Brad Jacobs, 85, 87, 75 -, , 73 -, 93 +, 89 +, 74 -, 93 +, 83, 0]
+    --    [Fourth Position, Draw 1, Draw 2, Draw 3, Draw 4, Draw 5, Draw 6, Draw 7, Draw 8, Draw 9, Cumulative, +/-]
+    --    [Matt, 81, 79, , 98 +, 89 +, 76, 88, 89 +, 89 +, 86, +4]
+    --    [Brad, 85, 87, 75 -, , 73 -, 93 +, 89 +, 74 -, 93 +, 83, 0]
+    --
+    -- Each data point is really just from one game, since a team / curler can only participate in one game per draw.
+    -- So for each game, we need to tally the number of shots and the ratings of these shots, per curler and per team.
+    -- { drawId: 1
+    -- , drawLabel: 1
+    -- , stageId: 1
+    -- , gameId: 1
+    -- , shooters: [
+    --      { id: 1 - This is the team_curler id, not the actual curler id.
+    --      , opponentId: 2 - This is the team_curler id, not the actual curler id.
+    --      , name: "Brad"
+    --      , teamId: 1
+    --      , teamShortName: "CA"
+    --      , numberOfShots: 20
+    --      , ratingsTotal: 67
+    --      , opponentRatingsTotal: 54 -- If this is lower then shooter gets a +, if higher shooter gets a -
+    --      , percentage: 67 / (20 * 4) = 84
+    --      }
+    --   ]
+    -- , teams: [
+    --      { id: 1
+    --      , opponentId: 2
+    --      , name: "Canada"
+    --      , numberOfShots: 80
+    --      , ratingsTotal: 271
+    --      , opponentRatingsTotal: 248
+    --      , percentage: 271 / (80 * 4)
+    --   ]
     --
     let
         positions =
             let
                 shotsForPosition position =
                     let
-                        shotNumbers =
-                            case position of
-                                1 ->
-                                    [ 1, 2 ]
-
-                                2 ->
-                                    [ 3, 4 ]
-
-                                3 ->
-                                    [ 5, 6 ]
-
-                                4 ->
-                                    [ 7, 8 ]
-
-                                _ ->
-                                    []
-
-                        shots =
-                            case onStageId of
-                                Just stageId ->
-                                    expandShots event
-                                        |> List.filter (\s -> s.stageId == stageId)
+                        expandedShots =
+                            case List.Extra.find (\s -> Just s.id == onStageId) event.stages of
+                                Just stage ->
+                                    expandShotsForStage event stage
 
                                 Nothing ->
-                                    expandShots event
+                                    expandShotsForEvent event
                     in
-                    shots
-                        |> List.filter (\s -> List.member s.shotNumber shotNumbers)
+                    expandedShots
+                        |> List.filter (\s -> s.position == position)
             in
             List.map (\p -> { position = p, shots = shotsForPosition p }) (List.range 1 4)
 
         viewPosition posWithShots =
             let
                 drawsForPosition =
-                    List.map (\s -> s.draw) posWithShots.shots
+                    List.map (\s -> s.drawLabel) posWithShots.shots
 
                 viewHeader label =
                     el
@@ -5751,10 +5875,9 @@ viewReportPositionalPercentageComparison theme translations event onStageId =
                         , Border.color theme.grey
                         ]
                         (text content)
-            in
-            let
-                viewDrawCell draw =
-                    { header = viewHeader (String.fromInt draw.id)
+
+                viewDrawCell drawLabel =
+                    { header = viewHeader drawLabel
                     , width = El.fill
                     , view =
                         \curler ->
@@ -5767,12 +5890,15 @@ viewReportPositionalPercentageComparison theme translations event onStageId =
                     [ { header = viewHeader "Position"
                       , width = El.fill
                       , view =
-                            \curler ->
-                                viewCell "curler.name"
+                            \pos ->
+                                viewCell pos.curlerName
                       }
                     ]
                         ++ List.map viewDrawCell drawsForPosition
                 }
+
+        _ =
+            Debug.log "positions" positions
     in
     column [ El.spacing 20, El.width El.fill ]
         [ el [ Font.size 24 ] (text (translate translations "positional_percentage_comparison"))
@@ -5780,11 +5906,119 @@ viewReportPositionalPercentageComparison theme translations event onStageId =
         ]
 
 
-viewReportScoringAndPercentages : Theme -> List Translation -> List Draw -> Element Msg
-viewReportScoringAndPercentages theme translations draws =
-    column [ El.spacing 20 ]
-        [ el [ Font.size 24 ] (text (translate translations "scoring_and_percentages"))
-        , el [] (text "Coming Soon!")
+viewReportScoringAndPercentagesForGame : Theme -> List Translation -> Event -> Game -> Element Msg
+viewReportScoringAndPercentagesForGame theme translations event game =
+    let
+        shotsGroupedByTeamAndPosition =
+            let
+                toSummary : ( ShotExpanded, List ShotExpanded ) -> ShotSummaryByPosition
+                toSummary ( shotsHead, shotsTail ) =
+                    let
+                        totalRatings =
+                            List.map .rating shotsTail
+                                |> List.filterMap identity
+                                |> List.map String.toInt
+                                |> List.filterMap identity
+                                |> List.sum
+                                |> (+)
+                                    (case shotsHead.rating of
+                                        Just n ->
+                                            String.toInt n |> Maybe.withDefault 0
+
+                                        Nothing ->
+                                            0
+                                    )
+                    in
+                    { position = shotsHead.position
+                    , teamId = shotsHead.teamId
+                    , teamName = shotsHead.teamShortName
+                    , curlerId = shotsHead.curlerId
+                    , curlerName = shotsHead.curlerName
+                    , numberOfShots = List.length shotsTail + 1
+                    , totalRatings = totalRatings
+                    }
+
+                ungrouped =
+                    expandShotsForGame event game
+
+                grouped =
+                    ungrouped
+                        |> List.sortBy .position
+                        |> List.sortBy .teamId
+                        |> List.Extra.groupWhile (\a b -> a.teamId == b.teamId && a.position == b.position)
+
+                groupedByTeam =
+                    grouped
+                        |> List.sortBy (\a -> (Tuple.first a).teamId)
+                        |> List.Extra.groupWhile (\a b -> (Tuple.first a).teamId == (Tuple.first b).teamId)
+                        |> List.map fromNonempty
+
+                summarized =
+                    grouped
+                        |> List.map toSummary
+
+                summarizedByTeam =
+                    summarized
+                        |> List.sortBy .teamId
+                        |> List.Extra.groupWhile (\a b -> a.teamId == b.teamId)
+                        |> List.map fromNonempty
+            in
+            summarizedByTeam
+
+        viewPosition shotByPosition =
+            row [ El.spacing 10 ]
+                [ el [] (text (String.fromInt shotByPosition.position))
+                , el [] (text (String.fromInt shotByPosition.curlerId))
+                , el [] (text shotByPosition.curlerName)
+                , el [] (text (String.fromInt shotByPosition.numberOfShots))
+                , el [] (text (String.fromInt shotByPosition.totalRatings))
+                , el [] (text (String.fromInt (((toFloat shotByPosition.totalRatings / toFloat (shotByPosition.numberOfShots * 4)) * 100) |> round)))
+                ]
+
+        viewTeamShots teamShots =
+            column [] (List.map viewPosition teamShots)
+    in
+    row [ El.spacing 10 ]
+        (List.map viewTeamShots shotsGroupedByTeamAndPosition)
+
+
+viewReportScoringAndPercentagesForDraw : Theme -> List Translation -> Event -> Maybe Draw -> Element Msg
+viewReportScoringAndPercentagesForDraw theme translations event forDraw =
+    let
+        viewDraw_ draw =
+            let
+                viewDrawSheet drawSheet =
+                    case gameForDrawSheet event drawSheet of
+                        Just game ->
+                            viewReportScoringAndPercentagesForGame theme translations event game
+
+                        Nothing ->
+                            El.none
+            in
+            column [ El.spacing 10 ]
+                ([ el [] (text ("Draw " ++ draw.label)) ]
+                    ++ List.map viewDrawSheet draw.drawSheets
+                )
+
+        viewDrawSelector =
+            text "select draw"
+    in
+    column [ El.width El.fill, El.spacing 20 ]
+        [ row [ El.width El.fill ]
+            [ el [ Font.size 24 ] (text (translate translations "scoring_and_percentages"))
+            , el [ El.alignRight ] viewDrawSelector
+            ]
+        , case forDraw of
+            Just draw ->
+                el [] (viewDraw_ draw)
+
+            Nothing ->
+                case List.Extra.last event.draws of
+                    Just draw ->
+                        el [] (viewDraw_ draw)
+
+                    Nothing ->
+                        el [] (text "No draws found.")
         ]
 
 
