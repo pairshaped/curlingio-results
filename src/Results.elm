@@ -14,12 +14,13 @@ import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
 import Element.Input as Input exposing (button)
+import Element.Lazy as Lazy
 import Element.Region as Region
 import Html exposing (Html)
 import Html.Attributes exposing (attribute, class, style)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
-import Json.Decode.Pipeline exposing (optional, required)
+import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import List.Extra
 import Markdown
 import RemoteData exposing (RemoteData(..), WebData)
@@ -50,7 +51,6 @@ type alias Model =
     { flags : Flags
     , hash : String
     , device : Device
-    , fullScreen : Bool
     , translations : WebData (List Translation)
     , items : WebData ItemsResult
     , itemFilter : ItemFilter
@@ -101,6 +101,7 @@ type alias Flags =
     , apiKey : Maybe String
     , subdomain : Maybe String
     , fullScreenToggle : Bool
+    , fullScreen : Bool
     , section : ItemsSection
     , registration : Bool
     , showWaiversForTeams : Bool
@@ -457,6 +458,7 @@ decodeFlags =
         |> optional "apiKey" (nullable string) Nothing
         |> optional "subdomain" (nullable string) Nothing
         |> optional "fullScreenToggle" bool False
+        |> hardcoded False
         |> optional "section" decodeSection LeaguesSection
         |> optional "registration" bool False
         |> optional "showWaiversForTeams" bool False
@@ -1045,7 +1047,6 @@ init flags_ =
                     { flags = flags
                     , hash = newHash
                     , device = device
-                    , fullScreen = False
                     , translations = NotAsked
                     , items = NotAsked
                     , itemFilter = ItemFilter 1 0 "" False
@@ -1075,6 +1076,7 @@ init flags_ =
                     , apiKey = Nothing
                     , subdomain = Nothing
                     , fullScreenToggle = False
+                    , fullScreen = False
                     , section = LeaguesSection
                     , registration = False
                     , showWaiversForTeams = False
@@ -1088,7 +1090,6 @@ init flags_ =
             ( { flags = flags
               , hash = ""
               , device = device
-              , fullScreen = False
               , translations = NotAsked
               , items = NotAsked
               , itemFilter = ItemFilter 1 0 "" False
@@ -1695,7 +1696,7 @@ drawWithGameId draws id =
     List.Extra.find hasGame draws
 
 
-reloadEnabled { flags, hash, event } =
+reloadEnabled flags hash event =
     -- Only if we're on an event, the event is active, end scores are enabled, and we're on a route / screen that is meaningfull to reload.
     case toRoute flags.defaultEventSection hash of
         EventRoute _ nestedRoute ->
@@ -1756,22 +1757,13 @@ update msg model =
             ( { model | device = device }, Cmd.none )
 
         Tick _ ->
-            let
-                newReloadIn =
-                    max 0 (model.reloadIn - 1)
-            in
-            if reloadEnabled model then
-                -- We only want to decrement the counter or do the reload when the event supports it and we're on a relevant reload screen.
-                if newReloadIn == 0 then
-                    case model.event of
-                        Success event ->
-                            ( { model | reloadIn = timeBetweenReloads }, reloadEvent model.flags event.id )
+            if reloadEnabled model.flags model.hash model.event then
+                case model.event of
+                    Success event ->
+                        ( model, reloadEvent model.flags event.id )
 
-                        _ ->
-                            ( { model | reloadIn = timeBetweenReloads }, Cmd.none )
-
-                else
-                    ( { model | reloadIn = newReloadIn }, Cmd.none )
+                    _ ->
+                        ( model, Cmd.none )
 
             else
                 ( model, Cmd.none )
@@ -1790,7 +1782,11 @@ update msg model =
             ( model, navigateTo newHash )
 
         ToggleFullScreen ->
-            ( { model | fullScreen = not model.fullScreen }, Cmd.none )
+            let
+                updatedFlags flags =
+                    { flags | fullScreen = not flags.fullScreen }
+            in
+            ( { model | flags = updatedFlags model.flags }, Cmd.none )
 
         HashChanged reload hash ->
             let
@@ -1933,7 +1929,7 @@ view model =
             row
                 [ El.htmlAttribute (class "cio__main")
                 , El.width
-                    (if model.fullScreen then
+                    (if model.flags.fullScreen then
                         El.fill
 
                      else
@@ -1958,14 +1954,14 @@ view model =
                 , El.scrollbarX
                 , El.inFront
                     (row [ El.alignRight, El.spacing 10, El.paddingXY 0 10 ]
-                        [ el [ El.alignTop ] (viewReloadButton theme model)
+                        [ el [ El.alignTop ] (viewReloadButton model)
                         , if model.flags.fullScreenToggle then
                             case model.device.class of
                                 El.Phone ->
                                     El.none
 
                                 _ ->
-                                    el [] (viewFullScreenButton theme model.fullScreen)
+                                    el [] (viewFullScreenButton theme model.flags.fullScreen)
 
                           else
                             El.none
@@ -1974,18 +1970,18 @@ view model =
                 ]
                 [ case model.errorMsg of
                     Just errorMsg ->
-                        viewNotReady model.fullScreen errorMsg
+                        viewNotReady model.flags.fullScreen errorMsg
 
                     Nothing ->
                         case model.translations of
                             Success translations ->
-                                viewRoute theme translations model
+                                viewRoute translations model
 
                             Failure error ->
-                                viewFetchError model (errorMessage error)
+                                viewFetchError model.flags model.flags.fullScreen model.hash (errorMessage error)
 
                             _ ->
-                                viewNotReady model.fullScreen "Loading..."
+                                viewNotReady model.flags.fullScreen "Loading..."
                 ]
 
         theme =
@@ -2015,7 +2011,7 @@ view model =
             ]
         , El.htmlAttribute (class "cio__container")
         , El.inFront
-            (if model.fullScreen then
+            (if model.flags.fullScreen then
                 el [ El.width El.fill, El.height El.fill, El.padding 20, El.scrollbarY, Background.color theme.white ] viewMain
 
              else
@@ -2023,62 +2019,66 @@ view model =
             )
         ]
     <|
-        if model.fullScreen then
+        if model.flags.fullScreen then
             El.none
 
         else
             viewMain
 
 
-viewRoute : Theme -> List Translation -> Model -> Element Msg
-viewRoute theme translations model =
+viewRoute : List Translation -> Model -> Element Msg
+viewRoute translations { flags, hash, device, itemFilter, scoringHilight, items, product, event } =
     let
+        fullScreen =
+            flags.fullScreen
+
         viewLoading =
-            viewNotReady model.fullScreen "Loading..."
+            Lazy.lazy2 viewNotReady fullScreen "Loading..."
     in
-    case toRoute model.flags.defaultEventSection model.hash of
+    case toRoute flags.defaultEventSection hash of
         ItemsRoute ->
-            case model.items of
-                Success items ->
-                    viewItems theme translations model items
+            case items of
+                Success items_ ->
+                    Lazy.lazy5 viewItems flags device translations itemFilter items_
 
                 Failure error ->
-                    viewFetchError model (errorMessage error)
+                    Lazy.lazy4 viewFetchError flags fullScreen hash (errorMessage error)
 
                 _ ->
                     viewLoading
 
         ProductRoute id ->
-            case model.product of
-                Success product ->
-                    viewProduct theme translations model.fullScreen product
+            case product of
+                Success product_ ->
+                    Lazy.lazy4 viewProduct flags translations fullScreen product_
 
                 Failure error ->
-                    viewFetchError model (errorMessage error)
+                    Lazy.lazy4 viewFetchError flags fullScreen hash (errorMessage error)
 
                 _ ->
                     viewLoading
 
         EventRoute id nestedRoute ->
-            case model.event of
-                Success event ->
-                    viewEvent theme translations model nestedRoute event
+            case event of
+                Success event_ ->
+                    -- TODO: If we move one of these parameters, we can use lazy5
+                    viewEvent flags device translations scoringHilight nestedRoute event_
 
                 Failure error ->
-                    viewFetchError model (errorMessage error)
+                    Lazy.lazy4 viewFetchError flags fullScreen hash (errorMessage error)
 
                 _ ->
                     viewLoading
 
 
-viewReloadButton : Theme -> Model -> Element Msg
-viewReloadButton theme model =
-    if reloadEnabled model && model.device.class /= El.Phone then
+viewReloadButton : Model -> Element Msg
+viewReloadButton { flags, hash, event, device } =
+    if reloadEnabled flags hash event && device.class /= El.Phone then
         el
             [ El.paddingXY 8 0
             , El.alignTop
             , Font.size 12
-            , Font.color theme.secondary
+            , Font.color flags.theme.secondary
             , El.htmlAttribute (class "cio__reload_button")
             ]
             (text "Refresh every 30s")
@@ -2105,8 +2105,8 @@ viewNotReady fullScreen message =
     el [ El.htmlAttribute (class "cio__not_ready") ] (text message)
 
 
-viewFetchError : Model -> String -> Element Msg
-viewFetchError { flags, fullScreen, hash } message =
+viewFetchError : Flags -> Bool -> String -> String -> Element Msg
+viewFetchError flags fullScreen hash message =
     row
         [ El.htmlAttribute (class "cio__fetch_error") ]
         [ column [ El.spacing 10 ]
@@ -2116,9 +2116,12 @@ viewFetchError { flags, fullScreen, hash } message =
         ]
 
 
-viewItems : Theme -> List Translation -> Model -> ItemsResult -> Element Msg
-viewItems theme translations { flags, fullScreen, itemFilter, device } items =
+viewItems : Flags -> Device -> List Translation -> ItemFilter -> ItemsResult -> Element Msg
+viewItems flags device translations itemFilter items =
     let
+        { theme, fullScreen } =
+            flags
+
         viewPaging =
             let
                 viewPageButton content msg =
@@ -2418,8 +2421,8 @@ viewSponsor sponsor =
         ]
 
 
-viewProduct : Theme -> List Translation -> Bool -> Product -> Element Msg
-viewProduct theme translations fullScreen product =
+viewProduct : Flags -> List Translation -> Bool -> Product -> Element Msg
+viewProduct { theme } translations fullScreen product =
     row
         [ El.width El.fill
         , El.height El.fill
@@ -2481,9 +2484,12 @@ viewProduct theme translations fullScreen product =
         ]
 
 
-viewEvent : Theme -> List Translation -> Model -> NestedEventRoute -> Event -> Element Msg
-viewEvent theme translations { flags, device, scoringHilight, fullScreen } nestedRoute event =
+viewEvent : Flags -> Device -> List Translation -> Maybe ScoringHilight -> NestedEventRoute -> Event -> Element Msg
+viewEvent flags device translations scoringHilight nestedRoute event =
     let
+        { theme, fullScreen } =
+            flags
+
         viewNavItem eventSection =
             let
                 isActiveRoute =
@@ -2519,6 +2525,9 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
                         , label = text (translate translations eventSection)
                         }
                 )
+
+        _ =
+            Debug.log "load" "event"
     in
     column
         [ El.width El.fill
@@ -2577,24 +2586,24 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
             )
         , case nestedRoute of
             DetailsRoute ->
-                viewDetails theme device translations event
+                Lazy.lazy4 viewDetails theme device translations event
 
             RegistrationsRoute ->
-                viewRegistrations theme translations event.registrations
+                Lazy.lazy3 viewRegistrations theme translations event.registrations
 
             SparesRoute ->
-                viewSpares theme translations flags event.id event.spares
+                Lazy.lazy3 viewSpares flags translations event
 
             DrawsRoute ->
-                viewDraws theme translations scoringHilight event
+                Lazy.lazy4 viewDraws theme translations scoringHilight event
 
             DrawRoute drawId ->
                 case List.Extra.find (\d -> d.id == drawId) event.draws of
                     Just draw ->
-                        viewDraw theme translations scoringHilight event draw
+                        Lazy.lazy5 viewDraw theme translations scoringHilight event draw
 
                     Nothing ->
-                        viewNoDataForRoute translations
+                        Lazy.lazy viewNoDataForRoute translations
 
             GameRoute gameId ->
                 let
@@ -2610,43 +2619,44 @@ viewEvent theme translations { flags, device, scoringHilight, fullScreen } neste
                             sheetLabel =
                                 sheetNameForGame event game
                         in
+                        -- It would be nice if we could use Lazy.lazy here, but too many args
                         viewGame theme translations scoringHilight event sheetLabel True draw game
 
                     _ ->
-                        viewNoDataForRoute translations
+                        Lazy.lazy viewNoDataForRoute translations
 
             StagesRoute ->
                 case List.head event.stages of
                     Just stage ->
-                        viewStages theme device translations event stage
+                        Lazy.lazy5 viewStages theme device translations event stage
 
                     Nothing ->
-                        viewNoDataForRoute translations
+                        Lazy.lazy viewNoDataForRoute translations
 
             StageRoute id ->
                 case List.Extra.find (\s -> s.id == id) event.stages of
                     Just stage ->
-                        viewStages theme device translations event stage
+                        Lazy.lazy5 viewStages theme device translations event stage
 
                     Nothing ->
-                        viewNoDataForRoute translations
+                        Lazy.lazy viewNoDataForRoute translations
 
             TeamsRoute ->
-                viewTeams theme translations event
+                Lazy.lazy3 viewTeams theme translations event
 
             TeamRoute id ->
                 case List.Extra.find (\t -> t.id == id) event.teams of
                     Just team ->
-                        viewTeam theme translations flags event team
+                        Lazy.lazy5 viewTeam theme translations flags event team
 
                     Nothing ->
-                        viewNoDataForRoute translations
+                        Lazy.lazy viewNoDataForRoute translations
 
             ReportsRoute ->
-                viewReports theme translations event
+                Lazy.lazy3 viewReports theme translations event
 
             ReportRoute report ->
-                viewReport theme translations scoringHilight event report
+                Lazy.lazy5 viewReport theme translations scoringHilight event report
         ]
 
 
@@ -2909,9 +2919,12 @@ viewRegistrations theme translations registrations =
         )
 
 
-viewSpares : Theme -> List Translation -> Flags -> Int -> List Spare -> Element Msg
-viewSpares theme translations flags eventId spares =
+viewSpares : Flags -> List Translation -> Event -> Element Msg
+viewSpares flags translations event =
     let
+        theme =
+            flags.theme
+
         tableHeader content =
             el
                 [ Font.bold
@@ -2956,17 +2969,17 @@ viewSpares theme translations flags eventId spares =
             }
     in
     column [ El.width El.fill, El.spacing 30, El.htmlAttribute (class "cio__event_spares") ]
-        [ if List.isEmpty spares then
+        [ if List.isEmpty event.spares then
             El.paragraph [] [ text (translate translations "no_spares") ]
 
           else
             El.indexedTable [ El.htmlAttribute (class "cio__event_spares_table") ]
-                { data = spares
+                { data = event.spares
                 , columns = [ nameColumn, positionsColumn ]
                 }
         , button
             [ Font.color theme.primary, El.focused [ Background.color theme.white ] ]
-            { onPress = Just (NavigateOut (baseClubSubdomainUrl flags ++ "/events/" ++ String.fromInt eventId ++ "/spares"))
+            { onPress = Just (NavigateOut (baseClubSubdomainUrl flags ++ "/events/" ++ String.fromInt event.id ++ "/spares"))
             , label = text (translate translations "members_login_to_see_contact_info")
             }
         ]
@@ -5711,7 +5724,7 @@ subscriptions _ =
     Sub.batch
         [ hashChangeReceiver (HashChanged False)
         , Browser.Events.onResize (\values -> SetDevice values)
-        , Time.every 1000 Tick
+        , Time.every 30000 Tick
         ]
 
 
