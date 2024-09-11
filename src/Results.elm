@@ -402,6 +402,7 @@ type alias ShotExpanded =
     , drawId : Int
     , drawLabel : String
     , stageId : Int
+    , sideNumber : Int
     , teamId : Int
     , teamShortName : String
     , curlerId : Int
@@ -414,6 +415,7 @@ type alias ShotExpanded =
 
 type alias ShotSummaryByPosition =
     { position : Int
+    , sideNumber : Int
     , teamId : Int
     , teamName : String
     , curlerId : Int
@@ -1782,8 +1784,8 @@ expandShotsForGame { teams, draws, stages } game =
     case ( findStage, findDraw ) of
         ( Just stage, Just draw ) ->
             game.sides
-                |> List.map
-                    (\side ->
+                |> List.indexedMap
+                    (\sideNumber side ->
                         case findTeamForSide teams side of
                             Just team ->
                                 side.shots
@@ -1798,6 +1800,7 @@ expandShotsForGame { teams, draws, stages } game =
                                                                 , drawId = draw.id
                                                                 , drawLabel = draw.label
                                                                 , stageId = stage.id
+                                                                , sideNumber = sideNumber
                                                                 , teamId = team.id
                                                                 , teamShortName = team.shortName
                                                                 , curlerId = curlerId
@@ -3326,7 +3329,7 @@ viewDraws theme translations scoringHilight event =
                 attendanceColumn =
                     if hasAttendance then
                         Just
-                            { header = tableHeader El.alignLeft "attendance"
+                            { header = tableHeader El.alignLeft "Att"
                             , width = El.px 65
                             , view =
                                 \draw ->
@@ -4286,11 +4289,11 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
             [ viewGameCaption
             , viewGameHilight
             ]
-        , if detailed then
-            column [ El.width El.fill, El.paddingXY 0 20, El.spacing 10 ]
+        , if detailed && game.state /= GamePending then
+            column [ El.width El.fill, El.paddingXY 0 10, El.spacing 10 ]
                 [ if event.shotByShotEnabled then
                     -- Shot Percentage
-                    el [ El.width El.fill ]
+                    el [ El.width El.fill, El.paddingXY 0 20 ]
                         (viewReportScoringAndPercentagesForGame theme translations event game)
 
                   else
@@ -5899,7 +5902,9 @@ viewReportPositionalPercentageComparison theme translations event onStageId =
     in
     column [ El.spacing 20, El.width El.fill ]
         [ el [ Font.size 24 ] (text (translate translations "positional_percentage_comparison"))
-        , column [] (List.map viewPosition positions)
+
+        -- , column [] (List.map viewPosition positions)
+        , el [] (text "Coming Soon!")
         ]
 
 
@@ -5927,6 +5932,7 @@ viewReportScoringAndPercentagesForGame theme translations event game =
                                     )
                     in
                     { position = shotsHead.position
+                    , sideNumber = shotsHead.sideNumber
                     , teamId = shotsHead.teamId
                     , teamName = shotsHead.teamShortName
                     , curlerId = shotsHead.curlerId
@@ -5939,7 +5945,7 @@ viewReportScoringAndPercentagesForGame theme translations event game =
                 summarizedShots =
                     expandShotsForGame event game
                         |> List.sortBy .position
-                        |> List.sortBy .teamId
+                        |> List.sortBy .sideNumber
                         |> List.Extra.groupWhile (\a b -> a.teamId == b.teamId && a.position == b.position)
                         |> List.map toSummary
 
@@ -5965,25 +5971,96 @@ viewReportScoringAndPercentagesForGame theme translations event game =
                     -- in
                     summarizedShots
                         -- |> List.map addPlusToSummary
-                        |> List.sortBy .teamId
-                        |> List.Extra.groupWhile (\a b -> a.teamId == b.teamId)
+                        |> List.Extra.groupWhile (\a b -> a.sideNumber == b.sideNumber)
                         |> List.map fromNonempty
-            in
-            summarizedShotsByTeam
 
-        viewPosition shotByPosition =
-            row [ El.spacing 10 ]
-                [ el [] (text (String.fromInt shotByPosition.position))
-                , el [] (text shotByPosition.curlerName)
-                , el [] (text (String.fromInt shotByPosition.numberOfShots))
-                , el [] (text (String.fromInt shotByPosition.totalRatings))
-                , el [] (text (String.fromInt (((toFloat shotByPosition.totalRatings / toFloat (shotByPosition.numberOfShots * 4)) * 100) |> round) ++ "%"))
-                ]
+                appendTotals =
+                    let
+                        appendTotal group =
+                            group
+                                ++ [ { position = 5
+                                     , sideNumber = 0
+                                     , teamId = 0
+                                     , teamName = ""
+                                     , curlerId = 0
+                                     , curlerName = translate translations "total"
+                                     , numberOfShots = List.map .numberOfShots group |> List.sum
+                                     , totalRatings = List.map .totalRatings group |> List.sum
+                                     , plus = Nothing
+                                     }
+                                   ]
+                    in
+                    summarizedShotsByTeam
+                        |> List.map appendTotal
+            in
+            appendTotals
 
         viewTeamShots teamShots =
-            column [] (List.map viewPosition teamShots)
+            let
+                teamName =
+                    case List.head teamShots of
+                        Just s ->
+                            s.teamName
+
+                        Nothing ->
+                            ""
+
+                tableHeader content =
+                    el
+                        [ Font.bold
+                        , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                        , Border.color theme.greyDark
+                        , El.paddingXY 0 12
+                        ]
+                        content
+
+                tableCell content =
+                    el
+                        [ Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                        , Border.color theme.grey
+                        , El.paddingXY 0 8
+                        ]
+                        content
+            in
+            column [ El.width El.fill, El.height El.fill, Font.size 14 ]
+                [ El.table [ El.width El.fill, El.spacingXY 0 5, El.htmlAttribute (class "cio__items_table") ]
+                    { data = teamShots
+                    , columns =
+                        [ { header = tableHeader (text " ")
+                          , width = El.px 20
+                          , view =
+                                \s ->
+                                    tableCell
+                                        (text
+                                            (if s.position > 4 then
+                                                " "
+
+                                             else
+                                                String.fromInt s.position
+                                            )
+                                        )
+                          }
+                        , { header = tableHeader (text teamName)
+                          , width = El.fill
+                          , view = \s -> tableCell (text s.curlerName)
+                          }
+                        , { header = tableHeader (el [ El.alignRight ] (text "#SH"))
+                          , width = El.px 55
+                          , view = \s -> tableCell (el [ El.alignRight ] (text (String.fromInt s.numberOfShots)))
+                          }
+                        , { header = tableHeader (el [ El.alignRight ] (text "PTS"))
+                          , width = El.px 55
+                          , view = \s -> tableCell (el [ El.alignRight ] (text (String.fromInt s.totalRatings)))
+                          }
+                        , { header = tableHeader (el [ El.alignRight ] (text "PCT"))
+                          , width = El.px 55
+                          , view = \s -> tableCell (el [ El.alignRight ] (text (String.fromInt (((toFloat s.totalRatings / toFloat (s.numberOfShots * 4)) * 100) |> round) ++ "%")))
+                          }
+                        ]
+                    }
+                ]
     in
-    row [ El.spacing 10 ]
+    row [ El.width El.fill, El.spacing 30 ]
         (List.map viewTeamShots shotsGroupedByTeamAndPosition)
 
 
@@ -6000,13 +6077,13 @@ viewReportScoringAndPercentagesForDraw theme translations event forDraw =
                         Nothing ->
                             El.none
             in
-            column [ El.spacing 10 ]
-                ([ el [] (text ("Draw " ++ draw.label)) ]
+            column [ El.width El.fill, El.spacing 10 ]
+                ([ el [ El.width El.fill, Font.size 20 ] (text ("Draw " ++ draw.label)) ]
                     ++ List.map viewDrawSheet draw.drawSheets
                 )
 
         viewDrawSelector =
-            text "select draw"
+            text ""
     in
     column [ El.width El.fill, El.spacing 20 ]
         [ row [ El.width El.fill ]
@@ -6015,15 +6092,17 @@ viewReportScoringAndPercentagesForDraw theme translations event forDraw =
             ]
         , case forDraw of
             Just draw ->
-                el [] (viewDraw_ draw)
+                viewDraw_ draw
 
             Nothing ->
-                case List.Extra.last event.draws of
+                -- temporary commented out until finished
+                -- case List.Extra.last event.draws of
+                case Nothing of
                     Just draw ->
-                        el [] (viewDraw_ draw)
+                        viewDraw_ draw
 
                     Nothing ->
-                        el [] (text "No draws found.")
+                        el [ El.width El.fill ] (text "Coming Soon!")
         ]
 
 
