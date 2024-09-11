@@ -50,7 +50,6 @@ timeBetweenReloads =
 type alias Model =
     { flags : Flags
     , hash : String
-    , device : Device
     , translations : WebData (List Translation)
     , items : WebData ItemsResult
     , itemFilter : ItemFilter
@@ -110,6 +109,7 @@ type alias Flags =
     , eventId : Maybe Int
     , theme : Theme
     , loggedInCurlerIds : List Int
+    , device : Device
     }
 
 
@@ -467,6 +467,7 @@ decodeFlags =
         |> optional "eventId" (nullable int) Nothing
         |> optional "theme" decodeTheme defaultTheme
         |> optional "loggedInCurlerIds" (list int) []
+        |> hardcoded (El.classifyDevice { width = 800, height = 600 })
 
 
 decodeItemsResult : Decoder ItemsResult
@@ -1003,10 +1004,7 @@ init : Decode.Value -> ( Model, Cmd Msg )
 init flags_ =
     let
         device =
-            El.classifyDevice
-                { width = 800
-                , height = 600
-                }
+            El.classifyDevice { width = 800, height = 600 }
     in
     case Decode.decodeValue decodeFlags flags_ of
         Ok flags ->
@@ -1046,7 +1044,6 @@ init flags_ =
                 newModel =
                     { flags = flags
                     , hash = newHash
-                    , device = device
                     , translations = NotAsked
                     , items = NotAsked
                     , itemFilter = ItemFilter 1 0 "" False
@@ -1085,11 +1082,11 @@ init flags_ =
                     , eventId = Nothing
                     , theme = defaultTheme
                     , loggedInCurlerIds = []
+                    , device = device
                     }
             in
             ( { flags = flags
               , hash = ""
-              , device = device
               , translations = NotAsked
               , items = NotAsked
               , itemFilter = ItemFilter 1 0 "" False
@@ -1748,13 +1745,13 @@ update msg model =
 
         InitDevice { viewport } ->
             let
-                device =
-                    El.classifyDevice
-                        { width = round viewport.width
-                        , height = round viewport.height
-                        }
+                updatedFlags flags =
+                    { flags
+                        | device =
+                            El.classifyDevice { width = round viewport.width, height = round viewport.height }
+                    }
             in
-            ( { model | device = device }, Cmd.none )
+            ( { model | flags = updatedFlags model.flags }, Cmd.none )
 
         Tick _ ->
             if reloadEnabled model.flags model.hash model.event then
@@ -1770,13 +1767,14 @@ update msg model =
 
         SetDevice width height ->
             let
-                device =
-                    El.classifyDevice
-                        { width = width
-                        , height = height
-                        }
+                updatedFlags flags =
+                    let
+                        device =
+                            El.classifyDevice { width = width, height = height }
+                    in
+                    { flags | device = device }
             in
-            ( { model | device = device }, Cmd.none )
+            ( { model | flags = updatedFlags model.flags }, Cmd.none )
 
         NavigateTo newHash ->
             ( model, navigateTo newHash )
@@ -1925,6 +1923,9 @@ viewButtonPrimary theme content msg =
 view : Model -> Html Msg
 view model =
     let
+        { device, fullScreenToggle, fullScreen } =
+            model.flags
+
         viewMain =
             row
                 [ El.htmlAttribute (class "cio__main")
@@ -1935,7 +1936,7 @@ view model =
                      else
                         El.fill
                             |> El.maximum
-                                (case model.device.class of
+                                (case device.class of
                                     El.Phone ->
                                         599
 
@@ -1955,13 +1956,13 @@ view model =
                 , El.inFront
                     (row [ El.alignRight, El.spacing 10, El.paddingXY 0 10 ]
                         [ el [ El.alignTop ] (viewReloadButton model)
-                        , if model.flags.fullScreenToggle then
-                            case model.device.class of
+                        , if fullScreenToggle then
+                            case device.class of
                                 El.Phone ->
                                     El.none
 
                                 _ ->
-                                    el [] (viewFullScreenButton theme model.flags.fullScreen)
+                                    el [] (viewFullScreenButton theme fullScreen)
 
                           else
                             El.none
@@ -1970,7 +1971,7 @@ view model =
                 ]
                 [ case model.errorMsg of
                     Just errorMsg ->
-                        viewNotReady model.flags.fullScreen errorMsg
+                        viewNotReady fullScreen errorMsg
 
                     Nothing ->
                         case model.translations of
@@ -1978,10 +1979,10 @@ view model =
                                 viewRoute translations model
 
                             Failure error ->
-                                viewFetchError model.flags model.flags.fullScreen model.hash (errorMessage error)
+                                Lazy.lazy2 viewFetchError model.flags.theme (errorMessage error)
 
                             _ ->
-                                viewNotReady model.flags.fullScreen "Loading..."
+                                viewNotReady fullScreen "Loading..."
                 ]
 
         theme =
@@ -2027,10 +2028,10 @@ view model =
 
 
 viewRoute : List Translation -> Model -> Element Msg
-viewRoute translations { flags, hash, device, itemFilter, scoringHilight, items, product, event } =
+viewRoute translations { flags, hash, itemFilter, scoringHilight, items, product, event } =
     let
-        fullScreen =
-            flags.fullScreen
+        { device, fullScreen } =
+            flags
 
         viewLoading =
             Lazy.lazy2 viewNotReady fullScreen "Loading..."
@@ -2042,7 +2043,7 @@ viewRoute translations { flags, hash, device, itemFilter, scoringHilight, items,
                     Lazy.lazy5 viewItems flags device translations itemFilter items_
 
                 Failure error ->
-                    Lazy.lazy4 viewFetchError flags fullScreen hash (errorMessage error)
+                    Lazy.lazy2 viewFetchError flags.theme (errorMessage error)
 
                 _ ->
                     viewLoading
@@ -2053,7 +2054,7 @@ viewRoute translations { flags, hash, device, itemFilter, scoringHilight, items,
                     Lazy.lazy4 viewProduct flags translations fullScreen product_
 
                 Failure error ->
-                    Lazy.lazy4 viewFetchError flags fullScreen hash (errorMessage error)
+                    Lazy.lazy2 viewFetchError flags.theme (errorMessage error)
 
                 _ ->
                     viewLoading
@@ -2061,24 +2062,27 @@ viewRoute translations { flags, hash, device, itemFilter, scoringHilight, items,
         EventRoute id nestedRoute ->
             case event of
                 Success event_ ->
-                    -- TODO: If we move one of these parameters, we can use lazy5
-                    viewEvent flags device translations scoringHilight nestedRoute event_
+                    Lazy.lazy5 viewEvent flags translations scoringHilight nestedRoute event_
 
                 Failure error ->
-                    Lazy.lazy4 viewFetchError flags fullScreen hash (errorMessage error)
+                    Lazy.lazy2 viewFetchError flags.theme (errorMessage error)
 
                 _ ->
                     viewLoading
 
 
 viewReloadButton : Model -> Element Msg
-viewReloadButton { flags, hash, event, device } =
+viewReloadButton { flags, hash, event } =
+    let
+        { device, theme } =
+            flags
+    in
     if reloadEnabled flags hash event && device.class /= El.Phone then
         el
             [ El.paddingXY 8 0
             , El.alignTop
             , Font.size 12
-            , Font.color flags.theme.secondary
+            , Font.color theme.secondary
             , El.htmlAttribute (class "cio__reload_button")
             ]
             (text "Refresh every 30s")
@@ -2105,13 +2109,13 @@ viewNotReady fullScreen message =
     el [ El.htmlAttribute (class "cio__not_ready") ] (text message)
 
 
-viewFetchError : Flags -> Bool -> String -> String -> Element Msg
-viewFetchError flags fullScreen hash message =
+viewFetchError : Theme -> String -> Element Msg
+viewFetchError theme message =
     row
         [ El.htmlAttribute (class "cio__fetch_error") ]
         [ column [ El.spacing 10 ]
             [ el [] (text message)
-            , viewButtonPrimary flags.theme "Reload" Reload
+            , viewButtonPrimary theme "Reload" Reload
             ]
         ]
 
@@ -2484,10 +2488,10 @@ viewProduct { theme } translations fullScreen product =
         ]
 
 
-viewEvent : Flags -> Device -> List Translation -> Maybe ScoringHilight -> NestedEventRoute -> Event -> Element Msg
-viewEvent flags device translations scoringHilight nestedRoute event =
+viewEvent : Flags -> List Translation -> Maybe ScoringHilight -> NestedEventRoute -> Event -> Element Msg
+viewEvent flags translations scoringHilight nestedRoute event =
     let
-        { theme, fullScreen } =
+        { device, theme, fullScreen } =
             flags
 
         viewNavItem eventSection =
@@ -2616,7 +2620,6 @@ viewEvent flags device translations scoringHilight nestedRoute event =
                             sheetLabel =
                                 sheetNameForGame event game
                         in
-                        -- It would be nice if we could use Lazy.lazy here, but too many args
                         viewGame theme translations scoringHilight event sheetLabel True draw game
 
                     _ ->
