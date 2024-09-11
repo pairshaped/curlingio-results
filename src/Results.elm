@@ -1754,16 +1754,12 @@ update msg model =
             ( { model | flags = updatedFlags model.flags }, Cmd.none )
 
         Tick _ ->
-            if reloadEnabled model.flags model.hash model.event then
-                case model.event of
-                    Success event ->
-                        ( model, reloadEvent model.flags event.id )
+            case model.event of
+                Success event ->
+                    ( model, reloadEvent model.flags event.id )
 
-                    _ ->
-                        ( model, Cmd.none )
-
-            else
-                ( model, Cmd.none )
+                _ ->
+                    ( model, Cmd.none )
 
         SetDevice width height ->
             let
@@ -5720,11 +5716,15 @@ port hashChangeReceiver : (String -> msg) -> Sub msg
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
+subscriptions model =
     Sub.batch
         [ hashChangeReceiver (HashChanged False)
         , Browser.Events.onResize (\values -> SetDevice values)
-        , Time.every 30000 Tick
+        , if reloadEnabled model.flags model.hash model.event then
+            Time.every 30000 Tick
+
+          else
+            Sub.none
         ]
 
 
