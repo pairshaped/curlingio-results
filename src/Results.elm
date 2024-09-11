@@ -2525,9 +2525,6 @@ viewEvent flags device translations scoringHilight nestedRoute event =
                         , label = text (translate translations eventSection)
                         }
                 )
-
-        _ =
-            Debug.log "load" "event"
     in
     column
         [ El.width El.fill
