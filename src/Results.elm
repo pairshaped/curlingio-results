@@ -420,6 +420,7 @@ type alias ShotSummaryByPosition =
     , curlerName : String
     , numberOfShots : Int
     , totalRatings : Int
+    , plus : Maybe Bool
     }
 
 
@@ -4236,6 +4237,9 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
 
         tableColumns =
             [ teamColumn ] ++ List.map endColumn (List.range 1 maxNumberOfEnds) ++ [ totalColumn ]
+
+        _ =
+            Debug.log "render" "viewGame"
     in
     column [ El.width El.fill, El.spacing 10 ]
         -- Breadcrumb
@@ -4289,23 +4293,24 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
             [ viewGameCaption
             , viewGameHilight
             ]
-
-        -- Shot Percentage
-        , if detailed && event.shotByShotEnabled then
-            column [ El.width El.fill, El.paddingXY 0 10, El.spacing 20 ]
-                [ el [ Font.size 24 ] (text (translate translations "shots"))
-                , viewReportScoringAndPercentagesForGame theme translations event game
-                ]
-
-          else
-            El.none
-
-        -- Scaring Analysis
         , if detailed then
-            column [ El.width El.fill, El.paddingXY 0 10 ]
-                [ List.map (findTeamForSide event.teams) game.sides
-                    |> List.filterMap identity
-                    |> viewReportScoringAnalysis theme translations scoringHilight event
+            column [ El.width El.fill, El.paddingXY 0 20, El.spacing 10 ]
+                [ if event.shotByShotEnabled then
+                    -- Shot Percentage
+                    el [ El.width El.fill ]
+                        (viewReportScoringAndPercentagesForGame theme translations event game)
+
+                  else
+                    El.none
+                , button [ El.alignRight, Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                    { onPress = Just (NavigateTo ("/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis"))
+                    , label = el [ Font.size 12 ] (text (translate translations "full_report" ++ " →"))
+                    }
+                , el [ El.width El.fill, El.spacing 10 ]
+                    (List.map (findTeamForSide event.teams) game.sides
+                        |> List.filterMap identity
+                        |> viewReportScoringAnalysis theme translations scoringHilight event
+                    )
                 ]
 
           else
@@ -4803,7 +4808,10 @@ viewReport theme translations scoringHilight event report =
                 games =
                     gamesFromStages event.stages
             in
-            viewReportScoringAnalysis theme translations scoringHilight event (teamsWithGames event.teams games)
+            column [ El.width El.fill, El.paddingXY 0 20, El.spacing 20, Font.size 24 ]
+                [ text (translate translations "scoring_analysis")
+                , viewReportScoringAnalysis theme translations scoringHilight event (teamsWithGames event.teams games)
+                ]
 
         "scoring_analysis_by_hammer" ->
             viewReportScoringAnalysisByHammer theme translations event
@@ -4840,9 +4848,6 @@ viewReportScoringAnalysis theme translations scoringHilight event teams =
 
         isForGame =
             List.length teams == 2
-
-        fullReportUrl =
-            "/events/" ++ String.fromInt event.id ++ "/reports/scoring_analysis"
 
         games team =
             let
@@ -5003,18 +5008,7 @@ viewReportScoringAnalysis theme translations scoringHilight event teams =
     in
     column
         [ El.width El.fill, El.htmlAttribute (class "cio__event_reports_scoring_analysis") ]
-        [ row [ El.width El.fill, El.spacing 10, El.paddingXY 0 20, Font.size 24 ]
-            [ text (translate translations "scoring_analysis")
-            , if isForGame then
-                button [ El.alignRight, Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                    { onPress = Just (NavigateTo fullReportUrl)
-                    , label = el [ Font.size 12 ] (text (translate translations "full_report" ++ " →"))
-                    }
-
-              else
-                El.none
-            ]
-        , El.indexedTable [ El.width El.fill, Font.size 13 ]
+        [ El.indexedTable [ El.width El.fill, Font.size 13 ]
             { data = rows
             , columns =
                 [ { header = tableHeader (translate translations "team") El.alignLeft Nothing Nothing
@@ -5949,43 +5943,51 @@ viewReportScoringAndPercentagesForGame theme translations event game =
                     , curlerName = shotsHead.curlerName
                     , numberOfShots = List.length shotsTail + 1
                     , totalRatings = totalRatings
+                    , plus = Nothing
                     }
 
-                ungrouped =
+                summarizedShots =
                     expandShotsForGame event game
-
-                grouped =
-                    ungrouped
                         |> List.sortBy .position
                         |> List.sortBy .teamId
                         |> List.Extra.groupWhile (\a b -> a.teamId == b.teamId && a.position == b.position)
-
-                groupedByTeam =
-                    grouped
-                        |> List.sortBy (\a -> (Tuple.first a).teamId)
-                        |> List.Extra.groupWhile (\a b -> (Tuple.first a).teamId == (Tuple.first b).teamId)
-                        |> List.map fromNonempty
-
-                summarized =
-                    grouped
                         |> List.map toSummary
 
-                summarizedByTeam =
-                    summarized
+                summarizedShotsByTeam =
+                    -- let
+                    --     addPlusToSummary summary =
+                    --         case List.Extra.find (\s -> (s.position == summary.position) && (s.teamId /= summary.teamId)) summarizedShots of
+                    --             Just s ->
+                    --                 { summary
+                    --                     | plus =
+                    --                         if summary.totalRatings > s.totalRatings then
+                    --                             Just True
+                    --
+                    --                         else if summary.totalRatings < s.totalRatings then
+                    --                             Just False
+                    --
+                    --                         else
+                    --                             Nothing
+                    --                 }
+                    --
+                    --             Nothing ->
+                    --                 summary
+                    -- in
+                    summarizedShots
+                        -- |> List.map addPlusToSummary
                         |> List.sortBy .teamId
                         |> List.Extra.groupWhile (\a b -> a.teamId == b.teamId)
                         |> List.map fromNonempty
             in
-            summarizedByTeam
+            summarizedShotsByTeam
 
         viewPosition shotByPosition =
             row [ El.spacing 10 ]
                 [ el [] (text (String.fromInt shotByPosition.position))
-                , el [] (text (String.fromInt shotByPosition.curlerId))
                 , el [] (text shotByPosition.curlerName)
                 , el [] (text (String.fromInt shotByPosition.numberOfShots))
                 , el [] (text (String.fromInt shotByPosition.totalRatings))
-                , el [] (text (String.fromInt (((toFloat shotByPosition.totalRatings / toFloat (shotByPosition.numberOfShots * 4)) * 100) |> round)))
+                , el [] (text (String.fromInt (((toFloat shotByPosition.totalRatings / toFloat (shotByPosition.numberOfShots * 4)) * 100) |> round) ++ "%"))
                 ]
 
         viewTeamShots teamShots =
