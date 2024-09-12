@@ -42,11 +42,6 @@ gridSize =
     50
 
 
-timeBetweenReloads : Int
-timeBetweenReloads =
-    30
-
-
 type alias Model =
     { flags : Flags
     , hash : String
@@ -57,7 +52,6 @@ type alias Model =
     , event : WebData Event
     , scoringHilight : Maybe ScoringHilight
     , errorMsg : Maybe String
-    , reloadIn : Int
     }
 
 
@@ -1086,7 +1080,6 @@ init flags_ =
                     , event = NotAsked
                     , scoringHilight = Nothing
                     , errorMsg = Nothing
-                    , reloadIn = timeBetweenReloads
                     }
             in
             ( newModel
@@ -1129,7 +1122,6 @@ init flags_ =
               , event = NotAsked
               , scoringHilight = Nothing
               , errorMsg = Just (Decode.errorToString error)
-              , reloadIn = 0
               }
             , Cmd.none
             )
@@ -1971,7 +1963,7 @@ update msg model =
             )
 
         Reload ->
-            update (HashChanged True model.hash) { model | reloadIn = timeBetweenReloads }
+            update (HashChanged True model.hash) model
 
         GotTranslations response ->
             ( { model | translations = response, errorMsg = Nothing }, Cmd.none )
@@ -2017,7 +2009,7 @@ update msg model =
             ( model, Navigation.load url )
 
         GotEvent response ->
-            ( { model | event = response, reloadIn = timeBetweenReloads }
+            ( { model | event = response }
             , Cmd.none
             )
 
@@ -2026,10 +2018,10 @@ update msg model =
             -- when the request succeeds.
             ( case response of
                 Success event ->
-                    { model | event = response, reloadIn = timeBetweenReloads }
+                    { model | event = response }
 
                 _ ->
-                    { model | reloadIn = timeBetweenReloads }
+                    model
             , Cmd.none
             )
 
