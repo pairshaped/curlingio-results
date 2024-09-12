@@ -4803,11 +4803,12 @@ viewReports theme translations event =
                     []
                )
             ++ (if event.endScoresEnabled && event.shotByShotEnabled then
-                    [ reportButton "cumulative_statistics_by_team"
-                    , reportButton "hog_line_violation"
-                    , reportButton "positional_percentage_comparison"
+                    [ reportButton "hog_line_violation"
                     , reportButton "scoring_and_percentages"
-                    , reportButton "statistics_by_team"
+
+                    -- , reportButton "positional_percentage_comparison"
+                    -- , reportButton "cumulative_statistics_by_team"
+                    -- , reportButton "statistics_by_team"
                     ]
 
                 else
