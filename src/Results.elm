@@ -2273,7 +2273,7 @@ viewFetchError theme message =
 viewItems : Flags -> Device -> List Translation -> ItemFilter -> ItemsResult -> Element Msg
 viewItems flags device translations itemFilter items =
     let
-        { theme, fullScreen } =
+        { theme, fullScreen, section, registration } =
             flags
 
         viewPaging =
@@ -2299,7 +2299,7 @@ viewItems flags device translations itemFilter items =
 
                   else
                     El.none
-                , if List.length filteredItems >= (itemFilter.page * 10) then
+                , if List.length filteredItems > (itemFilter.page * 10) then
                     viewPageButton "Next >" (IncrementPageBy 1)
 
                   else
@@ -2434,7 +2434,7 @@ viewItems flags device translations itemFilter items =
                 viewItemName item =
                     let
                         newPath =
-                            case flags.section of
+                            case section of
                                 ProductsSection ->
                                     "/products/" ++ String.fromInt item.id
 
@@ -2477,14 +2477,14 @@ viewItems flags device translations itemFilter items =
                         ]
 
                 viewItemPrice item =
-                    if flags.registration then
+                    if registration then
                         viewItemCell (el [ El.alignRight, El.htmlAttribute (class "cio__item_price") ] (text (Maybe.withDefault " " item.price)))
 
                     else
                         viewItemCell (text " ")
 
                 viewItemRegister item =
-                    if flags.registration then
+                    if registration then
                         case item.noRegistrationMessage of
                             Just msg ->
                                 viewItemCell (el [ El.alignRight, El.htmlAttribute (class "cio__item_register") ] (text msg))
