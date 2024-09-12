@@ -50,7 +50,7 @@ type alias Model =
     , itemFilter : ItemFilter
     , product : WebData Product
     , event : WebData Event
-    , scoringHilight : Maybe ScoringHilight
+    , eventConfig : EventConfig
     , errorMsg : Maybe String
     }
 
@@ -159,6 +159,13 @@ type alias Product =
     , addToCartText : Maybe String
     , totalWithTax : Maybe String
     , potentialDiscounts : List String
+    }
+
+
+type alias EventConfig =
+    { scoringHilight : Maybe ScoringHilight
+    , drawSelected : Maybe Int
+    , drawSelectionOpen : Bool
     }
 
 
@@ -1078,7 +1085,7 @@ init flags_ =
                     , itemFilter = ItemFilter 1 0 "" False
                     , product = NotAsked
                     , event = NotAsked
-                    , scoringHilight = Nothing
+                    , eventConfig = EventConfig Nothing Nothing False
                     , errorMsg = Nothing
                     }
             in
@@ -1120,7 +1127,7 @@ init flags_ =
               , itemFilter = ItemFilter 1 0 "" False
               , product = NotAsked
               , event = NotAsked
-              , scoringHilight = Nothing
+              , eventConfig = EventConfig Nothing Nothing False
               , errorMsg = Just (Decode.errorToString error)
               }
             , Cmd.none
@@ -1881,6 +1888,8 @@ type Msg
     | ReloadedEvent (WebData Event)
     | GotProduct (WebData Product)
     | ToggleScoringHilight ScoringHilight
+    | ToggleDrawSelection
+    | UpdateDrawSelected Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -2031,14 +2040,38 @@ update msg model =
             )
 
         ToggleScoringHilight scoringHilight ->
-            ( { model
-                | scoringHilight =
-                    if model.scoringHilight == Just scoringHilight then
-                        Nothing
+            let
+                updatedEventConfig eventConfig =
+                    { eventConfig
+                        | scoringHilight =
+                            if eventConfig.scoringHilight == Just scoringHilight then
+                                Nothing
 
-                    else
-                        Just scoringHilight
-              }
+                            else
+                                Just scoringHilight
+                    }
+            in
+            ( { model | eventConfig = updatedEventConfig model.eventConfig }
+            , Cmd.none
+            )
+
+        ToggleDrawSelection ->
+            let
+                updatedEventConfig eventConfig =
+                    { eventConfig
+                        | drawSelectionOpen = not eventConfig.drawSelectionOpen
+                    }
+            in
+            ( { model | eventConfig = updatedEventConfig model.eventConfig }
+            , Cmd.none
+            )
+
+        UpdateDrawSelected drawId ->
+            let
+                updatedEventConfig eventConfig =
+                    { eventConfig | drawSelected = Just drawId }
+            in
+            ( { model | eventConfig = updatedEventConfig model.eventConfig }
             , Cmd.none
             )
 
@@ -2170,7 +2203,7 @@ view model =
 
 
 viewRoute : List Translation -> Model -> Element Msg
-viewRoute translations { flags, hash, itemFilter, scoringHilight, items, product, event } =
+viewRoute translations { flags, hash, itemFilter, eventConfig, items, product, event } =
     let
         { device, fullScreen } =
             flags
@@ -2204,7 +2237,7 @@ viewRoute translations { flags, hash, itemFilter, scoringHilight, items, product
         EventRoute id nestedRoute ->
             case event of
                 Success event_ ->
-                    Lazy.lazy5 viewEvent flags translations scoringHilight nestedRoute event_
+                    Lazy.lazy5 viewEvent flags translations eventConfig nestedRoute event_
 
                 Failure error ->
                     Lazy.lazy2 viewFetchError flags.theme (errorMessage error)
@@ -2630,8 +2663,8 @@ viewProduct { theme } translations fullScreen product =
         ]
 
 
-viewEvent : Flags -> List Translation -> Maybe ScoringHilight -> NestedEventRoute -> Event -> Element Msg
-viewEvent flags translations scoringHilight nestedRoute event =
+viewEvent : Flags -> List Translation -> EventConfig -> NestedEventRoute -> Event -> Element Msg
+viewEvent flags translations eventConfig nestedRoute event =
     let
         { device, theme, fullScreen } =
             flags
@@ -2738,12 +2771,12 @@ viewEvent flags translations scoringHilight nestedRoute event =
                 Lazy.lazy3 viewSpares flags translations event
 
             DrawsRoute ->
-                Lazy.lazy4 viewDraws theme translations scoringHilight event
+                Lazy.lazy4 viewDraws theme translations eventConfig event
 
             DrawRoute drawId ->
                 case List.Extra.find (\d -> d.id == drawId) event.draws of
                     Just draw ->
-                        Lazy.lazy5 viewDraw theme translations scoringHilight event draw
+                        Lazy.lazy5 viewDraw theme translations eventConfig event draw
 
                     Nothing ->
                         Lazy.lazy viewNoDataForRoute translations
@@ -2762,7 +2795,7 @@ viewEvent flags translations scoringHilight nestedRoute event =
                             sheetLabel =
                                 sheetNameForGame event game
                         in
-                        viewGame theme translations scoringHilight event sheetLabel True draw game
+                        viewGame theme translations eventConfig event sheetLabel True draw game
 
                     _ ->
                         Lazy.lazy viewNoDataForRoute translations
@@ -2798,7 +2831,7 @@ viewEvent flags translations scoringHilight nestedRoute event =
                 Lazy.lazy3 viewReports theme translations event
 
             ReportRoute report ->
-                Lazy.lazy5 viewReport theme translations scoringHilight event report
+                Lazy.lazy5 viewReport theme translations eventConfig event report
         ]
 
 
@@ -3127,8 +3160,8 @@ viewSpares flags translations event =
         ]
 
 
-viewDraws : Theme -> List Translation -> Maybe ScoringHilight -> Event -> Element Msg
-viewDraws theme translations scoringHilight event =
+viewDraws : Theme -> List Translation -> EventConfig -> Event -> Element Msg
+viewDraws theme translations eventConfig event =
     let
         drawState : Draw -> DrawState
         drawState draw =
@@ -3892,8 +3925,8 @@ viewStages theme device translations event onStage =
         ]
 
 
-viewDraw : Theme -> List Translation -> Maybe ScoringHilight -> Event -> Draw -> Element Msg
-viewDraw theme translations scoringHilight event draw =
+viewDraw : Theme -> List Translation -> EventConfig -> Event -> Draw -> Element Msg
+viewDraw theme translations eventConfig event draw =
     let
         viewDrawSheet gameId =
             let
@@ -3906,7 +3939,7 @@ viewDraw theme translations scoringHilight event draw =
             in
             case maybeGame of
                 Just game ->
-                    viewGame theme translations scoringHilight event (sheetLabel game) False draw game
+                    viewGame theme translations eventConfig event (sheetLabel game) False draw game
 
                 Nothing ->
                     El.none
@@ -3919,9 +3952,12 @@ viewDraw theme translations scoringHilight event draw =
         ]
 
 
-viewGame : Theme -> List Translation -> Maybe ScoringHilight -> Event -> String -> Bool -> Draw -> Game -> Element Msg
-viewGame theme translations scoringHilight event sheetLabel detailed draw game =
+viewGame : Theme -> List Translation -> EventConfig -> Event -> String -> Bool -> Draw -> Game -> Element Msg
+viewGame theme translations eventConfig event sheetLabel detailed draw game =
     let
+        { scoringHilight } =
+            eventConfig
+
         maxNumberOfEnds =
             List.map (\s -> List.length s.endScores) game.sides
                 |> List.maximum
@@ -3987,7 +4023,7 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
                     { onPress = Just (NavigateTo gamePath), label = label }
 
         viewGameHilight =
-            case scoringHilight of
+            case eventConfig.scoringHilight of
                 Just hilight ->
                     button
                         [ El.alignRight
@@ -4297,7 +4333,8 @@ viewGame theme translations scoringHilight event sheetLabel detailed draw game =
                 , el [ El.width El.fill, El.spacing 10 ]
                     (List.map (findTeamForSide event.teams) game.sides
                         |> List.filterMap identity
-                        |> viewReportScoringAnalysis theme translations scoringHilight event
+                        |> Just
+                        |> viewReportScoringAnalysis theme translations eventConfig event
                     )
                 ]
 
@@ -4779,60 +4816,65 @@ viewReports theme translations event =
         )
 
 
-viewReport : Theme -> List Translation -> Maybe ScoringHilight -> Event -> String -> Element Msg
-viewReport theme translations scoringHilight event report =
+viewReport : Theme -> List Translation -> EventConfig -> Event -> String -> Element Msg
+viewReport theme translations eventConfig event report =
     case report of
         "competition_matrix" ->
-            viewReportCompetitionMatrix theme translations event
+            Lazy.lazy3 viewReportCompetitionMatrix theme translations event
 
         "team_rosters" ->
-            viewReportTeamRosters theme translations event.teams
+            Lazy.lazy3 viewReportTeamRosters theme translations event.teams
 
         "attendance" ->
-            viewReportAttendance theme translations event.draws
+            Lazy.lazy3 viewReportAttendance theme translations event.draws
 
         "scoring_analysis" ->
-            let
-                games =
-                    gamesFromStages event.stages
-            in
             column [ El.width El.fill, El.paddingXY 0 20, El.spacing 20, Font.size 24 ]
                 [ text (translate translations "scoring_analysis")
-                , viewReportScoringAnalysis theme translations scoringHilight event (teamsWithGames event.teams games)
+                , Lazy.lazy5 viewReportScoringAnalysis theme translations eventConfig event Nothing
                 ]
 
         "scoring_analysis_by_hammer" ->
-            viewReportScoringAnalysisByHammer theme translations event
+            Lazy.lazy3 viewReportScoringAnalysisByHammer theme translations event
 
         "cumulative_statistics_by_team" ->
-            viewReportCumulativeStatisticsByTeam theme translations event.draws
+            Lazy.lazy3 viewReportCumulativeStatisticsByTeam theme translations event.draws
 
         "hog_line_violation" ->
-            viewReportHogLineViolation theme translations event
+            Lazy.lazy3 viewReportHogLineViolation theme translations event
 
         "positional_percentage_comparison" ->
             -- Tie in to routing to get the currently selected stage?
-            viewReportPositionalPercentageComparison theme translations event Nothing
+            Lazy.lazy4 viewReportPositionalPercentageComparison theme translations event Nothing
 
         "scoring_and_percentages" ->
-            viewReportScoringAndPercentagesForDraw theme translations event Nothing
+            Lazy.lazy5 viewReportScoringAndPercentagesForDraw theme translations eventConfig event eventConfig.drawSelected
 
         "statistics_by_team" ->
-            viewReportStatisticsByTeam theme translations event.draws
+            Lazy.lazy3 viewReportStatisticsByTeam theme translations event.draws
 
         _ ->
-            viewNoDataForRoute translations
+            Lazy.lazy viewNoDataForRoute translations
 
 
-viewReportScoringAnalysis : Theme -> List Translation -> Maybe ScoringHilight -> Event -> List Team -> Element Msg
-viewReportScoringAnalysis theme translations scoringHilight event teams =
+viewReportScoringAnalysis : Theme -> List Translation -> EventConfig -> Event -> Maybe (List Team) -> Element Msg
+viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
     let
+        teams =
+            case restrictToTeams of
+                Just teams_ ->
+                    teams_
+
+                Nothing ->
+                    gamesFromStages event.stages
+                        |> teamsWithGames event.teams
+
         rows =
             -- TODO: Structure the data so that for and against are just rows, but when rendering we know due to missing data or a flag which is which.
             List.Extra.interweave teams teams
 
         isHilighted onHilight =
-            scoringHilight == Just onHilight
+            eventConfig.scoringHilight == Just onHilight
 
         isForGame =
             List.length teams == 2
@@ -6056,9 +6098,17 @@ viewReportScoringAndPercentagesForGame theme translations event game =
         (List.map viewTeamShots shotsGroupedByTeamAndPosition)
 
 
-viewReportScoringAndPercentagesForDraw : Theme -> List Translation -> Event -> Maybe Draw -> Element Msg
-viewReportScoringAndPercentagesForDraw theme translations event forDraw =
+viewReportScoringAndPercentagesForDraw : Theme -> List Translation -> EventConfig -> Event -> Maybe Int -> Element Msg
+viewReportScoringAndPercentagesForDraw theme translations eventConfig event onDrawId =
     let
+        onDraw =
+            case onDrawId of
+                Just id ->
+                    List.Extra.find (\d -> d.id == id) event.draws
+
+                Nothing ->
+                    List.Extra.last event.draws
+
         viewDraw_ draw =
             let
                 viewDrawSheet drawSheet =
@@ -6069,32 +6119,91 @@ viewReportScoringAndPercentagesForDraw theme translations event forDraw =
                         Nothing ->
                             El.none
             in
-            column [ El.width El.fill, El.spacing 10 ]
-                ([ el [ El.width El.fill, Font.size 20 ] (text ("Draw " ++ draw.label)) ]
+            column [ El.width El.fill, El.spacing 20 ]
+                ([ el [ El.width El.fill, Font.size 20 ] (text (translate translations "draw" ++ " " ++ draw.label)) ]
                     ++ List.map viewDrawSheet draw.drawSheets
                 )
 
         viewDrawSelector =
-            text ""
+            let
+                drawOption draw =
+                    el
+                        [ El.width El.fill
+                        , El.padding 10
+                        , Events.onClick (UpdateDrawSelected draw.id)
+                        , if Just draw.id == eventConfig.drawSelected then
+                            Background.color theme.greyLight
+
+                          else
+                            Background.color theme.transparent
+                        ]
+                        (text (translate translations "draw" ++ " " ++ draw.label))
+
+                drawOptions =
+                    if eventConfig.drawSelectionOpen then
+                        let
+                            scrolling =
+                                if List.length event.draws > 5 then
+                                    [ El.height (El.fill |> El.minimum 210), El.scrollbarY ]
+
+                                else
+                                    []
+                        in
+                        column
+                            ([ El.width El.fill
+                             , Border.width 1
+                             , Border.color theme.grey
+                             , Background.color theme.white
+                             ]
+                                ++ scrolling
+                            )
+                            (List.map drawOption event.draws)
+
+                    else
+                        El.none
+            in
+            row
+                [ El.width (El.px 150)
+                , El.padding 10
+                , Border.width 1
+                , Border.color theme.grey
+                , El.pointer
+                , Events.onClick ToggleDrawSelection
+                , El.below drawOptions
+                , El.htmlAttribute (class "cio__draw_dropdown")
+                ]
+                [ el []
+                    (text
+                        (case onDraw of
+                            Just draw ->
+                                translate translations "draw" ++ " " ++ draw.label
+
+                            Nothing ->
+                                "-"
+                        )
+                    )
+                , el [ El.alignRight ]
+                    (text
+                        (if eventConfig.drawSelectionOpen then
+                            "▼"
+
+                         else
+                            "►"
+                        )
+                    )
+                ]
     in
     column [ El.width El.fill, El.spacing 20 ]
         [ row [ El.width El.fill ]
             [ el [ Font.size 24 ] (text (translate translations "scoring_and_percentages"))
             , el [ El.alignRight ] viewDrawSelector
             ]
-        , case forDraw of
+        , case onDraw of
             Just draw ->
                 viewDraw_ draw
 
             Nothing ->
-                -- temporary commented out until finished
-                -- case List.Extra.last event.draws of
-                case Nothing of
-                    Just draw ->
-                        viewDraw_ draw
-
-                    Nothing ->
-                        el [ El.width El.fill ] (text "Coming Soon!")
+                el [ El.width El.fill ] (text "Coming Soon!")
         ]
 
 
