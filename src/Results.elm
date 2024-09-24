@@ -243,8 +243,6 @@ type alias TeamCurler =
     , skip : Bool
     , name : String
     , delivery : Maybe RockDelivery
-    , clubName : Maybe String
-    , clubCity : Maybe String
     , photoUrl : Maybe String
     , waiver : Bool
     }
@@ -677,8 +675,6 @@ decodeTeamCurler =
         |> optional "skip" bool False
         |> required "name" string
         |> optional "delivery" (nullable decodeDelivery) Nothing
-        |> optional "club_name" (nullable string) Nothing
-        |> optional "club_city" (nullable string) Nothing
         |> optional "photo_url" (nullable string) Nothing
         |> optional "waiver" bool False
 
@@ -4355,12 +4351,6 @@ viewTeam theme translations flags event team =
                 hasDelivery =
                     List.any (\c -> c.delivery /= Nothing) team.lineup
 
-                hasClubName =
-                    List.any (\c -> c.clubName /= Nothing) team.lineup
-
-                hasClubCity =
-                    List.any (\c -> c.clubCity /= Nothing) team.lineup
-
                 hasPhotoUrl =
                     List.any (\c -> c.photoUrl /= Nothing) team.lineup
 
@@ -4427,18 +4417,6 @@ viewTeam theme translations flags event team =
                                 , if hasDelivery then
                                     -- small
                                     el [ Font.size 12 ] (text (translate translations "delivery" ++ ": " ++ deliveryToString translations curler.delivery))
-
-                                  else
-                                    El.none
-                                , if hasClubName then
-                                    -- small
-                                    el [ Font.size 12 ] (text (Maybe.withDefault "-" curler.clubName))
-
-                                  else
-                                    El.none
-                                , if hasClubCity then
-                                    -- small
-                                    el [ Font.size 12 ] (text (Maybe.withDefault "-" curler.clubCity))
 
                                   else
                                     El.none
