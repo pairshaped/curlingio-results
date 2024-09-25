@@ -6086,7 +6086,12 @@ viewReportScoringAndPercentagesForDraw theme translations eventConfig event onDr
                     List.Extra.find (\d -> d.id == id) event.draws
 
                 Nothing ->
-                    List.Extra.last event.draws
+                    case event.state of
+                        EventStateComplete ->
+                            List.Extra.last event.draws
+
+                        _ ->
+                            List.head event.draws
 
         viewDraw_ draw =
             let
