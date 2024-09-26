@@ -3230,7 +3230,15 @@ viewDraws theme translations eventConfig event =
                             let
                                 teamNameForSide side =
                                     findTeamForSide event.teams side
-                                        |> Maybe.map .shortName
+                                        |> Maybe.map
+                                            (\team ->
+                                                case side.score of
+                                                    Just score ->
+                                                        team.shortName ++ " " ++ String.fromInt score
+
+                                                    Nothing ->
+                                                        team.shortName
+                                            )
 
                                 winningSide =
                                     List.Extra.find (\s -> s.result == Just SideResultWon) game.sides
@@ -3257,16 +3265,17 @@ viewDraws theme translations eventConfig event =
                                             |> List.map teamNameForSide
                                             |> List.filterMap identity
                             in
-                            String.join
-                                (String.toLower
-                                    (if tied then
-                                        " = "
-
-                                     else
-                                        " > "
-                                    )
-                                )
-                                sortedTeamNames
+                            -- String.join
+                            --     (String.toLower
+                            --         (if tied then
+                            --             " = "
+                            --
+                            --          else
+                            --             " > "
+                            --         )
+                            --     )
+                            --     sortedTeamNames
+                            String.join " " sortedTeamNames
 
                         _ ->
                             game.name
