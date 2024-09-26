@@ -4313,7 +4313,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
             [ viewGameCaption
             , viewGameHilight
             ]
-        , if detailed && game.state /= GamePending then
+        , if detailed then
             column [ El.width El.fill, El.paddingXY 0 10, El.spacing 10 ]
                 [ if event.shotByShotEnabled then
                     -- Shot Percentage
