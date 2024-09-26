@@ -166,6 +166,8 @@ type alias EventConfig =
     { scoringHilight : Maybe ScoringHilight
     , drawSelected : Maybe Int
     , drawSelectionOpen : Bool
+    , teamSelected : Maybe Int
+    , teamSelectionOpen : Bool
     }
 
 
@@ -422,6 +424,30 @@ type alias ShotSummaryByPosition =
     , numberOfShots : Int
     , totalRatings : Int
     , plus : Maybe Bool
+    }
+
+
+type alias TeamShot =
+    { curlerId : Int
+    , curlerName : String
+    , throw : String
+    , turn : String
+    , rating : String
+    }
+
+
+type alias Throws =
+    { throw : String
+    , name : String
+    , inTurn : String
+    , inTurnPoints : String
+    , inTurnPercentage : String
+    , outTurn : String
+    , outTurnPoints : String
+    , outTurnPercentage : String
+    , total : String
+    , totalPoints : String
+    , totalPercentage : String
     }
 
 
@@ -1081,7 +1107,7 @@ init flags_ =
                     , itemFilter = ItemFilter 1 0 "" False
                     , product = NotAsked
                     , event = NotAsked
-                    , eventConfig = EventConfig Nothing Nothing False
+                    , eventConfig = EventConfig Nothing Nothing False Nothing False
                     , errorMsg = Nothing
                     }
             in
@@ -1123,7 +1149,7 @@ init flags_ =
               , itemFilter = ItemFilter 1 0 "" False
               , product = NotAsked
               , event = NotAsked
-              , eventConfig = EventConfig Nothing Nothing False
+              , eventConfig = EventConfig Nothing Nothing False Nothing False
               , errorMsg = Just (Decode.errorToString error)
               }
             , Cmd.none
@@ -1742,6 +1768,79 @@ stageWithGameId stages id =
     List.Extra.find hasGame stages
 
 
+throwLabels : List ( String, String )
+throwLabels =
+    [ ( "A", "Takeout" )
+    , ( "B", "Hit and roll" )
+    , ( "C", "Clear front" )
+    , ( "D", "Raise take out" )
+    , ( "E", "Draw" )
+    , ( "F", "Front stone" )
+    , ( "G", "Guard" )
+    , ( "H", "Freeze" )
+    , ( "J", "Tap Back" )
+    ]
+
+
+teamShots : Event -> Team -> List TeamShot
+teamShots event team =
+    let
+        teamShot : Shot -> Maybe TeamShot
+        teamShot { curlerId, throw, turn, rating } =
+            case curlerId of
+                Just curlerId_ ->
+                    case List.Extra.find (\c -> c.curlerId == curlerId_) team.lineup of
+                        Just curler ->
+                            case [ throw, turn, rating ] of
+                                [ Just throw_, Just turn_, Just rating_ ] ->
+                                    Just
+                                        { curlerId = curlerId_
+                                        , curlerName = curler.name
+                                        , throw = throw_
+                                        , turn = turn_
+                                        , rating = rating_
+                                        }
+
+                                _ ->
+                                    Nothing
+
+                        _ ->
+                            Nothing
+
+                _ ->
+                    Nothing
+    in
+    List.map
+        (\stage ->
+            List.map
+                (\game ->
+                    if game.state /= GamePending then
+                        List.map
+                            (\side ->
+                                if side.teamId == Just team.id then
+                                    List.map
+                                        (\shot ->
+                                            teamShot shot
+                                        )
+                                        side.shots
+
+                                else
+                                    []
+                            )
+                            game.sides
+
+                    else
+                        []
+                )
+                stage.games
+        )
+        event.stages
+        |> List.concat
+        |> List.concat
+        |> List.concat
+        |> List.filterMap identity
+
+
 shotNumberToPosition : Int -> Int
 shotNumberToPosition shotNumber =
     case shotNumber of
@@ -1886,6 +1985,8 @@ type Msg
     | ToggleScoringHilight ScoringHilight
     | ToggleDrawSelection
     | UpdateDrawSelected Int
+    | ToggleTeamSelection
+    | UpdateTeamSelected Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -2066,6 +2167,26 @@ update msg model =
             let
                 updatedEventConfig eventConfig =
                     { eventConfig | drawSelected = Just drawId }
+            in
+            ( { model | eventConfig = updatedEventConfig model.eventConfig }
+            , Cmd.none
+            )
+
+        ToggleTeamSelection ->
+            let
+                updatedEventConfig eventConfig =
+                    { eventConfig
+                        | teamSelectionOpen = not eventConfig.teamSelectionOpen
+                    }
+            in
+            ( { model | eventConfig = updatedEventConfig model.eventConfig }
+            , Cmd.none
+            )
+
+        UpdateTeamSelected teamId ->
+            let
+                updatedEventConfig eventConfig =
+                    { eventConfig | teamSelected = Just teamId }
             in
             ( { model | eventConfig = updatedEventConfig model.eventConfig }
             , Cmd.none
@@ -4795,10 +4916,10 @@ viewReports theme translations event =
             ++ (if event.endScoresEnabled && event.shotByShotEnabled then
                     [ reportButton "hog_line_violation"
                     , reportButton "scoring_and_percentages"
+                    , reportButton "cumulative_statistics_by_team"
 
-                    -- , reportButton "positional_percentage_comparison"
-                    -- , reportButton "cumulative_statistics_by_team"
                     -- , reportButton "statistics_by_team"
+                    -- , reportButton "positional_percentage_comparison"
                     ]
 
                 else
@@ -4829,7 +4950,7 @@ viewReport theme translations eventConfig event report =
             Lazy.lazy3 viewReportScoringAnalysisByHammer theme translations event
 
         "cumulative_statistics_by_team" ->
-            Lazy.lazy3 viewReportCumulativeStatisticsByTeam theme translations event.draws
+            Lazy.lazy4 viewReportCumulativeStatisticsByTeam theme translations eventConfig event
 
         "hog_line_violation" ->
             Lazy.lazy3 viewReportHogLineViolation theme translations event
@@ -5733,11 +5854,288 @@ viewReportAttendance theme translations draws =
         ]
 
 
-viewReportCumulativeStatisticsByTeam : Theme -> List Translation -> List Draw -> Element Msg
-viewReportCumulativeStatisticsByTeam theme translations draws =
-    column [ El.spacing 20 ]
-        [ el [ Font.size 24 ] (text (translate translations "cumulative_statistics_by_team"))
-        , el [] (text "Coming Soon!")
+viewReportCumulativeStatisticsByTeam : Theme -> List Translation -> EventConfig -> Event -> Element Msg
+viewReportCumulativeStatisticsByTeam theme translations eventConfig event =
+    let
+        team =
+            case eventConfig.teamSelected of
+                Just teamId ->
+                    List.Extra.find (\team_ -> team_.id == teamId) event.teams
+
+                Nothing ->
+                    List.head event.teams
+
+        viewTeamSelector =
+            let
+                teamOption team_ =
+                    el
+                        [ El.width El.fill
+                        , El.padding 10
+                        , Events.onClick (UpdateTeamSelected team_.id)
+                        , if Just team_.id == eventConfig.teamSelected then
+                            Background.color theme.greyLight
+
+                          else
+                            Background.color theme.transparent
+                        ]
+                        (text team_.name)
+
+                teamOptions =
+                    if eventConfig.teamSelectionOpen then
+                        let
+                            scrolling =
+                                if List.length event.teams >= 8 then
+                                    [ El.height (El.fill |> El.minimum 260), El.scrollbarY ]
+
+                                else
+                                    []
+                        in
+                        column
+                            ([ El.width El.fill
+                             , Border.width 1
+                             , Border.color theme.grey
+                             , Background.color theme.white
+                             ]
+                                ++ scrolling
+                            )
+                            (List.map teamOption event.teams)
+
+                    else
+                        El.none
+            in
+            row
+                [ El.width (El.px 260)
+                , El.padding 10
+                , Border.width 1
+                , Border.color theme.grey
+                , El.pointer
+                , Events.onClick ToggleTeamSelection
+                , El.below teamOptions
+                , El.htmlAttribute (class "cio__team_dropdown")
+                ]
+                [ el []
+                    (text
+                        (case team of
+                            Just team_ ->
+                                team_.name
+
+                            Nothing ->
+                                "-"
+                        )
+                    )
+                , el [ El.alignRight ]
+                    (text
+                        (if eventConfig.teamSelectionOpen then
+                            "▼"
+
+                         else
+                            "►"
+                        )
+                    )
+                ]
+
+        throws : Team -> List Throws
+        throws team_ =
+            let
+                shots : List TeamShot
+                shots =
+                    teamShots event team_
+
+                shotsByThrow : String -> List TeamShot
+                shotsByThrow throw =
+                    shots
+                        |> List.filter (\shot -> shot.throw == throw)
+
+                shotsByTurn : String -> List TeamShot
+                shotsByTurn turn =
+                    shots
+                        |> List.filter (\shot -> shot.turn == turn)
+
+                shotsByThrowAndTurn : String -> String -> List TeamShot
+                shotsByThrowAndTurn throw turn =
+                    shotsByThrow throw
+                        |> List.filter (\shot -> shot.turn == turn)
+
+                shotsToPoints shots_ =
+                    shots_ |> List.map .rating |> List.map String.toInt |> List.filterMap identity |> List.sum
+            in
+            (throwLabels
+                |> List.map
+                    (\throwLabel ->
+                        let
+                            throw =
+                                Tuple.first throwLabel
+
+                            inTurn =
+                                shotsByThrowAndTurn throw "I" |> List.length
+
+                            inTurnPoints =
+                                shotsByThrowAndTurn throw "I" |> shotsToPoints
+
+                            outTurn =
+                                shotsByThrowAndTurn throw "O" |> List.length
+
+                            outTurnPoints =
+                                shotsByThrowAndTurn throw "O" |> shotsToPoints
+
+                            total =
+                                shotsByThrow throw |> List.length
+
+                            totalPoints =
+                                shotsByThrow throw |> shotsToPoints
+                        in
+                        { throw = throw
+                        , name = Tuple.second throwLabel
+                        , inTurn = inTurn |> String.fromInt
+                        , inTurnPoints = inTurnPoints |> String.fromInt
+                        , inTurnPercentage = round ((toFloat inTurnPoints / toFloat (inTurn * 4)) * 100) |> String.fromInt
+                        , outTurn = outTurn |> String.fromInt
+                        , outTurnPoints = outTurnPoints |> String.fromInt
+                        , outTurnPercentage = round ((toFloat outTurnPoints / toFloat (outTurn * 4)) * 100) |> String.fromInt
+                        , total = total |> String.fromInt
+                        , totalPoints = totalPoints |> String.fromInt
+                        , totalPercentage = round ((toFloat totalPoints / toFloat (total * 4)) * 100) |> String.fromInt
+                        }
+                    )
+            )
+                ++ [ { throw = ""
+                     , name = "Tot"
+                     , inTurn = shotsByTurn "I" |> List.length |> String.fromInt
+                     , inTurnPoints = shotsByTurn "I" |> shotsToPoints |> String.fromInt
+                     , inTurnPercentage =
+                        round ((toFloat (shotsByTurn "I" |> shotsToPoints) / toFloat ((shotsByTurn "I" |> List.length) * 4)) * 100) |> String.fromInt
+                     , outTurn = shotsByTurn "O" |> List.length |> String.fromInt
+                     , outTurnPoints = shotsByTurn "O" |> shotsToPoints |> String.fromInt
+                     , outTurnPercentage =
+                        round ((toFloat (shotsByTurn "O" |> shotsToPoints) / toFloat ((shotsByTurn "O" |> List.length) * 4)) * 100) |> String.fromInt
+                     , total = shots |> List.length |> String.fromInt
+                     , totalPoints = shots |> shotsToPoints |> String.fromInt
+                     , totalPercentage =
+                        round ((toFloat (shots |> shotsToPoints) / toFloat ((shots |> List.length) * 4)) * 100) |> String.fromInt
+                     }
+                   ]
+
+        viewHeader align label =
+            el
+                [ El.padding 15
+                , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
+                , Border.color theme.grey
+                , Font.semiBold
+                , Background.color theme.greyLight
+                ]
+                (el [ align ] (text (translate translations label)))
+
+        viewCell align content onType =
+            el
+                [ El.padding 15
+                , Border.widthEach
+                    { top =
+                        if onType == "" then
+                            1
+
+                        else
+                            0
+                    , right = 0
+                    , bottom = 1
+                    , left = 0
+                    }
+                , Border.color theme.grey
+                , if onType == "" then
+                    Font.semiBold
+
+                  else
+                    Font.regular
+                ]
+                (el [ align ]
+                    (text
+                        (if content == "0" || content == "NaN" then
+                            "-"
+
+                         else
+                            content
+                        )
+                    )
+                )
+    in
+    column [ El.spacing 30 ]
+        [ row [ El.width El.fill ]
+            [ el [ Font.size 24 ] (text (translate translations "cumulative_statistics_by_team"))
+            , el [ El.alignRight ] viewTeamSelector
+            ]
+        , column [ El.spacing 20 ]
+            (case team of
+                Just team_ ->
+                    [ el [ Font.size 20 ] (text team_.name)
+                    , El.table []
+                        { data = throws team_
+                        , columns =
+                            [ { header = viewHeader El.alignLeft "Type"
+                              , width = El.fill
+                              , view =
+                                    \throw ->
+                                        viewCell El.alignLeft throw.name throw.throw
+                              }
+                            , { header = viewHeader El.alignRight "In-Turn"
+                              , width = El.fill
+                              , view =
+                                    \throw ->
+                                        viewCell El.alignRight throw.inTurn throw.throw
+                              }
+                            , { header = viewHeader El.alignRight "In-Turn Pts"
+                              , width = El.fill
+                              , view =
+                                    \throw ->
+                                        viewCell El.alignRight throw.inTurnPoints throw.throw
+                              }
+                            , { header = viewHeader El.alignRight "In-Turn %"
+                              , width = El.fill
+                              , view =
+                                    \throw ->
+                                        viewCell El.alignRight throw.inTurnPercentage throw.throw
+                              }
+                            , { header = viewHeader El.alignRight "Out-Turn"
+                              , width = El.fill
+                              , view =
+                                    \throw ->
+                                        viewCell El.alignRight throw.outTurn throw.throw
+                              }
+                            , { header = viewHeader El.alignRight "Out-Turn Pts"
+                              , width = El.fill
+                              , view =
+                                    \throw ->
+                                        viewCell El.alignRight throw.outTurnPoints throw.throw
+                              }
+                            , { header = viewHeader El.alignRight "Out-Turn %"
+                              , width = El.fill
+                              , view =
+                                    \throw ->
+                                        viewCell El.alignRight throw.outTurnPercentage throw.throw
+                              }
+                            , { header = viewHeader El.alignRight "Tot"
+                              , width = El.fill
+                              , view =
+                                    \throw ->
+                                        viewCell El.alignRight throw.total throw.throw
+                              }
+                            , { header = viewHeader El.alignRight "Tot Pts"
+                              , width = El.fill
+                              , view =
+                                    \throw ->
+                                        viewCell El.alignRight throw.totalPoints throw.throw
+                              }
+                            , { header = viewHeader El.alignRight "Tot %"
+                              , width = El.fill
+                              , view =
+                                    \throw ->
+                                        viewCell El.alignRight throw.totalPercentage throw.throw
+                              }
+                            ]
+                        }
+                    ]
+
+                Nothing ->
+                    []
+            )
         ]
 
 
@@ -6020,10 +6418,10 @@ viewReportScoringAndPercentagesForGame theme translations event game =
             in
             appendTotals
 
-        viewTeamShots teamShots =
+        viewShotsByTeam shotsGrouped =
             let
                 teamName =
-                    case List.head teamShots of
+                    case List.head shotsGrouped of
                         Just s ->
                             s.teamName
 
@@ -6049,7 +6447,7 @@ viewReportScoringAndPercentagesForGame theme translations event game =
             in
             column [ El.width El.fill, El.height El.fill, Font.size 14 ]
                 [ El.table [ El.width El.fill, El.spacingXY 0 5, El.htmlAttribute (class "cio__items_table") ]
-                    { data = teamShots
+                    { data = shotsGrouped
                     , columns =
                         [ { header = tableHeader (text " ")
                           , width = El.px 20
@@ -6086,7 +6484,7 @@ viewReportScoringAndPercentagesForGame theme translations event game =
                 ]
     in
     row [ El.width El.fill, El.spacing 30 ]
-        (List.map viewTeamShots shotsGroupedByTeamAndPosition)
+        (List.map viewShotsByTeam shotsGroupedByTeamAndPosition)
 
 
 viewReportScoringAndPercentagesForDraw : Theme -> List Translation -> EventConfig -> Event -> Maybe Int -> Element Msg
