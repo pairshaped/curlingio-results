@@ -3984,7 +3984,10 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                                 sideResultText result =
                                     sideResultToString translations result
                             in
-                            if List.any (\s -> s.result == Just SideResultTied) game.sides then
+                            if not detailed && event.endScoresEnabled then
+                                text "Final Game Statistics"
+
+                            else if List.any (\s -> s.result == Just SideResultTied) game.sides then
                                 let
                                     joinedResult =
                                         List.map teamName game.sides
