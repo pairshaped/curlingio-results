@@ -1494,6 +1494,12 @@ eventSectionForRoute route =
             "reports"
 
 
+gamesForEvent : Event -> List Game
+gamesForEvent event =
+    List.map (\stage -> stage.games) event.stages
+        |> List.concat
+
+
 gamesForTeam : List Game -> Team -> List Game
 gamesForTeam games team =
     let
@@ -1759,6 +1765,36 @@ drawWithGameId draws id =
     List.Extra.find hasGame draws
 
 
+drawTeams : Event -> Draw -> List Team
+drawTeams event draw =
+    List.map
+        (\drawSheet ->
+            case drawSheet of
+                Just drawSheet_ ->
+                    case findGameById event.stages drawSheet_ of
+                        Just game ->
+                            List.map
+                                (\side ->
+                                    case side.teamId of
+                                        Just teamId ->
+                                            List.Extra.find (\team -> team.id == teamId) event.teams
+
+                                        Nothing ->
+                                            Nothing
+                                )
+                                game.sides
+
+                        Nothing ->
+                            []
+
+                Nothing ->
+                    []
+        )
+        draw.drawSheets
+        |> List.concat
+        |> List.filterMap identity
+
+
 stageWithGameId : List Stage -> String -> Maybe Stage
 stageWithGameId stages id =
     let
@@ -1782,8 +1818,8 @@ throwLabels =
     ]
 
 
-teamShots : Event -> Team -> List TeamShot
-teamShots event team =
+teamShots : Event -> Team -> Maybe Draw -> List TeamShot
+teamShots event team draw =
     let
         teamShot : Shot -> Maybe TeamShot
         teamShot { curlerId, throw, turn, rating } =
@@ -1815,19 +1851,36 @@ teamShots event team =
             List.map
                 (\game ->
                     if game.state /= GamePending then
-                        List.map
-                            (\side ->
-                                if side.teamId == Just team.id then
-                                    List.map
-                                        (\shot ->
-                                            teamShot shot
-                                        )
-                                        side.shots
+                        let
+                            hasGame =
+                                case draw of
+                                    Just draw_ ->
+                                        let
+                                            matching gameId =
+                                                gameId == Just game.id
+                                        in
+                                        List.any matching draw_.drawSheets
 
-                                else
-                                    []
-                            )
-                            game.sides
+                                    Nothing ->
+                                        False
+                        in
+                        if draw == Nothing || hasGame then
+                            List.map
+                                (\side ->
+                                    if side.teamId == Just team.id then
+                                        List.map
+                                            (\shot ->
+                                                teamShot shot
+                                            )
+                                            side.shots
+
+                                    else
+                                        []
+                                )
+                                game.sides
+
+                        else
+                            []
 
                     else
                         []
@@ -2052,6 +2105,13 @@ update msg model =
 
                 ( product, productCmd ) =
                     getProductMaybe model hash
+
+                updatedEventConfig eventConfig =
+                    { eventConfig
+                        | drawSelectionOpen = False
+                        , teamSelectionOpen = False
+                        , drawSelected = Nothing
+                    }
             in
             ( { model
                 | hash = hash
@@ -2059,6 +2119,7 @@ update msg model =
                 , items = items
                 , product = product
                 , event = event
+                , eventConfig = updatedEventConfig model.eventConfig
               }
             , Cmd.batch
                 [ translationsCmd
@@ -2157,6 +2218,7 @@ update msg model =
                 updatedEventConfig eventConfig =
                     { eventConfig
                         | drawSelectionOpen = not eventConfig.drawSelectionOpen
+                        , teamSelectionOpen = False
                     }
             in
             ( { model | eventConfig = updatedEventConfig model.eventConfig }
@@ -2166,7 +2228,7 @@ update msg model =
         UpdateDrawSelected drawId ->
             let
                 updatedEventConfig eventConfig =
-                    { eventConfig | drawSelected = Just drawId }
+                    { eventConfig | drawSelected = Just drawId, teamSelected = Nothing }
             in
             ( { model | eventConfig = updatedEventConfig model.eventConfig }
             , Cmd.none
@@ -2177,6 +2239,7 @@ update msg model =
                 updatedEventConfig eventConfig =
                     { eventConfig
                         | teamSelectionOpen = not eventConfig.teamSelectionOpen
+                        , drawSelectionOpen = False
                     }
             in
             ( { model | eventConfig = updatedEventConfig model.eventConfig }
@@ -4916,9 +4979,9 @@ viewReports theme translations event =
             ++ (if event.endScoresEnabled && event.shotByShotEnabled then
                     [ reportButton "hog_line_violation"
                     , reportButton "scoring_and_percentages"
+                    , reportButton "statistics_by_team"
                     , reportButton "cumulative_statistics_by_team"
 
-                    -- , reportButton "statistics_by_team"
                     -- , reportButton "positional_percentage_comparison"
                     ]
 
@@ -4950,7 +5013,10 @@ viewReport theme translations eventConfig event report =
             Lazy.lazy3 viewReportScoringAnalysisByHammer theme translations event
 
         "cumulative_statistics_by_team" ->
-            Lazy.lazy4 viewReportCumulativeStatisticsByTeam theme translations eventConfig event
+            Lazy.lazy5 viewReportStatisticsByTeam theme translations eventConfig event True
+
+        "statistics_by_team" ->
+            Lazy.lazy5 viewReportStatisticsByTeam theme translations eventConfig event False
 
         "hog_line_violation" ->
             Lazy.lazy3 viewReportHogLineViolation theme translations event
@@ -4961,9 +5027,6 @@ viewReport theme translations eventConfig event report =
 
         "scoring_and_percentages" ->
             Lazy.lazy5 viewReportScoringAndPercentagesForDraw theme translations eventConfig event eventConfig.drawSelected
-
-        "statistics_by_team" ->
-            Lazy.lazy3 viewReportStatisticsByTeam theme translations event.draws
 
         _ ->
             Lazy.lazy viewNoDataForRoute translations
@@ -5854,16 +5917,107 @@ viewReportAttendance theme translations draws =
         ]
 
 
-viewReportCumulativeStatisticsByTeam : Theme -> List Translation -> EventConfig -> Event -> Element Msg
-viewReportCumulativeStatisticsByTeam theme translations eventConfig event =
+viewReportStatisticsByTeam : Theme -> List Translation -> EventConfig -> Event -> Bool -> Element Msg
+viewReportStatisticsByTeam theme translations eventConfig event cumulative =
     let
-        team =
-            case eventConfig.teamSelected of
-                Just teamId ->
-                    List.Extra.find (\team_ -> team_.id == teamId) event.teams
+        draw =
+            case eventConfig.drawSelected of
+                Just drawId ->
+                    List.Extra.find (\draw_ -> draw_.id == drawId) event.draws
 
                 Nothing ->
-                    List.head event.teams
+                    List.head event.draws
+
+        viewDrawSelector =
+            let
+                drawOption draw_ =
+                    el
+                        [ El.width El.fill
+                        , El.padding 10
+                        , Events.onClick (UpdateDrawSelected draw_.id)
+                        , if Just draw_.id == eventConfig.drawSelected then
+                            Background.color theme.greyLight
+
+                          else
+                            Background.color theme.transparent
+                        ]
+                        (text (translate translations "draw" ++ " " ++ draw_.label))
+
+                drawOptions =
+                    if eventConfig.drawSelectionOpen then
+                        let
+                            scrolling =
+                                if List.length event.draws > 5 then
+                                    [ El.height (El.fill |> El.minimum 210), El.scrollbarY ]
+
+                                else
+                                    []
+                        in
+                        column
+                            ([ El.width El.fill
+                             , Border.width 1
+                             , Border.color theme.grey
+                             , Background.color theme.white
+                             ]
+                                ++ scrolling
+                            )
+                            (List.map drawOption event.draws)
+
+                    else
+                        El.none
+            in
+            row
+                [ El.width (El.px 150)
+                , El.padding 10
+                , Border.width 1
+                , Border.color theme.grey
+                , El.pointer
+                , Events.onClick ToggleDrawSelection
+                , El.below drawOptions
+                , El.htmlAttribute (class "cio__draw_dropdown")
+                ]
+                [ el []
+                    (text
+                        (case draw of
+                            Just draw_ ->
+                                translate translations "draw" ++ " " ++ draw_.label
+
+                            Nothing ->
+                                "-"
+                        )
+                    )
+                , el [ El.alignRight ]
+                    (text
+                        (if eventConfig.drawSelectionOpen then
+                            "▼"
+
+                         else
+                            "►"
+                        )
+                    )
+                ]
+
+        team =
+            if cumulative then
+                case eventConfig.teamSelected of
+                    Just teamId ->
+                        List.Extra.find (\team_ -> team_.id == teamId) event.teams
+
+                    Nothing ->
+                        List.head event.teams
+
+            else
+                case draw of
+                    Just draw_ ->
+                        case eventConfig.teamSelected of
+                            Just teamId ->
+                                List.Extra.find (\team_ -> team_.id == teamId) (drawTeams event draw_)
+
+                            Nothing ->
+                                List.head (drawTeams event draw_)
+
+                    Nothing ->
+                        Nothing
 
         viewTeamSelector =
             let
@@ -5881,10 +6035,23 @@ viewReportCumulativeStatisticsByTeam theme translations eventConfig event =
                         (text team_.name)
 
                 teamOptions =
+                    let
+                        teams =
+                            if cumulative then
+                                event.teams
+
+                            else
+                                case draw of
+                                    Just draw_ ->
+                                        drawTeams event draw_
+
+                                    Nothing ->
+                                        []
+                    in
                     if eventConfig.teamSelectionOpen then
                         let
                             scrolling =
-                                if List.length event.teams >= 8 then
+                                if List.length teams >= 8 then
                                     [ El.height (El.fill |> El.minimum 260), El.scrollbarY ]
 
                                 else
@@ -5898,7 +6065,7 @@ viewReportCumulativeStatisticsByTeam theme translations eventConfig event =
                              ]
                                 ++ scrolling
                             )
-                            (List.map teamOption event.teams)
+                            (List.map teamOption teams)
 
                     else
                         El.none
@@ -5941,11 +6108,11 @@ viewReportCumulativeStatisticsByTeam theme translations eventConfig event =
                 shots =
                     case curler of
                         Just curler_ ->
-                            teamShots event team_
+                            teamShots event team_ draw
                                 |> List.filter (\teamShot -> teamShot.curlerId == curler_.curlerId)
 
                         Nothing ->
-                            teamShots event team_
+                            teamShots event team_ draw
 
                 shotsByThrow : String -> List TeamShot
                 shotsByThrow throw =
@@ -6130,10 +6297,17 @@ viewReportCumulativeStatisticsByTeam theme translations eventConfig event =
                     ]
                 }
     in
-    column [ El.spacing 30 ]
+    column [ El.width El.fill, El.spacing 30, El.paddingEach { top = 0, right = 0, bottom = 140, left = 0 } ]
         [ row [ El.width El.fill ]
-            [ el [ Font.size 24 ] (text (translate translations "cumulative_statistics_by_team"))
-            , el [ El.alignRight ] viewTeamSelector
+            [ el [ Font.size 24, El.width El.fill ] (text (translate translations "cumulative_statistics_by_team"))
+            , column [ El.spacing 10, El.alignRight ]
+                [ if cumulative then
+                    El.none
+
+                  else
+                    el [ El.alignRight ] viewDrawSelector
+                , el [ El.alignRight ] viewTeamSelector
+                ]
             ]
         , column [ El.spacing 20 ]
             (case team of
@@ -6616,14 +6790,6 @@ viewReportScoringAndPercentagesForDraw theme translations eventConfig event onDr
 
             Nothing ->
                 el [ El.width El.fill ] (text "Coming Soon!")
-        ]
-
-
-viewReportStatisticsByTeam : Theme -> List Translation -> List Draw -> Element Msg
-viewReportStatisticsByTeam theme translations draws =
-    column [ El.spacing 20 ]
-        [ el [ Font.size 24 ] (text (translate translations "statistics_by_team"))
-        , el [] (text "Coming Soon!")
         ]
 
 
