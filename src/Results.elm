@@ -5934,12 +5934,18 @@ viewReportCumulativeStatisticsByTeam theme translations eventConfig event =
                     )
                 ]
 
-        throws : Team -> List Throws
-        throws team_ =
+        throws : Team -> Maybe TeamCurler -> List Throws
+        throws team_ curler =
             let
                 shots : List TeamShot
                 shots =
-                    teamShots event team_
+                    case curler of
+                        Just curler_ ->
+                            teamShots event team_
+                                |> List.filter (\teamShot -> teamShot.curlerId == curler_.curlerId)
+
+                        Nothing ->
+                            teamShots event team_
 
                 shotsByThrow : String -> List TeamShot
                 shotsByThrow throw =
@@ -6056,6 +6062,73 @@ viewReportCumulativeStatisticsByTeam theme translations eventConfig event =
                         )
                     )
                 )
+
+        viewThrowsTable throws_ =
+            El.table []
+                { data = throws_
+                , columns =
+                    [ { header = viewHeader El.alignLeft "Type"
+                      , width = El.fill
+                      , view =
+                            \throw ->
+                                viewCell El.alignLeft throw.name throw.throw
+                      }
+                    , { header = viewHeader El.alignRight "In-Turn"
+                      , width = El.fill
+                      , view =
+                            \throw ->
+                                viewCell El.alignRight throw.inTurn throw.throw
+                      }
+                    , { header = viewHeader El.alignRight "In-Turn Pts"
+                      , width = El.fill
+                      , view =
+                            \throw ->
+                                viewCell El.alignRight throw.inTurnPoints throw.throw
+                      }
+                    , { header = viewHeader El.alignRight "In-Turn %"
+                      , width = El.fill
+                      , view =
+                            \throw ->
+                                viewCell El.alignRight throw.inTurnPercentage throw.throw
+                      }
+                    , { header = viewHeader El.alignRight "Out-Turn"
+                      , width = El.fill
+                      , view =
+                            \throw ->
+                                viewCell El.alignRight throw.outTurn throw.throw
+                      }
+                    , { header = viewHeader El.alignRight "Out-Turn Pts"
+                      , width = El.fill
+                      , view =
+                            \throw ->
+                                viewCell El.alignRight throw.outTurnPoints throw.throw
+                      }
+                    , { header = viewHeader El.alignRight "Out-Turn %"
+                      , width = El.fill
+                      , view =
+                            \throw ->
+                                viewCell El.alignRight throw.outTurnPercentage throw.throw
+                      }
+                    , { header = viewHeader El.alignRight "Tot"
+                      , width = El.fill
+                      , view =
+                            \throw ->
+                                viewCell El.alignRight throw.total throw.throw
+                      }
+                    , { header = viewHeader El.alignRight "Tot Pts"
+                      , width = El.fill
+                      , view =
+                            \throw ->
+                                viewCell El.alignRight throw.totalPoints throw.throw
+                      }
+                    , { header = viewHeader El.alignRight "Tot %"
+                      , width = El.fill
+                      , view =
+                            \throw ->
+                                viewCell El.alignRight throw.totalPercentage throw.throw
+                      }
+                    ]
+                }
     in
     column [ El.spacing 30 ]
         [ row [ El.width El.fill ]
@@ -6066,72 +6139,17 @@ viewReportCumulativeStatisticsByTeam theme translations eventConfig event =
             (case team of
                 Just team_ ->
                     [ el [ Font.size 20 ] (text team_.name)
-                    , El.table []
-                        { data = throws team_
-                        , columns =
-                            [ { header = viewHeader El.alignLeft "Type"
-                              , width = El.fill
-                              , view =
-                                    \throw ->
-                                        viewCell El.alignLeft throw.name throw.throw
-                              }
-                            , { header = viewHeader El.alignRight "In-Turn"
-                              , width = El.fill
-                              , view =
-                                    \throw ->
-                                        viewCell El.alignRight throw.inTurn throw.throw
-                              }
-                            , { header = viewHeader El.alignRight "In-Turn Pts"
-                              , width = El.fill
-                              , view =
-                                    \throw ->
-                                        viewCell El.alignRight throw.inTurnPoints throw.throw
-                              }
-                            , { header = viewHeader El.alignRight "In-Turn %"
-                              , width = El.fill
-                              , view =
-                                    \throw ->
-                                        viewCell El.alignRight throw.inTurnPercentage throw.throw
-                              }
-                            , { header = viewHeader El.alignRight "Out-Turn"
-                              , width = El.fill
-                              , view =
-                                    \throw ->
-                                        viewCell El.alignRight throw.outTurn throw.throw
-                              }
-                            , { header = viewHeader El.alignRight "Out-Turn Pts"
-                              , width = El.fill
-                              , view =
-                                    \throw ->
-                                        viewCell El.alignRight throw.outTurnPoints throw.throw
-                              }
-                            , { header = viewHeader El.alignRight "Out-Turn %"
-                              , width = El.fill
-                              , view =
-                                    \throw ->
-                                        viewCell El.alignRight throw.outTurnPercentage throw.throw
-                              }
-                            , { header = viewHeader El.alignRight "Tot"
-                              , width = El.fill
-                              , view =
-                                    \throw ->
-                                        viewCell El.alignRight throw.total throw.throw
-                              }
-                            , { header = viewHeader El.alignRight "Tot Pts"
-                              , width = El.fill
-                              , view =
-                                    \throw ->
-                                        viewCell El.alignRight throw.totalPoints throw.throw
-                              }
-                            , { header = viewHeader El.alignRight "Tot %"
-                              , width = El.fill
-                              , view =
-                                    \throw ->
-                                        viewCell El.alignRight throw.totalPercentage throw.throw
-                              }
-                            ]
-                        }
+                    , viewThrowsTable (throws team_ Nothing)
+                    , el [] (text "")
                     ]
+                        ++ List.map
+                            (\curler ->
+                                column [ El.spacing 20 ]
+                                    [ el [ Font.size 20, El.paddingEach { top = 10, right = 0, bottom = 0, left = 0 } ] (text curler.name)
+                                    , viewThrowsTable (throws team_ (Just curler))
+                                    ]
+                            )
+                            team_.lineup
 
                 Nothing ->
                     []
