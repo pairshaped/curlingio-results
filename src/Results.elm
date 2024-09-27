@@ -6105,6 +6105,7 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                         Nothing ->
                             teamShots event team_ draw
                     )
+                        -- |> List.filter (\teamShot -> teamShot.turn == "I" || teamShot.turn == "O")
                         |> List.filter (\teamShot -> teamShot.throw /= "X")
 
                 shotsByThrow : String -> List TeamShot -> List TeamShot
