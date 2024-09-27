@@ -440,13 +440,10 @@ type alias Throws =
     { throw : String
     , name : String
     , inTurn : String
-    , inTurnPoints : String
     , inTurnPercentage : String
     , outTurn : String
-    , outTurnPoints : String
     , outTurnPercentage : String
     , total : String
-    , totalPoints : String
     , totalPercentage : String
     }
 
@@ -6114,20 +6111,25 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                         Nothing ->
                             teamShots event team_ draw
 
-                shotsByThrow : String -> List TeamShot
-                shotsByThrow throw =
-                    shots
+                shotsByThrow : String -> List TeamShot -> List TeamShot
+                shotsByThrow throw shots_ =
+                    shots_
                         |> List.filter (\shot -> shot.throw == throw)
 
-                shotsByTurn : String -> List TeamShot
-                shotsByTurn turn =
-                    shots
+                shotsByTurn : String -> List TeamShot -> List TeamShot
+                shotsByTurn turn shots_ =
+                    shots_
                         |> List.filter (\shot -> shot.turn == turn)
 
-                shotsByThrowAndTurn : String -> String -> List TeamShot
-                shotsByThrowAndTurn throw turn =
-                    shotsByThrow throw
-                        |> List.filter (\shot -> shot.turn == turn)
+                shotsByAllDraws : String -> List TeamShot -> List TeamShot
+                shotsByAllDraws turn shots_ =
+                    shots_
+                        |> List.filter (\shot -> String.contains shot.throw "EFGHJ")
+
+                shotsByAllTakeouts : String -> List TeamShot -> List TeamShot
+                shotsByAllTakeouts turn shots_ =
+                    shots_
+                        |> List.filter (\shot -> String.contains shot.throw "ABCD")
 
                 shotsToPoints shots_ =
                     shots_ |> List.map .rating |> List.map String.toInt |> List.filterMap identity |> List.sum
@@ -6140,49 +6142,43 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                                 Tuple.first throwLabel
 
                             inTurn =
-                                shotsByThrowAndTurn throw "I" |> List.length
+                                shots |> shotsByThrow throw |> shotsByTurn "I" |> List.length
 
                             inTurnPoints =
-                                shotsByThrowAndTurn throw "I" |> shotsToPoints
+                                shots |> shotsByThrow throw |> shotsByTurn "I" |> shotsToPoints
 
                             outTurn =
-                                shotsByThrowAndTurn throw "O" |> List.length
+                                shots |> shotsByThrow throw |> shotsByTurn "O" |> List.length
 
                             outTurnPoints =
-                                shotsByThrowAndTurn throw "O" |> shotsToPoints
+                                shots |> shotsByThrow throw |> shotsByTurn "O" |> shotsToPoints
 
                             total =
-                                shotsByThrow throw |> List.length
+                                shots |> shotsByThrow throw |> List.length
 
                             totalPoints =
-                                shotsByThrow throw |> shotsToPoints
+                                shots |> shotsByThrow throw |> shotsToPoints
                         in
                         { throw = throw
                         , name = Tuple.second throwLabel
                         , inTurn = inTurn |> String.fromInt
-                        , inTurnPoints = inTurnPoints |> String.fromInt
                         , inTurnPercentage = round ((toFloat inTurnPoints / toFloat (inTurn * 4)) * 100) |> String.fromInt
                         , outTurn = outTurn |> String.fromInt
-                        , outTurnPoints = outTurnPoints |> String.fromInt
                         , outTurnPercentage = round ((toFloat outTurnPoints / toFloat (outTurn * 4)) * 100) |> String.fromInt
                         , total = total |> String.fromInt
-                        , totalPoints = totalPoints |> String.fromInt
                         , totalPercentage = round ((toFloat totalPoints / toFloat (total * 4)) * 100) |> String.fromInt
                         }
                     )
             )
                 ++ [ { throw = ""
                      , name = "Tot"
-                     , inTurn = shotsByTurn "I" |> List.length |> String.fromInt
-                     , inTurnPoints = shotsByTurn "I" |> shotsToPoints |> String.fromInt
+                     , inTurn = shots |> shotsByTurn "I" |> List.length |> String.fromInt
                      , inTurnPercentage =
-                        round ((toFloat (shotsByTurn "I" |> shotsToPoints) / toFloat ((shotsByTurn "I" |> List.length) * 4)) * 100) |> String.fromInt
-                     , outTurn = shotsByTurn "O" |> List.length |> String.fromInt
-                     , outTurnPoints = shotsByTurn "O" |> shotsToPoints |> String.fromInt
+                        round ((toFloat (shots |> shotsByTurn "I" |> shotsToPoints) / toFloat ((shots |> shotsByTurn "I" |> List.length) * 4)) * 100) |> String.fromInt
+                     , outTurn = shots |> shotsByTurn "O" |> List.length |> String.fromInt
                      , outTurnPercentage =
-                        round ((toFloat (shotsByTurn "O" |> shotsToPoints) / toFloat ((shotsByTurn "O" |> List.length) * 4)) * 100) |> String.fromInt
+                        round ((toFloat (shots |> shotsByTurn "O" |> shotsToPoints) / toFloat ((shots |> shotsByTurn "O" |> List.length) * 4)) * 100) |> String.fromInt
                      , total = shots |> List.length |> String.fromInt
-                     , totalPoints = shots |> shotsToPoints |> String.fromInt
                      , totalPercentage =
                         round ((toFloat (shots |> shotsToPoints) / toFloat ((shots |> List.length) * 4)) * 100) |> String.fromInt
                      }
@@ -6246,12 +6242,6 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                             \throw ->
                                 viewCell El.alignRight throw.inTurn throw.throw
                       }
-                    , { header = viewHeader El.alignRight "In-Turn Pts"
-                      , width = El.fill
-                      , view =
-                            \throw ->
-                                viewCell El.alignRight throw.inTurnPoints throw.throw
-                      }
                     , { header = viewHeader El.alignRight "In-Turn %"
                       , width = El.fill
                       , view =
@@ -6263,12 +6253,6 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                       , view =
                             \throw ->
                                 viewCell El.alignRight throw.outTurn throw.throw
-                      }
-                    , { header = viewHeader El.alignRight "Out-Turn Pts"
-                      , width = El.fill
-                      , view =
-                            \throw ->
-                                viewCell El.alignRight throw.outTurnPoints throw.throw
                       }
                     , { header = viewHeader El.alignRight "Out-Turn %"
                       , width = El.fill
@@ -6282,12 +6266,6 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                             \throw ->
                                 viewCell El.alignRight throw.total throw.throw
                       }
-                    , { header = viewHeader El.alignRight "Tot Pts"
-                      , width = El.fill
-                      , view =
-                            \throw ->
-                                viewCell El.alignRight throw.totalPoints throw.throw
-                      }
                     , { header = viewHeader El.alignRight "Tot %"
                       , width = El.fill
                       , view =
@@ -6299,7 +6277,19 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
     in
     column [ El.width El.fill, El.spacing 30, El.paddingEach { top = 0, right = 0, bottom = 140, left = 0 } ]
         [ row [ El.width El.fill ]
-            [ el [ Font.size 24, El.width El.fill ] (text (translate translations "cumulative_statistics_by_team"))
+            [ el [ Font.size 24, El.width El.fill ]
+                (text
+                    (translate translations
+                        ((if cumulative then
+                            "cumulative_"
+
+                          else
+                            ""
+                         )
+                            ++ "statistics_by_team"
+                        )
+                    )
+                )
             , column [ El.spacing 10, El.alignRight ]
                 [ if cumulative then
                     El.none
