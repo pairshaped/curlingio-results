@@ -6002,27 +6002,26 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                     )
                 ]
 
+        selectableTeams =
+            case draw of
+                Just draw_ ->
+                    drawTeams event draw_
+
+                Nothing ->
+                    event.teams
+
         team =
-            if cumulative then
-                case eventConfig.teamSelected of
-                    Just teamId ->
-                        List.Extra.find (\team_ -> team_.id == teamId) event.teams
+            case eventConfig.teamSelected of
+                Just teamId ->
+                    case List.Extra.find (\team_ -> team_.id == teamId) selectableTeams of
+                        Just team_ ->
+                            Just team_
 
-                    Nothing ->
-                        List.head event.teams
+                        Nothing ->
+                            List.head selectableTeams
 
-            else
-                case draw of
-                    Just draw_ ->
-                        case eventConfig.teamSelected of
-                            Just teamId ->
-                                List.Extra.find (\team_ -> team_.id == teamId) (drawTeams event draw_)
-
-                            Nothing ->
-                                List.head (drawTeams event draw_)
-
-                    Nothing ->
-                        Nothing
+                Nothing ->
+                    List.head selectableTeams
 
         viewTeamSelector =
             let
@@ -6040,23 +6039,10 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                         (text team_.name)
 
                 teamOptions =
-                    let
-                        teams =
-                            if cumulative then
-                                event.teams
-
-                            else
-                                case draw of
-                                    Just draw_ ->
-                                        drawTeams event draw_
-
-                                    Nothing ->
-                                        []
-                    in
                     if eventConfig.teamSelectionOpen then
                         let
                             scrolling =
-                                if List.length teams >= 8 then
+                                if List.length selectableTeams >= 8 then
                                     [ El.height (El.fill |> El.minimum 260), El.scrollbarY ]
 
                                 else
@@ -6070,7 +6056,7 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                              ]
                                 ++ scrolling
                             )
-                            (List.map teamOption teams)
+                            (List.map teamOption selectableTeams)
 
                     else
                         El.none
