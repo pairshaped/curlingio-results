@@ -5922,12 +5922,16 @@ viewReportStatisticsByTeam : Theme -> List Translation -> EventConfig -> Event -
 viewReportStatisticsByTeam theme translations eventConfig event cumulative =
     let
         draw =
-            case eventConfig.drawSelected of
-                Just drawId ->
-                    List.Extra.find (\draw_ -> draw_.id == drawId) event.draws
+            if cumulative then
+                Nothing
 
-                Nothing ->
-                    List.head event.draws
+            else
+                case eventConfig.drawSelected of
+                    Just drawId ->
+                        List.Extra.find (\draw_ -> draw_.id == drawId) event.draws
+
+                    Nothing ->
+                        List.head event.draws
 
         viewDrawSelector =
             let
