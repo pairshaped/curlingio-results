@@ -1634,6 +1634,20 @@ gameScore game orderByTeamIds =
             Just score
 
 
+isBlankEnd : Maybe Side -> Maybe Side -> Int -> Bool
+isBlankEnd sideA sideB endNumber =
+    let
+        end side =
+            List.Extra.getAt (endNumber - 1) side.endScores
+    in
+    case ( sideA, sideB ) of
+        ( Just a, Just b ) ->
+            ( end a, end b ) == ( Just 0, Just 0 )
+
+        _ ->
+            False
+
+
 blankEnds : List Game -> Team -> List Int
 blankEnds games team =
     let
@@ -1641,7 +1655,7 @@ blankEnds games team =
         blankEndsForGame game =
             let
                 -- We don't know if the team side is the first or second, so build a tuple so we know.
-                sides =
+                ( sideFor, sideAgainst ) =
                     ( List.Extra.find (\s -> s.teamId == Just team.id) game.sides
                     , List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
                     )
@@ -1651,25 +1665,9 @@ blankEnds games team =
                     List.map (\side -> List.length side.endScores) game.sides
                         |> List.maximum
                         |> Maybe.withDefault 0
-
-                blankEnd : Side -> Side -> Int -> Bool
-                blankEnd sideFor sideAgainst endIndex =
-                    let
-                        endFor =
-                            List.Extra.getAt (endIndex - 1) sideFor.endScores
-
-                        endAgainst =
-                            List.Extra.getAt (endIndex - 1) sideAgainst.endScores
-                    in
-                    ( endFor, endAgainst ) == ( Just 0, Just 0 )
             in
-            case sides of
-                ( Just sideFor, Just sideAgainst ) ->
-                    List.range 0 numberOfEnds
-                        |> List.filter (blankEnd sideFor sideAgainst)
-
-                _ ->
-                    []
+            List.range 0 numberOfEnds
+                |> List.filter (isBlankEnd sideFor sideAgainst)
     in
     List.map (\game -> blankEndsForGame game) games
         |> List.concat
@@ -4268,6 +4266,9 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
         viewEndScore : Int -> Side -> Element Msg
         viewEndScore endNumber side =
             let
+                sideAgainst =
+                    List.Extra.find (\s -> s.firstHammer /= side.firstHammer) game.sides
+
                 hasHammer =
                     if endNumber == 1 && side.firstHammer then
                         True
@@ -4300,12 +4301,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                     (endScoreInt > 0) && not hasHammer
 
                 blankEnd =
-                    case List.Extra.getAt (endNumber - 1) side.endScores of
-                        Just 0 ->
-                            True
-
-                        _ ->
-                            False
+                    isBlankEnd (Just side) sideAgainst endNumber
 
                 isHilighted =
                     (scoringHilight == Just HilightHammers && hasHammer)
@@ -5307,8 +5303,7 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
                   }
 
                 -- Blank Ends
-                , { header =
-                        tableHeader "BE" El.centerX Nothing (Just "3")
+                , { header = tableHeader "BE" El.centerX (Just (ToggleScoringHilight HilightBlankEnds)) (Just "3")
                   , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
