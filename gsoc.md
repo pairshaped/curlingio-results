@@ -38,7 +38,7 @@ Place the following raw javascript code in to your scoreboard page, customizing 
             excludeEventSections: ["details", "registrations", "spares"], // OPTIONAL. Event sections you don't want to show up. Possible values: "details", "registrations", "spares", "draws", "stages", "teams", "reports"
             defaultEventSection: "draws", // OPTIONAL. If you want a default event section other than the details view. Possible values: "registrations", "spares", "draws", "stages", "teams", "reports"
             theme: { // OPTIONAL. You can customize the colors used.
-              primary: "#ed1940", // OPTIONAL. The primary color in hexadecimal (important buttons / links / backgrounds). Default is red: #ed1940
+              primary: "#ea1010", // OPTIONAL. The primary color in hexadecimal (important buttons / links / backgrounds). Default is red: #ed1940
               secondary: "#5c5c5c" // OPTIONAL. The secondary color in hexadecimal (minor buttons / links / backgrounds). Default is a dark grey: #5c5c5c
             },
             // lang: "en", // OPTIONAL. Options are "en" or "fr". Defaults to "en" if nothing is passed. If your using wordpress, it should expose a 2 letter language code that can be passed here.
@@ -83,7 +83,7 @@ Place the following raw javascript code into your sidebar widget to display the 
             subdomain: "gsoc", // REQUIRED. This is your club's Curling I/O subdomain. For example, if your Curling I/O URL begins with "demo.curling.io" then the "demo" part would be your subdomain.
             // lang: "en", // OPTIONAL. Options are "en" or "fr". Defaults to "en" if nothing is passed. If your using wordpress, it should expose a 2 letter language code that can be passed here.
             theme: { // OPTIONAL. You can customize the colors used.
-              primary: "#ed1940", // OPTIONAL. The primary color in hexadecimal (important buttons / links / backgrounds). Default is red: #ed1940
+              primary: "#ea1010", // OPTIONAL. The primary color in hexadecimal (important buttons / links / backgrounds). Default is red: #ed1940
               secondary: "#5c5c5c" // OPTIONAL. The secondary color in hexadecimal (minor buttons / links / backgrounds). Default is a dark grey: #5c5c5c
             },
             host: document.location.host // REQUIRED - DO NOT MODIFY. Let's us make slight behavioural changes when hosted offsite versus within your curling.io site.
