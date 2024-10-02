@@ -6252,25 +6252,25 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                             \throw ->
                                 viewCell El.alignLeft throw.name throw.throw
                       }
-                    , { header = viewHeader El.alignRight "In-Turn"
+                    , { header = viewHeader El.alignRight "Inturn"
                       , width = El.fill
                       , view =
                             \throw ->
                                 viewCell El.alignRight throw.inTurn throw.throw
                       }
-                    , { header = viewHeader El.alignRight "In-Turn %"
+                    , { header = viewHeader El.alignRight "Inturn %"
                       , width = El.fill
                       , view =
                             \throw ->
                                 viewCell El.alignRight throw.inTurnPercentage throw.throw
                       }
-                    , { header = viewHeader El.alignRight "Out-Turn"
+                    , { header = viewHeader El.alignRight "Outturn"
                       , width = El.fill
                       , view =
                             \throw ->
                                 viewCell El.alignRight throw.outTurn throw.throw
                       }
-                    , { header = viewHeader El.alignRight "Out-Turn %"
+                    , { header = viewHeader El.alignRight "Outturn %"
                       , width = El.fill
                       , view =
                             \throw ->
