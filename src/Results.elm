@@ -820,7 +820,7 @@ decodeGame =
                                         Decode.succeed (Just SideResultTied)
 
                                     "conceded" ->
-                                        Decode.succeed (Just SideResultConceded)
+                                        Decode.succeed (Just SideResultForfeited)
 
                                     "forfeited" ->
                                         Decode.succeed (Just SideResultForfeited)
@@ -1005,7 +1005,7 @@ sideResultToString translations result =
                 "tied"
 
             Just SideResultConceded ->
-                "conceded"
+                "forfeited"
 
             Just SideResultForfeited ->
                 "forfeited"
