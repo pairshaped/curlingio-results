@@ -1,9 +1,11 @@
 # Overview
 
-Instructions on embedding the Curling I/O V2 Widgets onto the Curling Canada wordpress site.
+Instructions on embedding the Curling I/O V2 Widgets onto the GSOC wordpress site.
 
 You'll first need the ability to embed raw javascript code into your pages and sidebar.
 If you don't have a plugin or theme that allows this yet, you could potentially install: https://en-ca.wordpress.org/plugins/simple-embed-code/
+
+If you are using our legacy wordpress plugins, please disable and uninstall them. They have reach EOL and will no longer work.
 
 
 ## Scoreboard Widget
@@ -27,7 +29,7 @@ Place the following raw javascript code in to your scoreboard page, customizing 
         {
           node: document.getElementById("cio_results"), // REQUIRED. Must match the ID of the div we're replacing, which is "results" in this example.
           flags: {
-            subdomain: "canada", // REQUIRED. This is your club's Curling I/O subdomain. For example, if your Curling I/O URL begins with "demo.curling.io" then the "demo" part would be your subdomain.
+            subdomain: "gsoc", // REQUIRED. This is your club's Curling I/O subdomain. For example, if your Curling I/O URL begins with "demo.curling.io" then the "demo" part would be your subdomain.
             section: "competitions", // OPTIONAL. Can be "leagues", "competitions", or "products". Will default to "leagues" if omitted or an invalid value is passed.
             fullScreenToggle: true, // OPTIONAL. Determines if the full screen toggle (two diagonal arrows in the top right) will be shown. Will default to false if omitted or an invalid value is passed.
             registration: false, // OPTIONAL. Set to false if you don't want prices and the add to cart / register / waitlist buttons to show up.
@@ -36,7 +38,7 @@ Place the following raw javascript code in to your scoreboard page, customizing 
             excludeEventSections: ["details", "registrations", "spares"], // OPTIONAL. Event sections you don't want to show up. Possible values: "details", "registrations", "spares", "draws", "stages", "teams", "reports"
             defaultEventSection: "draws", // OPTIONAL. If you want a default event section other than the details view. Possible values: "registrations", "spares", "draws", "stages", "teams", "reports"
             theme: { // OPTIONAL. You can customize the colors used.
-              primary: "#ed1940", // OPTIONAL. The primary color in hexadecimal (important buttons / links / backgrounds). Default is red: #ed1940
+              primary: "#ea1010", // OPTIONAL. The primary color in hexadecimal (important buttons / links / backgrounds). Default is red: #ed1940
               secondary: "#5c5c5c" // OPTIONAL. The secondary color in hexadecimal (minor buttons / links / backgrounds). Default is a dark grey: #5c5c5c
             },
             // lang: "en", // OPTIONAL. Options are "en" or "fr". Defaults to "en" if nothing is passed. If your using wordpress, it should expose a 2 letter language code that can be passed here.
@@ -78,10 +80,10 @@ Place the following raw javascript code into your sidebar widget to display the 
         {
           node: document.getElementById("cio_current_games"), // REQUIRED. Must match the ID of the div we're replacing, which is "results" in this example.
           flags: {
-            subdomain: "canada", // REQUIRED. This is your club's Curling I/O subdomain. For example, if your Curling I/O URL begins with "demo.curling.io" then the "demo" part would be your subdomain.
+            subdomain: "gsoc", // REQUIRED. This is your club's Curling I/O subdomain. For example, if your Curling I/O URL begins with "demo.curling.io" then the "demo" part would be your subdomain.
             // lang: "en", // OPTIONAL. Options are "en" or "fr". Defaults to "en" if nothing is passed. If your using wordpress, it should expose a 2 letter language code that can be passed here.
             theme: { // OPTIONAL. You can customize the colors used.
-              primary: "#ed1940", // OPTIONAL. The primary color in hexadecimal (important buttons / links / backgrounds). Default is red: #ed1940
+              primary: "#ea1010", // OPTIONAL. The primary color in hexadecimal (important buttons / links / backgrounds). Default is red: #ed1940
               secondary: "#5c5c5c" // OPTIONAL. The secondary color in hexadecimal (minor buttons / links / backgrounds). Default is a dark grey: #5c5c5c
             },
             host: document.location.host // REQUIRED - DO NOT MODIFY. Let's us make slight behavioural changes when hosted offsite versus within your curling.io site.
