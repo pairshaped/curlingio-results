@@ -6166,10 +6166,10 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                      , name = "All Draws"
                      , inTurn = shots |> shotsByAllDraws |> shotsByTurn "I" |> List.length |> String.fromInt
                      , inTurnPercentage =
-                        round ((toFloat (shots |> shotsByAllDraws |> shotsByTurn "I" |> shotsToPoints) / toFloat ((shots |> shotsByTurn "I" |> List.length) * 4)) * 100) |> String.fromInt
+                        round ((toFloat (shots |> shotsByAllDraws |> shotsByTurn "I" |> shotsToPoints) / toFloat ((shots |> shotsByAllDraws |> shotsByTurn "I" |> List.length) * 4)) * 100) |> String.fromInt
                      , outTurn = shots |> shotsByAllDraws |> shotsByTurn "O" |> List.length |> String.fromInt
                      , outTurnPercentage =
-                        round ((toFloat (shots |> shotsByAllDraws |> shotsByTurn "O" |> shotsToPoints) / toFloat ((shots |> shotsByTurn "O" |> List.length) * 4)) * 100) |> String.fromInt
+                        round ((toFloat (shots |> shotsByAllDraws |> shotsByTurn "O" |> shotsToPoints) / toFloat ((shots |> shotsByAllDraws |> shotsByTurn "O" |> List.length) * 4)) * 100) |> String.fromInt
                      , total = shots |> shotsByAllDraws |> List.length |> String.fromInt
                      , totalPercentage =
                         round ((toFloat (shots |> shotsByAllDraws |> shotsToPoints) / toFloat ((shots |> List.length) * 4)) * 100) |> String.fromInt
@@ -6178,10 +6178,10 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                      , name = "All Takeouts"
                      , inTurn = shots |> shotsByAllTakeouts |> shotsByTurn "I" |> List.length |> String.fromInt
                      , inTurnPercentage =
-                        round ((toFloat (shots |> shotsByAllTakeouts |> shotsByTurn "I" |> shotsToPoints) / toFloat ((shots |> shotsByTurn "I" |> List.length) * 4)) * 100) |> String.fromInt
+                        round ((toFloat (shots |> shotsByAllTakeouts |> shotsByTurn "I" |> shotsToPoints) / toFloat ((shots |> shotsByAllTakeouts |> shotsByTurn "I" |> List.length) * 4)) * 100) |> String.fromInt
                      , outTurn = shots |> shotsByAllTakeouts |> shotsByTurn "O" |> List.length |> String.fromInt
                      , outTurnPercentage =
-                        round ((toFloat (shots |> shotsByAllTakeouts |> shotsByTurn "O" |> shotsToPoints) / toFloat ((shots |> shotsByTurn "O" |> List.length) * 4)) * 100) |> String.fromInt
+                        round ((toFloat (shots |> shotsByAllTakeouts |> shotsByTurn "O" |> shotsToPoints) / toFloat ((shots |> shotsByAllTakeouts |> shotsByTurn "O" |> List.length) * 4)) * 100) |> String.fromInt
                      , total = shots |> shotsByAllTakeouts |> List.length |> String.fromInt
                      , totalPercentage =
                         round ((toFloat (shots |> shotsByAllTakeouts |> shotsToPoints) / toFloat ((shots |> List.length) * 4)) * 100) |> String.fromInt
