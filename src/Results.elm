@@ -1997,8 +1997,7 @@ reloadEnabled flags hash event =
                 Success event_ ->
                     (event_.state == EventStateActive)
                         && event_.endScoresEnabled
-                        && not (List.member nestedRoute [ DetailsRoute, RegistrationsRoute, SparesRoute, TeamsRoute, ReportsRoute ])
-                        && not (String.contains "/reports" hash)
+                        && not (List.member nestedRoute [ DetailsRoute, RegistrationsRoute, SparesRoute, TeamsRoute ])
 
                 _ ->
                     False
@@ -2305,7 +2304,7 @@ view model =
                 , El.scrollbarX
                 , El.inFront
                     (row [ El.alignRight, El.spacing 10, El.paddingXY 0 10 ]
-                        [ el [ El.alignTop ] (viewReloadButton model)
+                        [ el [ El.alignTop ] (viewReloadStatus model)
                         , if fullScreenToggle then
                             case device.class of
                                 El.Phone ->
@@ -2421,8 +2420,8 @@ viewRoute translations { flags, hash, itemFilter, eventConfig, items, product, e
                     viewLoading
 
 
-viewReloadButton : Model -> Element Msg
-viewReloadButton { flags, hash, event } =
+viewReloadStatus : Model -> Element Msg
+viewReloadStatus { flags, hash, event } =
     let
         { device, theme } =
             flags
@@ -6172,7 +6171,7 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                         round ((toFloat (shots |> shotsByAllDraws |> shotsByTurn "O" |> shotsToPoints) / toFloat ((shots |> shotsByAllDraws |> shotsByTurn "O" |> List.length) * 4)) * 100) |> String.fromInt
                      , total = shots |> shotsByAllDraws |> List.length |> String.fromInt
                      , totalPercentage =
-                        round ((toFloat (shots |> shotsByAllDraws |> shotsToPoints) / toFloat ((shots |> List.length) * 4)) * 100) |> String.fromInt
+                        round ((toFloat (shots |> shotsByAllDraws |> shotsToPoints) / toFloat ((shots |> shotsByAllDraws |> List.length) * 4)) * 100) |> String.fromInt
                      }
                    , { throw = ""
                      , name = "All Takeouts"
@@ -6184,7 +6183,7 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                         round ((toFloat (shots |> shotsByAllTakeouts |> shotsByTurn "O" |> shotsToPoints) / toFloat ((shots |> shotsByAllTakeouts |> shotsByTurn "O" |> List.length) * 4)) * 100) |> String.fromInt
                      , total = shots |> shotsByAllTakeouts |> List.length |> String.fromInt
                      , totalPercentage =
-                        round ((toFloat (shots |> shotsByAllTakeouts |> shotsToPoints) / toFloat ((shots |> List.length) * 4)) * 100) |> String.fromInt
+                        round ((toFloat (shots |> shotsByAllTakeouts |> shotsToPoints) / toFloat ((shots |> shotsByAllTakeouts |> List.length) * 4)) * 100) |> String.fromInt
                      }
                    , { throw = ""
                      , name = "Total"
