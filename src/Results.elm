@@ -3404,7 +3404,22 @@ viewDraws theme translations eventConfig event =
             let
                 gameNameWithResult =
                     case game.state of
+                        GamePending ->
+                            game.name
+
+                        GameActive ->
+                            -- Show the teams that are playing once a game is active.
+                            let
+                                teamNameForSide side =
+                                    findTeamForSide event.teams side
+                                        |> Maybe.map .shortName
+                            in
+                            List.map teamNameForSide game.sides
+                                |> List.filterMap identity
+                                |> String.join " v "
+
                         GameComplete ->
+                            -- Show the scores for the teams that played once a game is complete.
                             let
                                 teamNameForSide side =
                                     findTeamForSide event.teams side
@@ -3443,20 +3458,7 @@ viewDraws theme translations eventConfig event =
                                             |> List.map teamNameForSide
                                             |> List.filterMap identity
                             in
-                            -- String.join
-                            --     (String.toLower
-                            --         (if tied then
-                            --             " = "
-                            --
-                            --          else
-                            --             " > "
-                            --         )
-                            --     )
-                            --     sortedTeamNames
                             String.join " " sortedTeamNames
-
-                        _ ->
-                            game.name
             in
             if event.endScoresEnabled then
                 button
