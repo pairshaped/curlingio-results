@@ -379,7 +379,6 @@ type alias Side =
     , shots : List Shot
     , timeRemaining : Maybe String
     , lsd : Maybe Float
-    , lsdCumulative : Maybe Float
     }
 
 
@@ -863,7 +862,6 @@ decodeGame =
                 |> optional "shots" (list decodeShot) []
                 |> optional "time_remaining" (nullable string) Nothing
                 |> optional "lsd" (nullable float) Nothing
-                |> optional "lsd_cumulative" (nullable float) Nothing
     in
     Decode.succeed Game
         |> required "id" string
