@@ -199,6 +199,7 @@ type alias Event =
     , potentialDiscounts : List String
     , endScoresEnabled : Bool
     , shotByShotEnabled : Bool
+    , lastStoneDrawEnabled : Bool
     , numberOfEnds : Int
     , topRock : String
     , botRock : String
@@ -376,6 +377,9 @@ type alias Side =
     , winnerId : Maybe String
     , loserId : Maybe String
     , shots : List Shot
+    , timeRemaining : Maybe String
+    , lsd : Maybe Float
+    , lsdCumulative : Maybe Float
     }
 
 
@@ -465,6 +469,8 @@ type alias Standing =
     , losses : Int
     , ties : Int
     , points : Float
+    , lsd : Maybe Float
+    , lsdRank : Maybe Int
     }
 
 
@@ -627,6 +633,7 @@ decodeEvent =
         |> optional "potential_discounts" (list string) []
         |> optional "end_scores_enabled" bool False
         |> optional "shot_by_shot_enabled" bool False
+        |> optional "last_stone_draw_enabled" bool False
         |> optional "number_of_ends" int 10
         |> optional "top_rock" string "red"
         |> optional "bot_rock" string "yellow"
@@ -754,6 +761,8 @@ decodeStage =
                 |> required "losses" int
                 |> optional "ties" int 0
                 |> optional "points" float 0.0
+                |> optional "lsd" (nullable float) Nothing
+                |> optional "lsd_rank" (nullable int) Nothing
     in
     Decode.succeed Stage
         |> required "id" int
@@ -852,6 +861,9 @@ decodeGame =
                 |> optional "winner_id" (nullable string) Nothing
                 |> optional "loser_id" (nullable string) Nothing
                 |> optional "shots" (list decodeShot) []
+                |> optional "time_remaining" (nullable string) Nothing
+                |> optional "lsd" (nullable float) Nothing
+                |> optional "lsd_cumulative" (nullable float) Nothing
     in
     Decode.succeed Game
         |> required "id" string
@@ -3746,6 +3758,12 @@ viewStages theme device translations event onStage =
                 hasPoints =
                     List.any (\standing -> standing.points > 0) onStage.standings
 
+                hasLsdCumulative =
+                    List.any (\standing -> standing.lsd /= Nothing) onStage.standings
+
+                hasLsdRank =
+                    List.any (\standing -> standing.lsdRank /= Nothing) onStage.standings
+
                 tableHeader content =
                     el
                         [ Font.bold
@@ -3795,6 +3813,50 @@ viewStages theme device translations event onStage =
                                     Nothing ->
                                         text " "
                         }
+
+                lsdCumulativeColumn =
+                    if hasLsdCumulative then
+                        Just
+                            { header = tableHeader "LSD Cumulative"
+                            , width = El.fill
+                            , view =
+                                \i standing ->
+                                    tableCell i
+                                        (text
+                                            (case standing.lsd of
+                                                Just lsd ->
+                                                    String.fromFloat lsd
+
+                                                Nothing ->
+                                                    "-"
+                                            )
+                                        )
+                            }
+
+                    else
+                        Nothing
+
+                lsdRankColumn =
+                    if hasLsdRank then
+                        Just
+                            { header = tableHeader "LSD Standings"
+                            , width = El.fill
+                            , view =
+                                \i standing ->
+                                    tableCell i
+                                        (text
+                                            (case standing.lsdRank of
+                                                Just lsdRank ->
+                                                    String.fromInt lsdRank
+
+                                                Nothing ->
+                                                    "-"
+                                            )
+                                        )
+                            }
+
+                    else
+                        Nothing
 
                 gamesColumn =
                     Just
@@ -3875,7 +3937,7 @@ viewStages theme device translations event onStage =
                         Nothing
 
                 tableColumns =
-                    List.filterMap identity [ teamColumn, gamesColumn, winsColumn, lossesColumn, tiesColumn, pointsColumn ]
+                    List.filterMap identity [ teamColumn, lsdCumulativeColumn, lsdRankColumn, gamesColumn, winsColumn, lossesColumn, tiesColumn, pointsColumn ]
             in
             El.indexedTable [ El.htmlAttribute (class "cio__event_round_robin_table") ]
                 { data = onStage.standings
@@ -4264,6 +4326,25 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
         drawPath =
             drawUrl event.id draw.id
 
+        viewLsd : Side -> Element Msg
+        viewLsd side =
+            el
+                [ El.paddingXY 10 15
+                , Border.widthEach { left = 0, top = 0, right = 1, bottom = 1 }
+                , Border.color theme.grey
+                ]
+                (el [ El.centerX ]
+                    (text
+                        (case side.lsd of
+                            Just lsd ->
+                                String.fromFloat lsd
+
+                            Nothing ->
+                                " "
+                        )
+                    )
+                )
+
         viewEndScore : Int -> Side -> Element Msg
         viewEndScore endNumber side =
             let
@@ -4414,6 +4495,19 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
             , view = teamNameElement
             }
 
+        lsdColumn =
+            { header =
+                el
+                    [ El.paddingXY 10 15
+                    , Border.widthEach { left = 0, top = 1, right = 1, bottom = 2 }
+                    , Border.color theme.grey
+                    , Font.bold
+                    ]
+                    (el [ El.centerX ] (text "LSD"))
+            , width = El.px 60
+            , view = viewLsd
+            }
+
         endColumn endNumber =
             { header =
                 el
@@ -4453,7 +4547,20 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
             }
 
         tableColumns =
-            [ teamColumn ] ++ List.map endColumn (List.range 1 maxNumberOfEnds) ++ [ totalColumn ]
+            let
+                hasLsd =
+                    event.lastStoneDrawEnabled
+                        && List.any (\side -> side.lsd /= Nothing) game.sides
+            in
+            [ teamColumn ]
+                ++ (if hasLsd then
+                        [ lsdColumn ]
+
+                    else
+                        []
+                   )
+                ++ List.map endColumn (List.range 1 maxNumberOfEnds)
+                ++ [ totalColumn ]
     in
     column [ El.width El.fill, El.spacing 10 ]
         -- Breadcrumb
