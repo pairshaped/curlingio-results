@@ -4371,7 +4371,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                                 "X"
 
                             else
-                                "-"
+                                " "
 
                 endScoreInt =
                     List.Extra.getAt (endNumber - 1) side.endScores
