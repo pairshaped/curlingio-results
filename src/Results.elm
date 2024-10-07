@@ -6655,15 +6655,14 @@ viewReportPositionalPercentageComparison theme translations event onStageId =
 viewReportScoringAndPercentagesForGame : Theme -> List Translation -> Event -> Game -> Element Msg
 viewReportScoringAndPercentagesForGame theme translations event game =
     let
-        shotsGroupedByTeamAndCurler =
+        shotsGroupedByCurler =
             let
                 toSummary : ( ShotExpanded, List ShotExpanded ) -> ShotSummaryByPosition
                 toSummary ( shotsHead, shotsTail ) =
                     let
                         positionForCurler =
                             -- The position is determine by where they throw the most rocks, or if the same, the
-                            shotsHead
-                                :: shotsTail
+                            (shotsHead :: shotsTail)
                                 |> List.map .position
                                 |> List.Extra.group
                                 |> List.map (\tu -> ( Tuple.first tu, List.length (Tuple.second tu) ))
@@ -6674,19 +6673,11 @@ viewReportScoringAndPercentagesForGame theme translations event game =
                                 |> Maybe.withDefault 0
 
                         totalRatings =
-                            List.map .rating shotsTail
+                            List.map .rating (shotsHead :: shotsTail)
                                 |> List.filterMap identity
                                 |> List.map String.toInt
                                 |> List.filterMap identity
                                 |> List.sum
-                                |> (+)
-                                    (case shotsHead.rating of
-                                        Just n ->
-                                            String.toInt n |> Maybe.withDefault 0
-
-                                        Nothing ->
-                                            0
-                                    )
                     in
                     { position = positionForCurler
                     , sideNumber = shotsHead.sideNumber
@@ -6701,32 +6692,19 @@ viewReportScoringAndPercentagesForGame theme translations event game =
 
                 summarizedShots =
                     expandShotsForGame event game
+                        -- We need to sort by side number and curler since the groupWhile only examines adjacent items. (annoying!)
                         |> List.sortBy .curlerId
+                        -- Then sort by side so we keep the two sides separate
+                        |> List.sortBy .sideNumber
+                        -- Group by side and curler
+                        |> List.Extra.groupWhile (\a b -> a.sideNumber == b.sideNumber && a.curlerId == b.curlerId)
+                        -- Build out a shot summary for each
+                        |> List.map toSummary
+                        -- Sort by position within each side.
                         |> List.sortBy .position
                         |> List.sortBy .sideNumber
-                        |> List.Extra.groupWhile (\a b -> a.curlerId == b.curlerId)
-                        |> List.map toSummary
 
                 summarizedShotsByTeam =
-                    -- let
-                    --     addPlusToSummary summary =
-                    --         case List.Extra.find (\s -> (s.position == summary.position) && (s.teamId /= summary.teamId)) summarizedShots of
-                    --             Just s ->
-                    --                 { summary
-                    --                     | plus =
-                    --                         if summary.totalRatings > s.totalRatings then
-                    --                             Just True
-                    --
-                    --                         else if summary.totalRatings < s.totalRatings then
-                    --                             Just False
-                    --
-                    --                         else
-                    --                             Nothing
-                    --                 }
-                    --
-                    --             Nothing ->
-                    --                 summary
-                    -- in
                     summarizedShots
                         -- |> List.map addPlusToSummary
                         |> List.Extra.groupWhile (\a b -> a.sideNumber == b.sideNumber)
@@ -6819,7 +6797,9 @@ viewReportScoringAndPercentagesForGame theme translations event game =
                 ]
     in
     row [ El.width El.fill, El.spacing 30 ]
-        (List.map viewShotsByTeam shotsGroupedByTeamAndCurler)
+        (shotsGroupedByCurler
+            |> List.map viewShotsByTeam
+        )
 
 
 viewReportScoringAndPercentagesForDraw : Theme -> List Translation -> EventConfig -> Event -> Maybe Int -> Element Msg
