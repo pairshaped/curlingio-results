@@ -3762,16 +3762,16 @@ viewStages theme device translations event onStage =
                 hasLsdRank =
                     List.any (\standing -> standing.lsdRank /= Nothing) onStage.standings
 
-                tableHeader content =
+                tableHeader align content =
                     el
                         [ Font.bold
                         , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
                         , Border.color theme.grey
                         , El.paddingXY 12 16
                         ]
-                        (text (translate translations content))
+                        (el [ align ] (text (translate translations content)))
 
-                tableCell i content =
+                tableCell i align content =
                     el
                         [ El.paddingXY 12 16
                         , Background.color
@@ -3782,11 +3782,11 @@ viewStages theme device translations event onStage =
                                 theme.transparent
                             )
                         ]
-                        content
+                        (el [ align ] content)
 
                 teamColumn =
                     Just
-                        { header = tableHeader " "
+                        { header = tableHeader El.alignLeft " "
                         , width = El.fill
                         , view =
                             \i standing ->
@@ -3801,6 +3801,7 @@ viewStages theme device translations event onStage =
                                                     team.name
                                         in
                                         tableCell i
+                                            El.alignLeft
                                             (button
                                                 [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
                                                 { onPress = Just (NavigateTo (teamUrl event.id standing.teamId))
@@ -3815,11 +3816,19 @@ viewStages theme device translations event onStage =
                 lsdCumulativeColumn =
                     if hasLsdCumulative then
                         Just
-                            { header = tableHeader "LSD Cumulative"
+                            { header =
+                                tableHeader El.alignRight
+                                    (if device.class == El.Phone then
+                                        "LSD"
+
+                                     else
+                                        "LSD Cumulative"
+                                    )
                             , width = El.fill
                             , view =
                                 \i standing ->
                                     tableCell i
+                                        El.alignRight
                                         (text
                                             (case standing.lsd of
                                                 Just lsd ->
@@ -3837,11 +3846,19 @@ viewStages theme device translations event onStage =
                 lsdRankColumn =
                     if hasLsdRank then
                         Just
-                            { header = tableHeader "LSD Standings"
+                            { header =
+                                tableHeader El.alignRight
+                                    (if device.class == El.Phone then
+                                        "LSD #"
+
+                                     else
+                                        "LSD Standings"
+                                    )
                             , width = El.fill
                             , view =
                                 \i standing ->
                                     tableCell i
+                                        El.alignRight
                                         (text
                                             (case standing.lsdRank of
                                                 Just lsdRank ->
@@ -3859,7 +3876,7 @@ viewStages theme device translations event onStage =
                 gamesColumn =
                     Just
                         { header =
-                            tableHeader
+                            tableHeader El.alignRight
                                 (if device.class == El.Phone then
                                     "G"
 
@@ -3867,13 +3884,13 @@ viewStages theme device translations event onStage =
                                     "games"
                                 )
                         , width = El.fill
-                        , view = \i standing -> tableCell i (text (String.fromInt standing.played))
+                        , view = \i standing -> tableCell i El.alignRight (text (String.fromInt standing.played))
                         }
 
                 winsColumn =
                     Just
                         { header =
-                            tableHeader
+                            tableHeader El.alignRight
                                 (if device.class == El.Phone then
                                     "W"
 
@@ -3881,13 +3898,13 @@ viewStages theme device translations event onStage =
                                     "wins"
                                 )
                         , width = El.fill
-                        , view = \i standing -> tableCell i (text (String.fromInt standing.wins))
+                        , view = \i standing -> tableCell i El.alignRight (text (String.fromInt standing.wins))
                         }
 
                 lossesColumn =
                     Just
                         { header =
-                            tableHeader
+                            tableHeader El.alignRight
                                 (if device.class == El.Phone then
                                     "L"
 
@@ -3895,14 +3912,14 @@ viewStages theme device translations event onStage =
                                     "losses"
                                 )
                         , width = El.fill
-                        , view = \i standing -> tableCell i (text (String.fromInt standing.losses))
+                        , view = \i standing -> tableCell i El.alignRight (text (String.fromInt standing.losses))
                         }
 
                 tiesColumn =
                     if hasTies then
                         Just
                             { header =
-                                tableHeader
+                                tableHeader El.alignRight
                                     (if device.class == El.Phone then
                                         "T"
 
@@ -3910,7 +3927,7 @@ viewStages theme device translations event onStage =
                                         "ties"
                                     )
                             , width = El.fill
-                            , view = \i standing -> tableCell i (text (String.fromInt standing.ties))
+                            , view = \i standing -> tableCell i El.alignRight (text (String.fromInt standing.ties))
                             }
 
                     else
@@ -3920,7 +3937,7 @@ viewStages theme device translations event onStage =
                     if hasPoints then
                         Just
                             { header =
-                                tableHeader
+                                tableHeader El.alignRight
                                     (if device.class == El.Phone then
                                         "P"
 
@@ -3928,7 +3945,7 @@ viewStages theme device translations event onStage =
                                         "points"
                                     )
                             , width = El.fill
-                            , view = \i standing -> tableCell i (text (String.fromFloat standing.points))
+                            , view = \i standing -> tableCell i El.alignRight (text (String.fromFloat standing.points))
                             }
 
                     else
