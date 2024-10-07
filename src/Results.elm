@@ -6655,11 +6655,24 @@ viewReportPositionalPercentageComparison theme translations event onStageId =
 viewReportScoringAndPercentagesForGame : Theme -> List Translation -> Event -> Game -> Element Msg
 viewReportScoringAndPercentagesForGame theme translations event game =
     let
-        shotsGroupedByTeamAndPosition =
+        shotsGroupedByTeamAndCurler =
             let
                 toSummary : ( ShotExpanded, List ShotExpanded ) -> ShotSummaryByPosition
                 toSummary ( shotsHead, shotsTail ) =
                     let
+                        positionForCurler =
+                            -- The position is determine by where they throw the most rocks, or if the same, the
+                            shotsHead
+                                :: shotsTail
+                                |> List.map .position
+                                |> List.Extra.group
+                                |> List.map (\tu -> ( Tuple.first tu, List.length (Tuple.second tu) ))
+                                |> List.sortBy (\tu -> Tuple.second tu)
+                                |> List.reverse
+                                |> List.map (\tu -> Tuple.first tu)
+                                |> List.head
+                                |> Maybe.withDefault 0
+
                         totalRatings =
                             List.map .rating shotsTail
                                 |> List.filterMap identity
@@ -6675,7 +6688,7 @@ viewReportScoringAndPercentagesForGame theme translations event game =
                                             0
                                     )
                     in
-                    { position = shotsHead.position
+                    { position = positionForCurler
                     , sideNumber = shotsHead.sideNumber
                     , teamId = shotsHead.teamId
                     , teamName = shotsHead.teamShortName
@@ -6688,9 +6701,10 @@ viewReportScoringAndPercentagesForGame theme translations event game =
 
                 summarizedShots =
                     expandShotsForGame event game
+                        |> List.sortBy .curlerId
                         |> List.sortBy .position
                         |> List.sortBy .sideNumber
-                        |> List.Extra.groupWhile (\a b -> a.teamId == b.teamId && a.position == b.position)
+                        |> List.Extra.groupWhile (\a b -> a.curlerId == b.curlerId)
                         |> List.map toSummary
 
                 summarizedShotsByTeam =
@@ -6805,7 +6819,7 @@ viewReportScoringAndPercentagesForGame theme translations event game =
                 ]
     in
     row [ El.width El.fill, El.spacing 30 ]
-        (List.map viewShotsByTeam shotsGroupedByTeamAndPosition)
+        (List.map viewShotsByTeam shotsGroupedByTeamAndCurler)
 
 
 viewReportScoringAndPercentagesForDraw : Theme -> List Translation -> EventConfig -> Event -> Maybe Int -> Element Msg
