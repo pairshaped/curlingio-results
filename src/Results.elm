@@ -994,8 +994,20 @@ colorNameToRGB color =
         "red" ->
             El.rgb255 204 0 0
 
+        "blue" ->
+            El.rgb255 0 0 204
+
+        "green" ->
+            El.rgb255 0 204 0
+
         "yellow" ->
             El.rgb255 204 204 0
+
+        "black" ->
+            El.rgb255 0 0 0
+
+        "white" ->
+            El.rgb255 255 255 255
 
         _ ->
             El.rgb255 204 204 0
