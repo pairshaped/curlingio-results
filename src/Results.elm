@@ -3964,7 +3964,7 @@ viewStages theme device translations event onStage =
                         Nothing
 
                 tableColumns =
-                    List.filterMap identity [ teamColumn, lsdCumulativeColumn, lsdRankColumn, gamesColumn, winsColumn, lossesColumn, tiesColumn, pointsColumn ]
+                    List.filterMap identity [ teamColumn, gamesColumn, winsColumn, lossesColumn, tiesColumn, pointsColumn, lsdCumulativeColumn, lsdRankColumn ]
             in
             El.indexedTable [ El.htmlAttribute (class "cio__event_round_robin_table") ]
                 { data = onStage.standings
