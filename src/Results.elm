@@ -3834,7 +3834,8 @@ viewStages theme device translations event onStage =
                                         "LSD"
 
                                      else
-                                        "lsd_cumulative"
+                                        -- "lsd_cumulative"
+                                        "LSD Rank Distance"
                                     )
                             , width = El.fill
                             , view =
@@ -3864,7 +3865,8 @@ viewStages theme device translations event onStage =
                                         "LSD #"
 
                                      else
-                                        "lsd_standings"
+                                        -- "lsd_standings"
+                                        "LSD Standings"
                                     )
                             , width = El.fill
                             , view =
