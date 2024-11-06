@@ -2301,7 +2301,7 @@ view model =
             el
                 [ El.htmlAttribute (class "cio__main")
                 , El.width
-                    (if model.flags.fullScreen then
+                    (if fullScreen then
                         El.fill
 
                      else
@@ -2321,9 +2321,9 @@ view model =
                                         1920
                                 )
                     )
-                , El.centerX
                 , El.clipY
                 , El.scrollbarX
+                , El.centerX
                 , El.inFront
                     (row [ El.alignRight, El.spacing 10, El.paddingXY 0 10 ]
                         [ el [ El.alignTop ] (viewReloadStatus model)
@@ -2383,7 +2383,7 @@ view model =
             ]
         , El.htmlAttribute (class "cio__container")
         , El.inFront
-            (if model.flags.fullScreen then
+            (if fullScreen then
                 el [ El.width El.fill, El.height El.fill, El.padding 20, El.scrollbarY, Background.color theme.white ] viewMain
 
              else
@@ -2391,7 +2391,7 @@ view model =
             )
         ]
     <|
-        if model.flags.fullScreen then
+        if fullScreen then
             El.none
 
         else
@@ -3595,7 +3595,7 @@ viewDraws theme translations eventConfig event =
             El.paragraph [] [ text (translate translations "no_draws") ]
 
          else
-            column [ El.spacing 10 ]
+            column [ El.width El.fill, El.spacing 10 ]
                 [ El.table [ El.htmlAttribute (class "cio__event_draws_table") ]
                     { data = event.draws
                     , columns = tableColumns
@@ -6437,7 +6437,7 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                 , el [ El.alignRight ] viewTeamSelector
                 ]
             ]
-        , column [ El.spacing 20 ]
+        , column [ El.width El.fill, El.spacing 20 ]
             (case team of
                 Just team_ ->
                     [ el [ Font.size 20 ] (text team_.name)
