@@ -209,6 +209,7 @@ type alias Event =
     , spares : List Spare
     , stages : List Stage
     , draws : List Draw
+    , activeDrawId : Maybe Int
     }
 
 
@@ -325,7 +326,6 @@ type Tiebreaker
 type alias Draw =
     { id : Int
     , startsAt : String
-    , recent : Bool
     , label : String
     , attendance : Int
     , drawSheets : List (Maybe String)
@@ -642,6 +642,7 @@ decodeEvent =
         |> optional "spares" (list decodeSpare) []
         |> optional "stages" (list decodeStage) []
         |> optional "draws" (list decodeDraw) []
+        |> optional "active_draw_id" (nullable int) Nothing
 
 
 decodeTeam : Decoder Team
@@ -777,7 +778,6 @@ decodeDraw =
     Decode.succeed Draw
         |> required "id" int
         |> required "starts_at" string
-        |> optional "recent" bool False
         |> required "label" string
         |> optional "attendance" int 0
         |> required "draw_sheets" (list (nullable string))
@@ -3344,6 +3344,10 @@ viewSpares flags translations event =
 viewDraws : Theme -> List Translation -> EventConfig -> Event -> Element Msg
 viewDraws theme translations eventConfig event =
     let
+        noActiveGames =
+            List.filter (\g -> g.state == GameActive) (gamesFromStages event.stages)
+                |> List.isEmpty
+
         drawState : Draw -> DrawState
         drawState draw =
             let
@@ -3351,7 +3355,7 @@ viewDraws theme translations eventConfig event =
                     gamesFromStages event.stages
                         |> List.Extra.find (\g -> Just g.id == gameId)
 
-                hasActiveGame =
+                drawHasActiveGame =
                     let
                         isActiveGame game =
                             List.any (\g -> g.id == game.id && g.state == GameActive) (gamesFromStages event.stages)
@@ -3373,16 +3377,13 @@ viewDraws theme translations eventConfig event =
                         |> List.isEmpty
                         |> not
             in
-            if hasActiveGame then
+            if (noActiveGames && event.activeDrawId == Just draw.id) || drawHasActiveGame then
+                -- Highlight the active (closest) draw if there are no active games, or the current
+                -- draw is it has an active game.
                 DrawActive
 
             else if hasPendingGame then
-                -- if there's a pending game, and the draw start time has passed recently, then we assume it is the active draw.
-                if draw.recent then
-                    DrawActive
-
-                else
-                    DrawPending
+                DrawPending
 
             else
                 DrawComplete
@@ -3476,12 +3477,6 @@ viewDraws theme translations eventConfig event =
                         _ ->
                             Font.color theme.primary
                     , El.focused [ Background.color theme.white ]
-                    , case game.state of
-                        GameActive ->
-                            Font.bold
-
-                        _ ->
-                            Font.regular
                     ]
                     { onPress = Just (NavigateTo (gameUrl event.id game.id))
                     , label = text gameNameWithResult
@@ -3513,20 +3508,22 @@ viewDraws theme translations eventConfig event =
 
                 tableCell align drawState_ content =
                     row
-                        [ El.paddingXY 12 16
-                        , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
-                        , Border.color theme.grey
-                        , El.htmlAttribute (class "cio__event_draws_cell")
-                        , case drawState_ of
-                            DrawComplete ->
-                                Background.color theme.greyLightest
+                        ([ El.paddingXY 12 16
+                         , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                         , Border.color theme.grey
+                         , El.htmlAttribute (class "cio__event_draws_cell")
+                         ]
+                            ++ (case drawState_ of
+                                    DrawActive ->
+                                        [ Font.bold
+                                        , Background.color theme.greyLight
+                                        , Border.widthEach { bottom = 2, left = 0, right = 0, top = 1 }
+                                        ]
 
-                            DrawActive ->
-                                Background.color theme.greyLight
-
-                            DrawPending ->
-                                Background.color theme.transparent
-                        ]
+                                    _ ->
+                                        []
+                               )
+                        )
                         [ el [ align ] content ]
 
                 labelColumn =
