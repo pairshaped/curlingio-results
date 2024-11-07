@@ -3344,6 +3344,24 @@ viewSpares flags translations event =
 viewDraws : Theme -> List Translation -> EventConfig -> Event -> Element Msg
 viewDraws theme translations eventConfig event =
     let
+        activeDraw =
+            case List.Extra.find (\g -> g.state == GameActive) (gamesFromStages event.stages) of
+                Just game ->
+                    let
+                        findGameInDraw draw =
+                            List.any (\ds -> ds == Just game.id) draw.drawSheets
+                    in
+                    List.filter findGameInDraw event.draws
+                        |> List.head
+
+                Nothing ->
+                    case event.activeDrawId of
+                        Just activeDrawId ->
+                            List.Extra.find (\d -> d.id == activeDrawId) event.draws
+
+                        Nothing ->
+                            Nothing
+
         noActiveGames =
             List.filter (\g -> g.state == GameActive) (gamesFromStages event.stages)
                 |> List.isEmpty
@@ -3485,7 +3503,7 @@ viewDraws theme translations eventConfig event =
             else
                 el [] (text game.name)
 
-        tableColumns =
+        tableColumns onActive =
             let
                 hasAttendance =
                     List.any (\d -> d.attendance > 0) event.draws
@@ -3535,7 +3553,14 @@ viewDraws theme translations eventConfig event =
 
                 startsAtColumn =
                     Just
-                        { header = tableHeader El.alignLeft "draw"
+                        { header =
+                            tableHeader El.alignLeft
+                                (if onActive then
+                                    "Current Draw"
+
+                                 else
+                                    "All Draws"
+                                )
                         , width = El.px 180
                         , view = \draw -> tableCell El.alignLeft (drawState draw) (drawLink draw draw.startsAt (drawState draw))
                         }
@@ -3543,7 +3568,14 @@ viewDraws theme translations eventConfig event =
                 attendanceColumn =
                     if hasAttendance then
                         Just
-                            { header = tableHeader El.alignLeft "Att"
+                            { header =
+                                tableHeader El.alignLeft
+                                    (if onActive then
+                                        "Att"
+
+                                     else
+                                        "Att"
+                                    )
                             , width = El.px 65
                             , view =
                                 \draw ->
@@ -3592,10 +3624,19 @@ viewDraws theme translations eventConfig event =
             El.paragraph [] [ text (translate translations "no_draws") ]
 
          else
-            column [ El.width El.fill, El.spacing 10 ]
-                [ El.table [ El.htmlAttribute (class "cio__event_draws_table") ]
+            column [ El.width El.fill, El.spacing 20 ]
+                [ case activeDraw of
+                    Just draw ->
+                        El.table [ El.htmlAttribute (class "cio__event_draws_table") ]
+                            { data = [ draw ]
+                            , columns = tableColumns True
+                            }
+
+                    Nothing ->
+                        El.none
+                , El.table [ El.paddingXY 0 30, El.htmlAttribute (class "cio__event_draws_table") ]
                     { data = event.draws
-                    , columns = tableColumns
+                    , columns = tableColumns False
                     }
                 , case event.timeZone of
                     Just timeZone ->
@@ -4468,15 +4509,21 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                                     )
                                 )
                             ]
-                            (text
-                                (teamName side
-                                    ++ (if side.firstHammer then
-                                            " *"
+                            (row []
+                                [ case findTeamForSide event.teams side of
+                                    Just team ->
+                                        button [] { onPress = Just (NavigateTo (teamUrl event.id team.id)), label = text team.name }
 
-                                        else
-                                            ""
-                                       )
-                                )
+                                    Nothing ->
+                                        text "TDB"
+                                , text
+                                    (if side.firstHammer then
+                                        " *"
+
+                                     else
+                                        ""
+                                    )
+                                ]
                             )
                         )
             in
