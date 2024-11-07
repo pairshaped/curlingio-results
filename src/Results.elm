@@ -173,6 +173,7 @@ type alias EventConfig =
 
 type alias Event =
     { id : Int
+    , eventType : EventType
     , name : String
     , summary : Maybe String
     , description : Maybe String
@@ -211,6 +212,11 @@ type alias Event =
     , draws : List Draw
     , activeDrawId : Maybe Int
     }
+
+
+type EventType
+    = League
+    | Competition
 
 
 type EventState
@@ -582,6 +588,19 @@ decodeProduct =
 decodeEvent : Decoder Event
 decodeEvent =
     let
+        decodeEventType : Decoder EventType
+        decodeEventType =
+            string
+                |> Decode.andThen
+                    (\str ->
+                        case String.toLower str of
+                            "competition" ->
+                                Decode.succeed Competition
+
+                            _ ->
+                                Decode.succeed League
+                    )
+
         decodeEventState : Decoder EventState
         decodeEventState =
             string
@@ -606,6 +625,7 @@ decodeEvent =
     in
     Decode.succeed Event
         |> required "id" int
+        |> required "event_type" decodeEventType
         |> required "name" string
         |> optional "summary" (nullable string) Nothing
         |> optional "description" (nullable string) Nothing
@@ -3612,8 +3632,18 @@ viewDraws theme translations eventConfig event =
                                             text "-"
                                     )
                         }
+
+                sheetColumns =
+                    List.indexedMap sheetColumn
+                        (if onActive then
+                            -- Remove sheet names that have no games
+                            event.sheetNames
+
+                         else
+                            event.sheetNames
+                        )
             in
-            ([ labelColumn, startsAtColumn ] ++ List.indexedMap sheetColumn event.sheetNames ++ [ attendanceColumn ])
+            ([ labelColumn, startsAtColumn ] ++ sheetColumns ++ [ attendanceColumn ])
                 |> List.filterMap identity
     in
     el [ El.width El.fill, El.htmlAttribute (class "cio__event_draws") ]
@@ -3622,15 +3652,19 @@ viewDraws theme translations eventConfig event =
 
          else
             column [ El.width El.fill, El.spacing 20 ]
-                [ case activeDraw of
-                    Just draw ->
-                        El.table [ El.htmlAttribute (class "cio__event_draws_table") ]
-                            { data = [ draw ]
-                            , columns = tableColumns True
-                            }
+                [ if event.eventType == Competition then
+                    case activeDraw of
+                        Just draw ->
+                            El.table [ El.htmlAttribute (class "cio__event_draws_table") ]
+                                { data = [ draw ]
+                                , columns = tableColumns True
+                                }
 
-                    Nothing ->
-                        El.none
+                        Nothing ->
+                            El.none
+
+                  else
+                    El.none
                 , El.table [ El.paddingXY 0 30, El.htmlAttribute (class "cio__event_draws_table") ]
                     { data = event.draws
                     , columns = tableColumns False
