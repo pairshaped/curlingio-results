@@ -3362,10 +3362,6 @@ viewDraws theme translations eventConfig event =
                         Nothing ->
                             Nothing
 
-        noActiveGames =
-            List.filter (\g -> g.state == GameActive) (gamesFromStages event.stages)
-                |> List.isEmpty
-
         drawState : Draw -> DrawState
         drawState draw =
             let
@@ -3395,7 +3391,7 @@ viewDraws theme translations eventConfig event =
                         |> List.isEmpty
                         |> not
             in
-            if (noActiveGames && event.activeDrawId == Just draw.id) || drawHasActiveGame then
+            if (Maybe.map .id activeDraw == Just draw.id) || drawHasActiveGame then
                 -- Highlight the active (closest) draw if there are no active games, or the current
                 -- draw is it has an active game.
                 DrawActive
