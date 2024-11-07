@@ -3427,7 +3427,7 @@ viewDraws theme translations eventConfig event =
                 gameNameWithResult =
                     case game.state of
                         GamePending ->
-                            game.name
+                            text game.name
 
                         GameActive ->
                             -- Show the teams that are playing once a game is active.
@@ -3439,6 +3439,7 @@ viewDraws theme translations eventConfig event =
                             List.map teamNameForSide game.sides
                                 |> List.filterMap identity
                                 |> String.join " v "
+                                |> text
 
                         GameComplete ->
                             -- Show the scores for the teams that played once a game is complete.
@@ -3449,10 +3450,11 @@ viewDraws theme translations eventConfig event =
                                             (\team ->
                                                 case side.score of
                                                     Just score ->
-                                                        team.shortName ++ " " ++ String.fromInt score
+                                                        -- Bold the score
+                                                        row [ El.spacing 2 ] [ text team.shortName, el [ Font.bold ] (text (String.fromInt score)) ]
 
                                                     Nothing ->
-                                                        team.shortName
+                                                        text team.shortName
                                             )
 
                                 winningSide =
@@ -3480,7 +3482,7 @@ viewDraws theme translations eventConfig event =
                                             |> List.map teamNameForSide
                                             |> List.filterMap identity
                             in
-                            String.join " " sortedTeamNames
+                            row [ El.spacing 6 ] sortedTeamNames
             in
             if event.endScoresEnabled then
                 button
@@ -3493,7 +3495,7 @@ viewDraws theme translations eventConfig event =
                     , El.focused [ Background.color theme.white ]
                     ]
                     { onPress = Just (NavigateTo (gameUrl event.id game.id))
-                    , label = text gameNameWithResult
+                    , label = gameNameWithResult
                     }
 
             else
@@ -3529,8 +3531,7 @@ viewDraws theme translations eventConfig event =
                          ]
                             ++ (case drawState_ of
                                     DrawActive ->
-                                        [ Font.bold
-                                        , Background.color theme.greyLight
+                                        [ Background.color theme.greyLight
                                         , Border.widthEach { bottom = 2, left = 0, right = 0, top = 1 }
                                         ]
 
