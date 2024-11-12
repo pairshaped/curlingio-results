@@ -1357,7 +1357,7 @@ getTranslations : Flags -> Cmd Msg
 getTranslations flags =
     let
         url =
-            baseClubUrl flags ++ "/translations"
+            baseUrl flags ++ "/translations"
     in
     RemoteData.Http.get url GotTranslations decodeTranslations
 
