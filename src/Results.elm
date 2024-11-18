@@ -1593,11 +1593,7 @@ sheetNameForGame event game =
                 Just index ->
                     case List.Extra.getAt index event.sheetNames of
                         Just sheetName ->
-                            if sheetName == "" then
-                                "Sheet " ++ String.fromChar (Char.fromCode (index + 65))
-
-                            else
-                                sheetName
+                            sheetName
 
                         Nothing ->
                             ""
@@ -3607,9 +3603,7 @@ viewDraws theme translations eventConfig event =
                         { header =
                             tableHeader El.centerX
                                 (if sheetName == "" then
-                                    -- String.fromInt (columnIndex + 1)
-                                    -- Converting the int to A, B, C, D, E, etc. The A char starts at 65.
-                                    "Sheet " ++ String.fromChar (Char.fromCode (columnIndex + 65))
+                                    " "
 
                                  else
                                     sheetName
@@ -3634,14 +3628,7 @@ viewDraws theme translations eventConfig event =
                         }
 
                 sheetColumns =
-                    List.indexedMap sheetColumn
-                        (if onActive then
-                            -- Remove sheet names that have no games
-                            event.sheetNames
-
-                         else
-                            event.sheetNames
-                        )
+                    List.indexedMap sheetColumn event.sheetNames
             in
             ([ labelColumn, startsAtColumn ] ++ sheetColumns ++ [ attendanceColumn ])
                 |> List.filterMap identity
