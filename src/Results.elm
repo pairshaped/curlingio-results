@@ -179,6 +179,7 @@ type alias Event =
     , description : Maybe String
     , note : Maybe String
     , teamRestriction : String
+    , mixedDoubles : Bool
     , ageRange : String
     , sponsor : Maybe Sponsor
     , startsOn : String
@@ -631,6 +632,7 @@ decodeEvent =
         |> optional "description" (nullable string) Nothing
         |> optional "note" (nullable string) Nothing
         |> required "team_restriction" string
+        |> optional "mixed_doubles" bool False
         |> required "age_range" string
         |> optional "sponsor" (nullable decodeSponsor) Nothing
         |> required "starts_on" string
@@ -1927,33 +1929,46 @@ teamShots event team draw =
         |> List.filterMap identity
 
 
-shotNumberToPosition : Int -> Int
-shotNumberToPosition shotNumber =
-    case shotNumber of
-        1 ->
-            1
+shotNumberToPosition : Bool -> Int -> Int
+shotNumberToPosition mixedDoubles shotNumber =
+    if mixedDoubles then
+        case shotNumber of
+            1 ->
+                1
 
-        2 ->
-            1
+            5 ->
+                -- In mixed doubles, the lead throws 1 and 5.
+                1
 
-        3 ->
-            2
+            _ ->
+                2
 
-        4 ->
-            2
+    else
+        case shotNumber of
+            1 ->
+                1
 
-        5 ->
-            3
+            2 ->
+                1
 
-        6 ->
-            3
+            3 ->
+                2
 
-        _ ->
-            4
+            4 ->
+                2
+
+            5 ->
+                3
+
+            6 ->
+                3
+
+            _ ->
+                4
 
 
 expandShotsForGame : Event -> Game -> List ShotExpanded
-expandShotsForGame { teams, draws, stages } game =
+expandShotsForGame { mixedDoubles, teams, draws, stages } game =
     let
         findStage =
             stageWithGameId stages game.id
@@ -1986,7 +2001,7 @@ expandShotsForGame { teams, draws, stages } game =
                                                                 , curlerId = curlerId
                                                                 , curlerName = curler.name
                                                                 , endNumber = shot.endNumber
-                                                                , position = shotNumberToPosition shot.shotNumber
+                                                                , position = shotNumberToPosition mixedDoubles shot.shotNumber
                                                                 , rating = shot.rating
                                                                 }
 
