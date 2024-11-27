@@ -393,6 +393,7 @@ type SideResult
     = SideResultWon
     | SideResultLost
     | SideResultTied
+    | SideResultUnplayed
     | SideResultConceded
     | SideResultForfeited
     | SideResultTimePenalized
@@ -849,6 +850,9 @@ decodeGame =
                                     "tied" ->
                                         Decode.succeed (Just SideResultTied)
 
+                                    "unplayed" ->
+                                        Decode.succeed (Just SideResultUnplayed)
+
                                     "conceded" ->
                                         Decode.succeed (Just SideResultForfeited)
 
@@ -1047,6 +1051,9 @@ sideResultToString translations result =
 
             Just SideResultTied ->
                 "tied"
+
+            Just SideResultUnplayed ->
+                "unplayed"
 
             Just SideResultConceded ->
                 "forfeited"
@@ -1648,6 +1655,9 @@ gameScore game orderByTeamIds =
 
                                 Just SideResultTied ->
                                     "T"
+
+                                Just SideResultUnplayed ->
+                                    "U"
 
                                 _ ->
                                     "L"
@@ -3502,8 +3512,11 @@ viewDraws theme translations eventConfig event =
                                 tied =
                                     List.any (\s -> s.result == Just SideResultTied) game.sides
 
+                                unplayed =
+                                    List.any (\s -> s.result == Just SideResultUnplayed) game.sides
+
                                 sortedTeamNames =
-                                    if tied then
+                                    if tied || unplayed then
                                         List.map teamNameForSide game.sides
                                             |> List.filterMap identity
 
@@ -4345,7 +4358,11 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                         GamePending ->
                             text (translate translations "upcoming_game" ++ ": " ++ game.name)
             in
-            if detailed then
+            if List.any (\s -> s.result == Just SideResultUnplayed) game.sides then
+                -- Unplayed games are never linked.
+                el [ Font.italic, Font.color theme.greyDark, El.padding 8 ] (text (translate translations "unplayed"))
+
+            else if detailed then
                 el [ Font.italic, Font.color theme.greyDark, El.padding 8 ] label
 
             else
