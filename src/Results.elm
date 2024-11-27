@@ -393,7 +393,7 @@ type SideResult
     = SideResultWon
     | SideResultLost
     | SideResultTied
-    | SideResultUnplayed
+    | SideResultUnnecessary
     | SideResultConceded
     | SideResultForfeited
     | SideResultTimePenalized
@@ -850,8 +850,8 @@ decodeGame =
                                     "tied" ->
                                         Decode.succeed (Just SideResultTied)
 
-                                    "unplayed" ->
-                                        Decode.succeed (Just SideResultUnplayed)
+                                    "unnecessary" ->
+                                        Decode.succeed (Just SideResultUnnecessary)
 
                                     "conceded" ->
                                         Decode.succeed (Just SideResultForfeited)
@@ -1052,8 +1052,8 @@ sideResultToString translations result =
             Just SideResultTied ->
                 "tied"
 
-            Just SideResultUnplayed ->
-                "unplayed"
+            Just SideResultUnnecessary ->
+                "unnecessary"
 
             Just SideResultConceded ->
                 "forfeited"
@@ -1656,7 +1656,7 @@ gameScore game orderByTeamIds =
                                 Just SideResultTied ->
                                     "T"
 
-                                Just SideResultUnplayed ->
+                                Just SideResultUnnecessary ->
                                     "U"
 
                                 _ ->
@@ -3512,11 +3512,11 @@ viewDraws theme translations eventConfig event =
                                 tied =
                                     List.any (\s -> s.result == Just SideResultTied) game.sides
 
-                                unplayed =
-                                    List.any (\s -> s.result == Just SideResultUnplayed) game.sides
+                                unnecessary =
+                                    List.any (\s -> s.result == Just SideResultUnnecessary) game.sides
 
                                 sortedTeamNames =
-                                    if tied || unplayed then
+                                    if tied || unnecessary then
                                         List.map teamNameForSide game.sides
                                             |> List.filterMap identity
 
@@ -4358,9 +4358,9 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                         GamePending ->
                             text (translate translations "upcoming_game" ++ ": " ++ game.name)
             in
-            if List.any (\s -> s.result == Just SideResultUnplayed) game.sides then
-                -- Unplayed games are never linked.
-                el [ Font.italic, Font.color theme.greyDark, El.padding 8 ] (text (translate translations "unplayed"))
+            if List.any (\s -> s.result == Just SideResultUnnecessary) game.sides then
+                -- Unnecessary games are never linked.
+                el [ Font.italic, Font.color theme.greyDark, El.padding 8 ] (text (translate translations "unnecessary"))
 
             else if detailed then
                 el [ Font.italic, Font.color theme.greyDark, El.padding 8 ] label
