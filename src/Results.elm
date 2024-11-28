@@ -79,6 +79,7 @@ type NestedEventRoute
 type ScoringHilight
     = HilightHammers
     | HilightStolenEnds
+    | HilightStolenPoints
     | HilightBlankEnds
     | Hilight1PointEnds
     | Hilight2PointEnds
@@ -3597,10 +3598,10 @@ viewDraws theme translations eventConfig event =
                         { header =
                             tableHeader El.alignLeft
                                 (if onActive then
-                                    "Current Draw"
+                                    translate translations "current_draw"
 
                                  else
-                                    "All Draws"
+                                    translate translations "all_draws"
                                 )
                         , width = El.px 180
                         , view = \draw -> tableCell El.alignLeft (drawState draw) (drawLink draw draw.startsAt (drawState draw))
@@ -4334,7 +4335,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                                     sideResultToString translations result
                             in
                             if not detailed && event.endScoresEnabled then
-                                text "Final Game Statistics"
+                                text (translate translations "final_game_statistics")
 
                             else if List.any (\s -> s.result == Just SideResultTied) game.sides then
                                 let
@@ -4397,6 +4398,9 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
 
                                         HilightStolenEnds ->
                                             "stolen_ends"
+
+                                        HilightStolenPoints ->
+                                            "stolen_points"
 
                                         HilightBlankEnds ->
                                             "blank_ends"
@@ -4490,6 +4494,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                 isHilighted =
                     (scoringHilight == Just HilightHammers && hasHammer)
                         || (scoringHilight == Just HilightStolenEnds && stolenEnd)
+                        || (scoringHilight == Just HilightStolenPoints && stolenEnd)
                         || (scoringHilight == Just HilightBlankEnds && blankEnd)
                         || (scoringHilight == Just Hilight1PointEnds && (endScoreInt == 1))
                         || (scoringHilight == Just Hilight2PointEnds && (endScoreInt == 2))
@@ -5482,15 +5487,15 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
-                                tableCell El.centerX 1 (text "For")
+                                tableCell El.centerX 1 (text (translate translations "for"))
 
                             else
-                                tableCell El.centerX 1 (text "Against")
+                                tableCell El.centerX 1 (text (translate translations "against"))
                   }
 
                 -- LSFE / First Hammer
                 , { header =
-                        tableHeader "LSFE" El.centerX (Just (ToggleScoringHilight HilightHammers)) (Just "1")
+                        tableHeader (translate translations "lsfe") El.centerX (Just (ToggleScoringHilight HilightHammers)) (Just "1")
                   , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
@@ -5505,7 +5510,7 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
 
                 -- Stolen Ends
                 , { header =
-                        tableHeader "SE" El.centerX (Just (ToggleScoringHilight HilightStolenEnds)) (Just "2")
+                        tableHeader (translate translations "se") El.centerX (Just (ToggleScoringHilight HilightStolenEnds)) (Just "2")
                   , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
@@ -5519,7 +5524,7 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
                   }
 
                 -- Blank Ends
-                , { header = tableHeader "BE" El.centerX (Just (ToggleScoringHilight HilightBlankEnds)) (Just "3")
+                , { header = tableHeader (translate translations "be") El.centerX (Just (ToggleScoringHilight HilightBlankEnds)) (Just "3")
                   , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
@@ -5617,7 +5622,7 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
                   }
 
                 -- Average points
-                , { header = tableHeader "Avg" El.centerX Nothing Nothing
+                , { header = tableHeader (translate translations "avg") El.centerX Nothing Nothing
                   , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
@@ -5631,7 +5636,7 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
                   }
 
                 -- Stolen points
-                , { header = tableHeader "SP" El.centerX (Just (ToggleScoringHilight HilightStolenEnds)) (Just "4")
+                , { header = tableHeader (translate translations "sp") El.centerX (Just (ToggleScoringHilight HilightStolenPoints)) (Just "4")
                   , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
@@ -5646,10 +5651,10 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
                 ]
             }
         , El.column [ El.paddingXY 0 20, El.spacing 5, Font.size 12 ]
-            [ el [] (text "1 - LSFE: Last Shot First End")
-            , el [] (text "2 - SE: Stolen Ends")
-            , el [] (text "3 - BE: Blank Ends")
-            , el [] (text "4 - SP: Stolen Points")
+            [ el [] (text ("1 - " ++ translate translations "lsfe" ++ ": " ++ translate translations "last_shot_first_end"))
+            , el [] (text ("2 - " ++ translate translations "se" ++ ": " ++ translate translations "stolen_ends"))
+            , el [] (text ("3 - " ++ translate translations "be" ++ ": " ++ translate translations "blank_ends"))
+            , el [] (text ("4 - " ++ translate translations "sp" ++ ": " ++ translate translations "stolen_points"))
             ]
         ]
 
