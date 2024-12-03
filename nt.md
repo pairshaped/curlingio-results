@@ -63,6 +63,8 @@ Place the following raw javascript code in to your scoreboard page, customizing 
 The current games widget is meant to be embedded in a sidebar on the home page.
 It will list only the current games that are being played across all of your competitions with their scores.
 
+Do NOT embed this widget alongside the main widget above. They might not get along.
+
 Place the following raw javascript code into your sidebar widget to display the current games widget:
 
     <!-- REQUIRED. This script tag is required to load the widget. -->
@@ -89,8 +91,3 @@ Place the following raw javascript code into your sidebar widget to display the 
         }
       )
     </script>
-
-
-## Uninstall Legacy Widgets
-
-Once you have completed the V2 widget integrations above, please uninstall and remove all references to the Curling I/O legacy plugin.
