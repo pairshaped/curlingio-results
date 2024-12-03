@@ -79,6 +79,7 @@ type NestedEventRoute
 type ScoringHilight
     = HilightHammers
     | HilightStolenEnds
+    | HilightStolenPoints
     | HilightBlankEnds
     | Hilight1PointEnds
     | Hilight2PointEnds
@@ -179,6 +180,7 @@ type alias Event =
     , description : Maybe String
     , note : Maybe String
     , teamRestriction : String
+    , mixedDoubles : Bool
     , ageRange : String
     , sponsor : Maybe Sponsor
     , startsOn : String
@@ -392,6 +394,7 @@ type SideResult
     = SideResultWon
     | SideResultLost
     | SideResultTied
+    | SideResultUnnecessary
     | SideResultConceded
     | SideResultForfeited
     | SideResultTimePenalized
@@ -631,6 +634,7 @@ decodeEvent =
         |> optional "description" (nullable string) Nothing
         |> optional "note" (nullable string) Nothing
         |> required "team_restriction" string
+        |> optional "mixed_doubles" bool False
         |> required "age_range" string
         |> optional "sponsor" (nullable decodeSponsor) Nothing
         |> required "starts_on" string
@@ -847,6 +851,9 @@ decodeGame =
                                     "tied" ->
                                         Decode.succeed (Just SideResultTied)
 
+                                    "unnecessary" ->
+                                        Decode.succeed (Just SideResultUnnecessary)
+
                                     "conceded" ->
                                         Decode.succeed (Just SideResultForfeited)
 
@@ -1045,6 +1052,9 @@ sideResultToString translations result =
 
             Just SideResultTied ->
                 "tied"
+
+            Just SideResultUnnecessary ->
+                "unnecessary"
 
             Just SideResultConceded ->
                 "forfeited"
@@ -1593,11 +1603,7 @@ sheetNameForGame event game =
                 Just index ->
                     case List.Extra.getAt index event.sheetNames of
                         Just sheetName ->
-                            if sheetName == "" then
-                                "Sheet " ++ String.fromChar (Char.fromCode (index + 65))
-
-                            else
-                                sheetName
+                            sheetName
 
                         Nothing ->
                             ""
@@ -1650,6 +1656,9 @@ gameScore game orderByTeamIds =
 
                                 Just SideResultTied ->
                                     "T"
+
+                                Just SideResultUnnecessary ->
+                                    "U"
 
                                 _ ->
                                     "L"
@@ -1931,33 +1940,46 @@ teamShots event team draw =
         |> List.filterMap identity
 
 
-shotNumberToPosition : Int -> Int
-shotNumberToPosition shotNumber =
-    case shotNumber of
-        1 ->
-            1
+shotNumberToPosition : Bool -> Int -> Int
+shotNumberToPosition mixedDoubles shotNumber =
+    if mixedDoubles then
+        case shotNumber of
+            1 ->
+                1
 
-        2 ->
-            1
+            5 ->
+                -- In mixed doubles, the lead throws 1 and 5.
+                1
 
-        3 ->
-            2
+            _ ->
+                2
 
-        4 ->
-            2
+    else
+        case shotNumber of
+            1 ->
+                1
 
-        5 ->
-            3
+            2 ->
+                1
 
-        6 ->
-            3
+            3 ->
+                2
 
-        _ ->
-            4
+            4 ->
+                2
+
+            5 ->
+                3
+
+            6 ->
+                3
+
+            _ ->
+                4
 
 
 expandShotsForGame : Event -> Game -> List ShotExpanded
-expandShotsForGame { teams, draws, stages } game =
+expandShotsForGame { mixedDoubles, teams, draws, stages } game =
     let
         findStage =
             stageWithGameId stages game.id
@@ -1990,7 +2012,7 @@ expandShotsForGame { teams, draws, stages } game =
                                                                 , curlerId = curlerId
                                                                 , curlerName = curler.name
                                                                 , endNumber = shot.endNumber
-                                                                , position = shotNumberToPosition shot.shotNumber
+                                                                , position = shotNumberToPosition mixedDoubles shot.shotNumber
                                                                 , rating = shot.rating
                                                                 }
 
@@ -3491,8 +3513,11 @@ viewDraws theme translations eventConfig event =
                                 tied =
                                     List.any (\s -> s.result == Just SideResultTied) game.sides
 
+                                unnecessary =
+                                    List.any (\s -> s.result == Just SideResultUnnecessary) game.sides
+
                                 sortedTeamNames =
-                                    if tied then
+                                    if tied || unnecessary then
                                         List.map teamNameForSide game.sides
                                             |> List.filterMap identity
 
@@ -3573,10 +3598,10 @@ viewDraws theme translations eventConfig event =
                         { header =
                             tableHeader El.alignLeft
                                 (if onActive then
-                                    "Current Draw"
+                                    translate translations "current_draw"
 
                                  else
-                                    "All Draws"
+                                    translate translations "all_draws"
                                 )
                         , width = El.px 180
                         , view = \draw -> tableCell El.alignLeft (drawState draw) (drawLink draw draw.startsAt (drawState draw))
@@ -3607,9 +3632,7 @@ viewDraws theme translations eventConfig event =
                         { header =
                             tableHeader El.centerX
                                 (if sheetName == "" then
-                                    -- String.fromInt (columnIndex + 1)
-                                    -- Converting the int to A, B, C, D, E, etc. The A char starts at 65.
-                                    "Sheet " ++ String.fromChar (Char.fromCode (columnIndex + 65))
+                                    " "
 
                                  else
                                     sheetName
@@ -3634,14 +3657,7 @@ viewDraws theme translations eventConfig event =
                         }
 
                 sheetColumns =
-                    List.indexedMap sheetColumn
-                        (if onActive then
-                            -- Remove sheet names that have no games
-                            event.sheetNames
-
-                         else
-                            event.sheetNames
-                        )
+                    List.indexedMap sheetColumn event.sheetNames
             in
             ([ labelColumn, startsAtColumn ] ++ sheetColumns ++ [ attendanceColumn ])
                 |> List.filterMap identity
@@ -4319,7 +4335,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                                     sideResultToString translations result
                             in
                             if not detailed && event.endScoresEnabled then
-                                text "Final Game Statistics"
+                                text (translate translations "final_game_statistics")
 
                             else if List.any (\s -> s.result == Just SideResultTied) game.sides then
                                 let
@@ -4343,7 +4359,11 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                         GamePending ->
                             text (translate translations "upcoming_game" ++ ": " ++ game.name)
             in
-            if detailed then
+            if List.any (\s -> s.result == Just SideResultUnnecessary) game.sides then
+                -- Unnecessary games are never linked.
+                el [ Font.italic, Font.color theme.greyDark, El.padding 8 ] (text (translate translations "unnecessary"))
+
+            else if detailed then
                 el [ Font.italic, Font.color theme.greyDark, El.padding 8 ] label
 
             else
@@ -4378,6 +4398,9 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
 
                                         HilightStolenEnds ->
                                             "stolen_ends"
+
+                                        HilightStolenPoints ->
+                                            "stolen_points"
 
                                         HilightBlankEnds ->
                                             "blank_ends"
@@ -4471,6 +4494,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                 isHilighted =
                     (scoringHilight == Just HilightHammers && hasHammer)
                         || (scoringHilight == Just HilightStolenEnds && stolenEnd)
+                        || (scoringHilight == Just HilightStolenPoints && stolenEnd)
                         || (scoringHilight == Just HilightBlankEnds && blankEnd)
                         || (scoringHilight == Just Hilight1PointEnds && (endScoreInt == 1))
                         || (scoringHilight == Just Hilight2PointEnds && (endScoreInt == 2))
@@ -5463,15 +5487,15 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
                   , view =
                         \i team ->
                             if modBy 2 i == 0 then
-                                tableCell El.centerX 1 (text "For")
+                                tableCell El.centerX 1 (text (translate translations "for"))
 
                             else
-                                tableCell El.centerX 1 (text "Against")
+                                tableCell El.centerX 1 (text (translate translations "against"))
                   }
 
                 -- LSFE / First Hammer
                 , { header =
-                        tableHeader "LSFE" El.centerX (Just (ToggleScoringHilight HilightHammers)) (Just "1")
+                        tableHeader (translate translations "lsfe") El.centerX (Just (ToggleScoringHilight HilightHammers)) (Just "1")
                   , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
@@ -5486,7 +5510,7 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
 
                 -- Stolen Ends
                 , { header =
-                        tableHeader "SE" El.centerX (Just (ToggleScoringHilight HilightStolenEnds)) (Just "2")
+                        tableHeader (translate translations "se") El.centerX (Just (ToggleScoringHilight HilightStolenEnds)) (Just "2")
                   , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
@@ -5500,7 +5524,7 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
                   }
 
                 -- Blank Ends
-                , { header = tableHeader "BE" El.centerX (Just (ToggleScoringHilight HilightBlankEnds)) (Just "3")
+                , { header = tableHeader (translate translations "be") El.centerX (Just (ToggleScoringHilight HilightBlankEnds)) (Just "3")
                   , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
@@ -5598,7 +5622,7 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
                   }
 
                 -- Average points
-                , { header = tableHeader "Avg" El.centerX Nothing Nothing
+                , { header = tableHeader (translate translations "avg") El.centerX Nothing Nothing
                   , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
@@ -5612,7 +5636,7 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
                   }
 
                 -- Stolen points
-                , { header = tableHeader "SP" El.centerX (Just (ToggleScoringHilight HilightStolenEnds)) (Just "4")
+                , { header = tableHeader (translate translations "sp") El.centerX (Just (ToggleScoringHilight HilightStolenPoints)) (Just "4")
                   , width = El.fill |> El.minimum 40
                   , view =
                         \i team ->
@@ -5627,10 +5651,10 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
                 ]
             }
         , El.column [ El.paddingXY 0 20, El.spacing 5, Font.size 12 ]
-            [ el [] (text "1 - LSFE: Last Shot First End")
-            , el [] (text "2 - SE: Stolen Ends")
-            , el [] (text "3 - BE: Blank Ends")
-            , el [] (text "4 - SP: Stolen Points")
+            [ el [] (text ("1 - " ++ translate translations "lsfe" ++ ": " ++ translate translations "last_shot_first_end"))
+            , el [] (text ("2 - " ++ translate translations "se" ++ ": " ++ translate translations "stolen_ends"))
+            , el [] (text ("3 - " ++ translate translations "be" ++ ": " ++ translate translations "blank_ends"))
+            , el [] (text ("4 - " ++ translate translations "sp" ++ ": " ++ translate translations "stolen_points"))
             ]
         ]
 
