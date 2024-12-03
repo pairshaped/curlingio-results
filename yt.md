@@ -1,6 +1,6 @@
 # Overview
 
-Instructions on embedding the Curling I/O V2 Widgets onto the Yukon Curling Association wordpress site.
+Instructions on embedding the Curling I/O V2 Widgets onto the Yukon Curling Association web site.
 
 You'll need the ability to embed raw javascript code into your pages and sidebar.
 
