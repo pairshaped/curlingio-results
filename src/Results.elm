@@ -1413,10 +1413,37 @@ getItems flags itemFilter =
 getEvent : Flags -> Int -> Cmd Msg
 getEvent flags id =
     let
+        includeRegistrations =
+            if List.member "registrations" flags.excludeEventSections then
+                Nothing
+
+            else
+                Just "registrations"
+
+        includeSpares =
+            if List.member "spares" flags.excludeEventSections then
+                Nothing
+
+            else
+                Just "spares"
+
+        includeParamVal =
+            [ includeRegistrations, includeSpares ]
+                |> List.filterMap identity
+                |> String.join ","
+
+        includeParam =
+            if includeParamVal == "" then
+                ""
+
+            else
+                "?include=" ++ includeParamVal
+
         url =
             baseClubUrl flags
                 ++ "events/"
                 ++ String.fromInt id
+                ++ includeParam
     in
     RemoteData.Http.get url GotEvent decodeEvent
 
