@@ -3494,22 +3494,8 @@ viewDraws theme translations eventConfig event =
         gameLink game drawState_ =
             let
                 gameNameWithResult =
+                    -- Show the teams that are playing once a game is active.
                     case game.state of
-                        GamePending ->
-                            text game.name
-
-                        GameActive ->
-                            -- Show the teams that are playing once a game is active.
-                            let
-                                teamNameForSide side =
-                                    findTeamForSide event.teams side
-                                        |> Maybe.map .shortName
-                            in
-                            List.map teamNameForSide game.sides
-                                |> List.filterMap identity
-                                |> String.join " v "
-                                |> text
-
                         GameComplete ->
                             -- Show the scores for the teams that played once a game is complete.
                             let
@@ -3555,6 +3541,22 @@ viewDraws theme translations eventConfig event =
                                             |> List.filterMap identity
                             in
                             row [ El.spacing 6 ] sortedTeamNames
+
+                        _ ->
+                            let
+                                teamNameForSide side =
+                                    findTeamForSide event.teams side
+                                        |> Maybe.map .shortName
+
+                                teamShortNames =
+                                    List.map teamNameForSide game.sides
+                                        |> List.filterMap identity
+                            in
+                            if List.length teamShortNames == 2 then
+                                text (String.join " v " teamShortNames)
+
+                            else
+                                text game.name
             in
             if event.endScoresEnabled then
                 button
@@ -3571,7 +3573,7 @@ viewDraws theme translations eventConfig event =
                     }
 
             else
-                el [] (text game.name)
+                el [] gameNameWithResult
 
         tableColumns onActive =
             let
