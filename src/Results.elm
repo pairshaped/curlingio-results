@@ -7063,7 +7063,7 @@ subscriptions model =
         [ hashChangeReceiver (HashChanged False)
         , Browser.Events.onResize (\values -> SetDevice values)
         , if reloadEnabled model.flags model.hash model.event then
-            Time.every 30000 Tick
+            Time.every 45000 Tick
 
           else
             Sub.none
