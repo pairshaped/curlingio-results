@@ -158,7 +158,7 @@ type alias Product =
     , sponsor : Maybe Sponsor
     , addToCartUrl : Maybe String
     , addToCartText : Maybe String
-    , totalWithTax : Maybe String
+    , total : Maybe String
     , potentialDiscounts : List String
     }
 
@@ -198,7 +198,7 @@ type alias Event =
     , spotsRemaining : Maybe Int
     , addToCartUrl : Maybe String
     , addToCartText : Maybe String
-    , totalWithTax : Maybe String
+    , total : Maybe String
     , potentialDiscounts : List String
     , endScoresEnabled : Bool
     , shotByShotEnabled : Bool
@@ -584,7 +584,7 @@ decodeProduct =
         |> optional "sponsor" (nullable decodeSponsor) Nothing
         |> optional "add_to_cart_url" (nullable string) Nothing
         |> optional "add_to_cart_text" (nullable string) Nothing
-        |> optional "total_with_tax" (nullable string) Nothing
+        |> optional "total" (nullable string) Nothing
         |> optional "potential_discounts" (list string) []
 
 
@@ -652,7 +652,7 @@ decodeEvent =
         |> optional "spots_remaining" (nullable int) Nothing
         |> optional "add_to_cart_url" (nullable string) Nothing
         |> optional "add_to_cart_text" (nullable string) Nothing
-        |> optional "total_with_tax" (nullable string) Nothing
+        |> optional "total" (nullable string) Nothing
         |> optional "potential_discounts" (list string) []
         |> optional "end_scores_enabled" bool False
         |> optional "shot_by_shot_enabled" bool False
@@ -2893,11 +2893,11 @@ viewProduct { theme } translations fullScreen product =
 
                 Nothing ->
                     El.none
-            , case product.totalWithTax of
-                Just totalWithTax ->
+            , case product.total of
+                Just total ->
                     column [ El.spacing 8, El.htmlAttribute (class "cio__product_total") ]
-                        [ el [ Font.bold ] (text (translate translations "total_with_tax"))
-                        , el [] (text totalWithTax)
+                        [ el [ Font.bold ] (text (translate translations "total"))
+                        , el [] (text total)
                         ]
 
                 _ ->
@@ -3101,11 +3101,11 @@ viewDetails theme device translations event =
 
                 Nothing ->
                     El.none
-            , case event.totalWithTax of
-                Just totalWithTax ->
+            , case event.total of
+                Just total ->
                     column [ El.spacing 8, El.htmlAttribute (class "cio__event_total") ]
-                        [ el [ Font.bold ] (text (translate translations "total_with_tax"))
-                        , el [] (text totalWithTax)
+                        [ el [ Font.bold ] (text (translate translations "total"))
+                        , el [] (text total)
                         ]
 
                 _ ->
