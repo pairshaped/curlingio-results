@@ -3512,35 +3512,17 @@ viewDraws theme translations eventConfig event =
                                                         text team.shortName
                                             )
 
-                                winningSide =
-                                    List.Extra.find (\s -> s.result == Just SideResultWon) game.sides
-
-                                losingSide =
-                                    case winningSide of
-                                        Just winningSide_ ->
-                                            List.Extra.find (\s -> s.teamId /= winningSide_.teamId) game.sides
-
-                                        Nothing ->
-                                            Nothing
-
                                 tied =
                                     List.any (\s -> s.result == Just SideResultTied) game.sides
 
                                 unnecessary =
                                     List.any (\s -> s.result == Just SideResultUnnecessary) game.sides
 
-                                sortedTeamNames =
-                                    if tied || unnecessary then
-                                        List.map teamNameForSide game.sides
-                                            |> List.filterMap identity
-
-                                    else
-                                        [ winningSide, losingSide ]
-                                            |> List.filterMap identity
-                                            |> List.map teamNameForSide
-                                            |> List.filterMap identity
+                                teamNames =
+                                    List.map teamNameForSide game.sides
+                                        |> List.filterMap identity
                             in
-                            row [ El.spacing 6 ] sortedTeamNames
+                            row [ El.spacing 6 ] teamNames
 
                         _ ->
                             let
