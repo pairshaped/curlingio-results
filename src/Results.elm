@@ -422,6 +422,8 @@ type alias ShotExpanded =
     , curlerName : String
     , endNumber : Int
     , position : Int
+    , turn : Maybe String
+    , throw : Maybe String
     , rating : Maybe String
     }
 
@@ -2040,6 +2042,8 @@ expandShotsForGame { mixedDoubles, teams, draws, stages } game =
                                                                 , curlerName = curler.name
                                                                 , endNumber = shot.endNumber
                                                                 , position = shotNumberToPosition mixedDoubles shot.shotNumber
+                                                                , turn = shot.turn
+                                                                , throw = shot.throw
                                                                 , rating = shot.rating
                                                                 }
 
@@ -6801,6 +6805,8 @@ viewReportScoringAndPercentagesForGame theme translations event game =
 
                 summarizedShots =
                     expandShotsForGame event game
+                        -- Remove throw throughs (X in throw)
+                        |> List.filter (\s -> s.throw /= Nothing && s.throw /= Just "X")
                         -- We need to sort by side number and curler since the groupWhile only examines adjacent items. (annoying!)
                         |> List.sortBy .curlerId
                         -- Then sort by side so we keep the two sides separate
