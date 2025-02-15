@@ -3497,49 +3497,48 @@ viewDraws theme translations eventConfig event =
         gameLink : Game -> DrawState -> Element Msg
         gameLink game drawState_ =
             let
-                gameNameWithResult =
+                teamNameForSide side =
+                    findTeamForSide event.teams side
+                        |> Maybe.map .shortName
+
+                teamNames =
+                    List.map teamNameForSide game.sides
+                        |> List.filterMap identity
+
+                hasScores =
+                    List.any (\s -> s.score /= Nothing) game.sides
+
+                teamNameForSideWithScore side =
+                    findTeamForSide event.teams side
+                        |> Maybe.map
+                            (\team ->
+                                case side.score of
+                                    Just score ->
+                                        -- Bold the score
+                                        row [ El.spacing 2 ] [ text team.shortName, el [ Font.bold ] (text (String.fromInt score)) ]
+
+                                    Nothing ->
+                                        text team.shortName
+                            )
+
+                teamNamesWithScores =
+                    List.map teamNameForSideWithScore game.sides
+                        |> List.filterMap identity
+
+                gameNameWithScores =
                     -- Show the teams that are playing once a game is active.
                     case game.state of
                         GameComplete ->
                             -- Show the scores for the teams that played once a game is complete.
-                            let
-                                teamNameForSide side =
-                                    findTeamForSide event.teams side
-                                        |> Maybe.map
-                                            (\team ->
-                                                case side.score of
-                                                    Just score ->
-                                                        -- Bold the score
-                                                        row [ El.spacing 2 ] [ text team.shortName, el [ Font.bold ] (text (String.fromInt score)) ]
+                            if hasScores then
+                                row [ El.spacing 6 ] teamNamesWithScores
 
-                                                    Nothing ->
-                                                        text team.shortName
-                                            )
-
-                                tied =
-                                    List.any (\s -> s.result == Just SideResultTied) game.sides
-
-                                unnecessary =
-                                    List.any (\s -> s.result == Just SideResultUnnecessary) game.sides
-
-                                teamNames =
-                                    List.map teamNameForSide game.sides
-                                        |> List.filterMap identity
-                            in
-                            row [ El.spacing 6 ] teamNames
+                            else
+                                text (String.join " v " teamNames)
 
                         _ ->
-                            let
-                                teamNameForSide side =
-                                    findTeamForSide event.teams side
-                                        |> Maybe.map .shortName
-
-                                teamShortNames =
-                                    List.map teamNameForSide game.sides
-                                        |> List.filterMap identity
-                            in
-                            if List.length teamShortNames == 2 then
-                                text (String.join " v " teamShortNames)
+                            if List.length teamNames == 2 then
+                                text (String.join " v " teamNames)
 
                             else
                                 text game.name
@@ -3555,11 +3554,11 @@ viewDraws theme translations eventConfig event =
                     , El.focused [ Background.color theme.white ]
                     ]
                     { onPress = Just (NavigateTo (gameUrl event.id game.id))
-                    , label = gameNameWithResult
+                    , label = gameNameWithScores
                     }
 
             else
-                el [] gameNameWithResult
+                el [] gameNameWithScores
 
         tableColumns onActive =
             let
