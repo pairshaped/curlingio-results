@@ -1714,6 +1714,33 @@ gameScore game orderByTeamIds =
             Just score
 
 
+hasHammerInEnd : Side -> Side -> Int -> Bool
+hasHammerInEnd side otherSide endIndex =
+    let
+        previousEndScore s =
+            Maybe.withDefault 0 (List.Extra.getAt (endIndex - 1) s.endScores)
+
+        -- Check if they lost the previous end (thus getting hammer for this end)
+        -- Maybe.withDefault 0 (List.Extra.getAt (endIndex - 1) sideAgainst.endScores) > 0
+    in
+    if endIndex == 0 then
+        -- If we're in the first end, then we check the firstHammer field.
+        side.firstHammer
+
+    else
+        -- If we're not in the first end, then we compare the scores from the previous end.
+        case ( previousEndScore side, previousEndScore otherSide ) of
+            ( 0, 0 ) ->
+                -- If the previous end was 0, we go back another end via recursion
+                hasHammerInEnd side otherSide (endIndex - 1)
+
+            ( 0, _ ) ->
+                True
+
+            _ ->
+                False
+
+
 isBlankEnd : Maybe Side -> Maybe Side -> Int -> Bool
 isBlankEnd sideA sideB endNumber =
     let
@@ -1780,17 +1807,7 @@ stolenEnds for games team =
 
                 stolenEnd : Side -> Side -> Int -> Maybe Int
                 stolenEnd sideFor sideAgainst endIndex =
-                    let
-                        hasHammer =
-                            if endIndex > 0 then
-                                -- Check if they lost the previous end (thus getting hammer for this end)
-                                Maybe.withDefault 0 (List.Extra.getAt (endIndex - 1) sideAgainst.endScores) > 0
-
-                            else
-                                -- First end and first hammer?
-                                sideFor.firstHammer == True
-                    in
-                    if hasHammer then
+                    if hasHammerInEnd sideFor sideAgainst endIndex then
                         Nothing
 
                     else
@@ -4472,6 +4489,8 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                     List.Extra.find (\s -> s.firstHammer /= side.firstHammer) game.sides
 
                 hasHammer =
+                    -- THIS IS WRONG, we need the other side to know if they had hammer
+                    -- WE want to call hasHammerInEnd side otherSize (endNumber - 1)
                     if endNumber == 1 && side.firstHammer then
                         True
 
