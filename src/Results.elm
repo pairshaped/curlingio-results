@@ -4489,18 +4489,12 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                     List.Extra.find (\s -> s.firstHammer /= side.firstHammer) game.sides
 
                 hasHammer =
-                    -- THIS IS WRONG, we need the other side to know if they had hammer
-                    -- WE want to call hasHammerInEnd side otherSize (endNumber - 1)
-                    if endNumber == 1 && side.firstHammer then
-                        True
+                    case sideAgainst of
+                        Just otherSide ->
+                            hasHammerInEnd side otherSide (endNumber - 1)
 
-                    else
-                        case List.Extra.getAt (endNumber - 2) side.endScores of
-                            Just es ->
-                                es == 0
-
-                            Nothing ->
-                                False
+                        Nothing ->
+                            False
 
                 endScoreStr =
                     case List.Extra.getAt (endNumber - 1) side.endScores of
