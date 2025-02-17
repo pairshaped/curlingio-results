@@ -5226,8 +5226,7 @@ viewReports theme translations event =
                     , reportButton "scoring_and_percentages"
                     , reportButton "statistics_by_team"
                     , reportButton "cumulative_statistics_by_team"
-
-                    -- , reportButton "positional_percentage_comparison"
+                    , reportButton "positional_percentage_comparison"
                     ]
 
                 else
@@ -6669,13 +6668,13 @@ viewReportPositionalPercentageComparison : Theme -> List Translation -> Event ->
 viewReportPositionalPercentageComparison theme translations event onStageId =
     --
     -- Table for each position (grouped)
-    -- The percentage is theri cumulative shot rating divided by the max show rating (4 is max rating, multiplied by number of shots).
+    -- The percentage is their cumulative shot rating divided by the max shot rating (4 is max rating, multiplied by number of shots).
     --  So for example, say Brad gets 3, 3, 4, 2, 4 ratings for 5 shots. The would be: (3+3+4+2+4) / (4+4+4+4+4) = 16/20 = 80%.
     --  If Brad's opposite (throwing the same shot numbers) scored a lower percentage, then Brad get's a +, so 80 +, if we was lower then 80 -
-    -- Header Row: [Position Number, Draw Number, Draw Number, Cumulative, +/-
-    -- Data Row: [Curler name, percentage for game (if played in draw), percentage for game, percentage for draw, cumulative percentage, plus minus]
+    -- Header Row: [Position Number (E.g. Fourth), Draw Number, Draw Number,,,, Cumulative, +/-
+    -- Data Row: [Curler name, percentage for draw (game, if played), percentage for darw (game, if played),,,, cumulative percentage, plus minus]
     -- For example:
-    --    [Fourth Position, Draw 1, Draw 2, Draw 3, Draw 4, Draw 5, Draw 6, Draw 7, Draw 8, Draw 9, Cumulative, +/-]
+    --    [Fourth, Draw 1, Draw 2, Draw 3, Draw 4, Draw 5, Draw 6, Draw 7, Draw 8, Draw 9, Cumulative, +/-]
     --    [Matt, 81, 79, , 98 +, 89 +, 76, 88, 89 +, 89 +, 86, +4]
     --    [Brad, 85, 87, 75 -, , 73 -, 93 +, 89 +, 74 -, 93 +, 83, 0]
     --
@@ -6774,6 +6773,7 @@ viewReportPositionalPercentageComparison theme translations event onStageId =
 
         -- , column [] (List.map viewPosition positions)
         , el [] (text "Coming Soon!")
+        , el [] (text "")
         ]
 
 
