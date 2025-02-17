@@ -1718,7 +1718,7 @@ hasHammerInEnd : Side -> Side -> Int -> Bool
 hasHammerInEnd side otherSide endIndex =
     let
         previousEndScore s =
-            Maybe.withDefault 0 (List.Extra.getAt (endIndex - 1) s.endScores)
+            List.Extra.getAt (endIndex - 1) s.endScores
 
         -- Check if they lost the previous end (thus getting hammer for this end)
         -- Maybe.withDefault 0 (List.Extra.getAt (endIndex - 1) sideAgainst.endScores) > 0
@@ -1730,11 +1730,11 @@ hasHammerInEnd side otherSide endIndex =
     else
         -- If we're not in the first end, then we compare the scores from the previous end.
         case ( previousEndScore side, previousEndScore otherSide ) of
-            ( 0, 0 ) ->
+            ( Just 0, Just 0 ) ->
                 -- If the previous end was 0, we go back another end via recursion
                 hasHammerInEnd side otherSide (endIndex - 1)
 
-            ( 0, _ ) ->
+            ( Just 0, _ ) ->
                 True
 
             _ ->
