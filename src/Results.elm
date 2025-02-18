@@ -435,7 +435,7 @@ type alias ShotSummaryByPosition =
     , curlerName : String
     , numberOfShots : Int
     , totalRatings : Int
-    , percentage : Int
+    , percentage : Float
     , plus : Maybe Bool
     }
 
@@ -2252,7 +2252,7 @@ summarizeShotsByPositionForGame event game =
             , curlerName = shotsHead.curlerName
             , numberOfShots = numberOfShots
             , totalRatings = totalRatings
-            , percentage = round (toFloat totalRatings / toFloat numberOfShots * 100 / 4)
+            , percentage = toFloat totalRatings / toFloat numberOfShots * 100 / 4
             , plus = Nothing
             }
     in
@@ -6606,7 +6606,7 @@ viewReportPositionalPercentageComparison theme translations event =
                         |> List.sortBy (\ss -> ss.curlerId)
                         |> List.Extra.groupWhile (\a b -> a.curlerId == b.curlerId)
                         |> List.map fromNonempty
-                        |> List.sortBy (\g -> List.sum (List.map .percentage g) // List.length g)
+                        |> List.sortBy (\g -> List.sum (List.map .percentage g) / toFloat (List.length g))
                         |> List.reverse
 
                 data : List ShotSummaryByPosition
@@ -6646,7 +6646,7 @@ viewReportPositionalPercentageComparison theme translations event =
                                 El.alignRight
                                 (case List.Extra.find (\ss -> ss.drawId == draw.id) shotSummary of
                                     Just ss ->
-                                        String.fromInt ss.percentage
+                                        String.fromInt (round ss.percentage)
 
                                     _ ->
                                         " "
@@ -6682,8 +6682,8 @@ viewReportPositionalPercentageComparison theme translations event =
                                 \i shotSummaries ->
                                     viewCell i
                                         El.alignRight
-                                        (String.fromInt
-                                            (List.sum (List.map .percentage shotSummaries) // List.length shotSummaries)
+                                        (String.fromFloat
+                                            (toFloat (round ((List.sum (List.map .percentage shotSummaries) / toFloat (List.length shotSummaries)) * 10)) / 10)
                                         )
                              }
                            ]
