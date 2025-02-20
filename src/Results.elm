@@ -440,6 +440,19 @@ type alias ShotSummaryByPosition =
     }
 
 
+type alias PositionalPercentage =
+    { position : Int
+    , drawEpoch : Int
+    , curlerId : Int
+    , curlerName : String
+    , teamId : Int
+    , teamName : String
+    , alternate : Bool
+    , percentage : Float
+    , oppositePercentage : Float
+    }
+
+
 type alias TeamShot =
     { curlerId : Int
     , curlerName : String
@@ -1828,8 +1841,8 @@ gameScore game orderByTeamIds =
             Just score
 
 
-hasHammerInEnd : Side -> Side -> Int -> Bool
-hasHammerInEnd side otherSide endIndex =
+hasHammerInEnd : Bool -> Side -> Side -> Int -> Bool
+hasHammerInEnd mixedDoubles side otherSide endIndex =
     let
         previousEndScore s =
             List.Extra.getAt (endIndex - 1) s.endScores
@@ -1846,7 +1859,12 @@ hasHammerInEnd side otherSide endIndex =
         case ( previousEndScore side, previousEndScore otherSide ) of
             ( Just 0, Just 0 ) ->
                 -- If the previous end was 0, we go back another end via recursion
-                hasHammerInEnd side otherSide (endIndex - 1)
+                if mixedDoubles then
+                    -- For mixed doubles, a 0 0 end does the opposite and switches hammer
+                    not (hasHammerInEnd mixedDoubles side otherSide (endIndex - 1))
+
+                else
+                    hasHammerInEnd mixedDoubles side otherSide (endIndex - 1)
 
             ( Just 0, _ ) ->
                 True
@@ -1894,8 +1912,8 @@ blankEnds games team =
         |> List.concat
 
 
-stolenEnds : Bool -> List Game -> Team -> List Int
-stolenEnds for games team =
+stolenEnds : Bool -> Bool -> List Game -> Team -> List Int
+stolenEnds mixedDoubles for games team =
     -- The for is a bool to indicate for (True) or against (False)
     let
         -- We need to look at each end score, and whether or not they had the hammer.
@@ -1921,7 +1939,7 @@ stolenEnds for games team =
 
                 stolenEnd : Side -> Side -> Int -> Maybe Int
                 stolenEnd sideFor sideAgainst endIndex =
-                    if hasHammerInEnd sideFor sideAgainst endIndex then
+                    if hasHammerInEnd mixedDoubles sideFor sideAgainst endIndex then
                         Nothing
 
                     else
@@ -2209,6 +2227,11 @@ expandShotsForEvent event =
         |> List.map (expandShotsForStage event)
         -- Lift the stages up to the root
         |> List.concat
+
+
+positionalPercentageForGame : Event -> Game -> List PositionalPercentage
+positionalPercentageForGame event game =
+    []
 
 
 summarizeShotsByPositionForGame : Event -> Game -> List ShotSummaryByPosition
@@ -4607,7 +4630,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                 hasHammer =
                     case sideAgainst of
                         Just otherSide ->
-                            hasHammerInEnd side otherSide (endNumber - 1)
+                            hasHammerInEnd event.mixedDoubles side otherSide (endNumber - 1)
 
                         Nothing ->
                             False
@@ -5824,10 +5847,10 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
             toFloat (round ((toFloat (totalPointsAgainst team) / toFloat (List.length (endsAgainst team))) * 100)) / 100
 
         stolenEndsCount team for =
-            List.length (stolenEnds for (games team) team)
+            List.length (stolenEnds event.mixedDoubles for (games team) team)
 
         stolenPoints team for =
-            List.sum (stolenEnds for (games team) team)
+            List.sum (stolenEnds event.mixedDoubles for (games team) team)
 
         tableHeader content align onPress sup =
             el
@@ -6180,7 +6203,7 @@ viewReportScoringAnalysisByHammer theme translations event =
                             round ((toFloat blankEndsForOrAgainst / toFloat (endsFor |> List.length)) * 100)
 
                         stolenEndsAgainst =
-                            List.length (stolenEnds False games team)
+                            List.length (stolenEnds event.mixedDoubles False games team)
 
                         stolenEndsAgainstPercent =
                             round ((toFloat stolenEndsAgainst / toFloat (endsAgainst |> List.length)) * 100)
@@ -6578,6 +6601,12 @@ viewReportScoringAndPercentagesForDraw theme translations eventConfig event onDr
 
 viewReportPositionalPercentageComparison : Theme -> List Translation -> Event -> Element Msg
 viewReportPositionalPercentageComparison theme translations event =
+    -- We need to figure out how many shots were taken per position per game,
+    -- then we'll want to use that to determine if the curler has taken at least
+    -- 50% of those shots to determine if they'll be listed in the positional
+    -- percentages or as an alternate (less than 50% means unranked / alternate).
+    -- Right now we're doing this based on the predetermined lineup position, which is
+    -- incorrect (but probably right most of the time).
     let
         draws =
             drawsWithCompletedGames event
