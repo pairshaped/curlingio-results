@@ -6163,6 +6163,7 @@ viewReportScoringAnalysisByHammer theme translations event =
                     el
                         [ El.width (El.fillPortion portion |> El.minimum 85)
                         , El.padding 10
+                        , El.clipX
                         , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
                         , Border.color theme.grey
                         ]
@@ -6170,27 +6171,57 @@ viewReportScoringAnalysisByHammer theme translations event =
 
                 viewTeamByHammer rowNumber team =
                     let
-                        gamesCount =
+                        gamesWithTeam : List Game
+                        gamesWithTeam =
                             gamesForTeam games team
-                                |> List.length
 
-                        sidesFor =
-                            List.map .sides games
-                                |> List.concat
-                                |> List.filter (\s -> s.teamId == Just team.id)
+                        gamesCount =
+                            List.length gamesWithTeam
 
-                        sidesAgainst =
-                            List.map .sides (gamesForTeam games team)
+                        endsByTeam : Bool -> List Int
+                        endsByTeam for =
+                            let
+                                endsByGame : Game -> List Int
+                                endsByGame game =
+                                    let
+                                        sideMaybe for_ =
+                                            game.sides
+                                                |> List.filter
+                                                    (\s ->
+                                                        if for_ then
+                                                            s.teamId == Just team.id
+
+                                                        else
+                                                            s.teamId /= Just team.id
+                                                    )
+                                                |> List.head
+
+                                        hasHammer : Side -> Side -> Int -> Int -> ( Bool, Int )
+                                        hasHammer side sideOther endIndex endScore =
+                                            ( hasHammerInEnd event.mixedDoubles side sideOther endIndex
+                                            , endScore
+                                            )
+                                    in
+                                    case ( sideMaybe for, sideMaybe (not for) ) of
+                                        ( Just side, Just sideOther ) ->
+                                            side.endScores
+                                                |> List.indexedMap (hasHammer side sideOther)
+                                                |> List.filter (\es -> Tuple.first es == withHammer)
+                                                |> List.map Tuple.second
+
+                                        _ ->
+                                            []
+
+                                -- hasHammerInEnd event.mixedDoubles sideFor sideAgainst endIndex
+                            in
+                            List.map endsByGame gamesWithTeam
                                 |> List.concat
-                                |> List.filter (\s -> s.teamId /= Just team.id)
 
                         endsFor =
-                            List.map .endScores sidesFor
-                                |> List.concat
+                            endsByTeam True
 
                         endsAgainst =
-                            List.map .endScores sidesAgainst
-                                |> List.concat
+                            endsByTeam False
 
                         endsCount =
                             endsFor |> List.length
