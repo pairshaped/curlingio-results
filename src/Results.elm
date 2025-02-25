@@ -96,6 +96,7 @@ type alias Flags =
     , subdomain : Maybe String
     , fullScreenToggle : Bool
     , fullScreen : Bool
+    , searchable : Bool
     , section : ItemsSection
     , registration : Bool
     , showWaiversForTeams : Bool
@@ -539,6 +540,7 @@ decodeFlags =
         |> optional "subdomain" (nullable string) Nothing
         |> optional "fullScreenToggle" bool False
         |> hardcoded False
+        |> optional "searchable" bool True
         |> optional "section" decodeSection LeaguesSection
         |> optional "registration" bool False
         |> optional "showWaiversForTeams" bool False
@@ -1215,6 +1217,7 @@ init flags_ =
                     , subdomain = Nothing
                     , fullScreenToggle = False
                     , fullScreen = False
+                    , searchable = True
                     , section = LeaguesSection
                     , registration = False
                     , showWaiversForTeams = False
@@ -2903,28 +2906,32 @@ viewItems flags device translations itemFilter items =
                 |> Array.toList
     in
     column [ El.spacing 10, El.width El.fill, El.height (El.fill |> El.minimum 250) ]
-        [ row [ El.spacing 20 ]
-            [ Input.text
-                [ El.width
-                    (El.px
-                        (case device.class of
-                            El.Phone ->
-                                180
+        [ row [ El.spacing 20, El.htmlAttribute (class "cio__filter_container") ]
+            [ if flags.searchable then
+                Input.text
+                    [ El.width
+                        (El.px
+                            (case device.class of
+                                El.Phone ->
+                                    180
 
-                            _ ->
-                                250
+                                _ ->
+                                    250
+                            )
                         )
-                    )
-                , Border.width 1
-                , Border.color theme.grey
-                , El.padding 10
-                , El.htmlAttribute (class "cio__search")
-                ]
-                { placeholder = Just (Input.placeholder [] (text (translate translations "search")))
-                , text = itemFilter.search
-                , onChange = UpdateSearch
-                , label = Input.labelHidden ""
-                }
+                    , Border.width 1
+                    , Border.color theme.grey
+                    , El.padding 10
+                    , El.htmlAttribute (class "cio__search")
+                    ]
+                    { placeholder = Just (Input.placeholder [] (text (translate translations "search")))
+                    , text = itemFilter.search
+                    , onChange = UpdateSearch
+                    , label = Input.labelHidden ""
+                    }
+
+              else
+                El.none
             , if List.length items.seasons > 1 then
                 viewSeasonDropDown
 
@@ -7200,7 +7207,7 @@ subscriptions model =
         [ hashChangeReceiver (HashChanged False)
         , Browser.Events.onResize (\values -> SetDevice values)
         , if reloadEnabled model.flags model.hash model.event then
-            Time.every 45000 Tick
+            Time.every 30000 Tick
 
           else
             Sub.none
