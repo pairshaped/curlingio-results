@@ -394,6 +394,18 @@ type SideResult
     | SideResultTimePenalized
 
 
+type alias HammerStat =
+    { teamId : Int
+    , hammer : Bool
+    , score : Int
+    , opponentScore : Int
+    , blank : Bool
+    , stolen : Bool
+    , singlePoint : Bool
+    , multiPoint : Bool
+    }
+
+
 type alias Shot =
     { endNumber : Int
     , shotNumber : Int
@@ -1849,9 +1861,6 @@ hasHammerInEnd mixedDoubles side otherSide endIndex =
     let
         previousEndScore s =
             List.Extra.getAt (endIndex - 1) s.endScores
-
-        -- Check if they lost the previous end (thus getting hammer for this end)
-        -- Maybe.withDefault 0 (List.Extra.getAt (endIndex - 1) sideAgainst.endScores) > 0
     in
     if endIndex == 0 then
         -- If we're in the first end, then we check the firstHammer field.
@@ -6146,11 +6155,49 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
 
 viewReportScoringAnalysisByHammer : Theme -> List Translation -> Event -> Element Msg
 viewReportScoringAnalysisByHammer theme translations event =
+    -- For each team,
+    -- get every game they played in by matching on side.teamId.
+    -- we want a data structure like:
+    -- ( List (hammer bool, endScore),
+    -- List (List { hammer = Bool, score = 4, scoreOther = 0 })
+    -- The first list is all of the games, and the list within each game is every end, indicating if they have the hammer and both scores.
+    -- get
     let
+        hammerStats team =
+            let
+                hammerStatsForGame game =
+                    let
+                        side =
+                            -- Get the side we're on
+                            List.Extra.findBy (\g -> g.teamId == team.id) game.sides
+
+                        otherSide =
+                            -- Get the side we aren't on
+                            List.Extra.findBy (\g -> g.teamId /= team.id) game.sides
+                    in
+                    -- Get the end scores for the side we're on
+                    List.map side.endScores side
+                        |> HammerStat team.id (hasHammerInEnd TODO) score opponentScore
+            in
+            -- get all of the game for the team
+            gamesForTeam event.games team
+                -- get each end for each game
+                |> List.map hammerStatsForGame
+
         games : List Game
         games =
             -- Not pending
             List.filter (\g -> g.state /= GamePending) (gamesFromStages event.stages)
+
+        teamEnds teamId =
+            let
+                teamEndsForSides game =
+                    ( List.Extra.find (\s -> s.teamId == teamId) game.sides
+                    , List.Extra.find (\s -> s.teamId /= teamId) game.sides
+                    )
+            in
+            teamsWithGames event.teams games
+                |> List.map teamEndsForSides
 
         viewByHammer withHammer =
             let
