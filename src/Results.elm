@@ -406,7 +406,9 @@ type alias EndStat =
     , stolenFor : Bool
     , stolenAgainst : Bool
     , onePointFor : Bool
+    , onePointAgainst : Bool
     , multiPointFor : Bool
+    , multiPointAgainst : Bool
     }
 
 
@@ -2022,7 +2024,9 @@ endStatsForGames { stages, mixedDoubles } team =
                     , stolenFor = not hammer && scoreFor > 0
                     , stolenAgainst = hammer && scoreAgainst > 0
                     , onePointFor = scoreFor == 1
+                    , onePointAgainst = scoreAgainst == 1
                     , multiPointFor = scoreFor > 1
+                    , multiPointAgainst = scoreAgainst > 1
                     }
             in
             -- Get the end scores for the side we're on
@@ -6267,71 +6271,101 @@ viewReportScoringAnalysisByHammer theme translations event =
                                 |> List.filter (\es -> es.hammer == withHammer)
                                 |> List.length
 
-                        blankEndsFor : Int
-                        blankEndsFor =
+                        blankEnds : Bool -> Int
+                        blankEnds for =
+                            let
+                                statFilter es =
+                                    if for then
+                                        es.blankFor
+
+                                    else
+                                        es.blankAgainst
+                            in
                             endStats
                                 |> List.concat
                                 |> List.filter (\es -> es.hammer == withHammer)
-                                |> List.filter .blankFor
+                                |> List.filter statFilter
                                 |> List.length
 
-                        blankEndsForPercent : Int
-                        blankEndsForPercent =
-                            if blankEndsFor == 0 then
+                        blankEndsPercent : Bool -> Int
+                        blankEndsPercent for =
+                            if blankEnds for == 0 then
                                 0
 
                             else
-                                round ((toFloat blankEndsFor / toFloat endsFor) * 100)
+                                round ((toFloat (blankEnds for) / toFloat endsFor) * 100)
 
-                        stolenEndsAgainst : Int
-                        stolenEndsAgainst =
-                            -- You can only be stolen against if you have the hammer.
-                            -- Right?
+                        stolenEnds : Bool -> Int
+                        stolenEnds for =
+                            let
+                                statFilter es =
+                                    if for then
+                                        es.stolenFor
+
+                                    else
+                                        es.stolenAgainst
+                            in
                             endStats
                                 |> List.concat
                                 |> List.filter (\es -> es.hammer == withHammer)
-                                |> List.filter .stolenAgainst
+                                |> List.filter statFilter
                                 |> List.length
 
-                        stolenEndsAgainstPercent : Int
-                        stolenEndsAgainstPercent =
-                            if stolenEndsAgainst == 0 then
+                        stolenEndsPercent : Bool -> Int
+                        stolenEndsPercent for =
+                            if stolenEnds for == 0 then
                                 0
 
                             else
-                                round ((toFloat stolenEndsAgainst / toFloat endsFor) * 100)
+                                round ((toFloat (stolenEnds for) / toFloat endsFor) * 100)
 
-                        singlePointsFor : Int
-                        singlePointsFor =
+                        singlePoints : Bool -> Int
+                        singlePoints for =
+                            let
+                                statFilter es =
+                                    if for then
+                                        es.onePointFor
+
+                                    else
+                                        es.onePointAgainst
+                            in
                             endStats
                                 |> List.concat
                                 |> List.filter (\es -> es.hammer == withHammer)
-                                |> List.filter .onePointFor
+                                |> List.filter statFilter
                                 |> List.length
 
-                        singlePointsForPercent : Int
-                        singlePointsForPercent =
-                            if singlePointsFor == 0 then
+                        singlePointsPercent : Bool -> Int
+                        singlePointsPercent for =
+                            if singlePoints for == 0 then
                                 0
 
                             else
-                                round ((toFloat singlePointsFor / toFloat endsFor) * 100)
+                                round ((toFloat (singlePoints for) / toFloat endsFor) * 100)
 
-                        multiPointsFor : Int
-                        multiPointsFor =
+                        multiPoints : Bool -> Int
+                        multiPoints for =
+                            let
+                                statFilter es =
+                                    if for then
+                                        es.multiPointFor
+
+                                    else
+                                        es.multiPointAgainst
+                            in
                             endStats
                                 |> List.concat
                                 |> List.filter (\es -> es.hammer == withHammer)
-                                |> List.filter .multiPointFor
+                                |> List.filter statFilter
                                 |> List.length
 
-                        multiPointsForPercent : Int
-                        multiPointsForPercent =
-                            if multiPointsFor == 0 then
+                        multiPointsPercent : Bool -> Int
+                        multiPointsPercent for =
+                            if multiPoints for == 0 then
                                 0
 
                             else
-                                round ((toFloat multiPointsFor / toFloat endsFor) * 100)
+                                round ((toFloat (multiPoints for) / toFloat endsFor) * 100)
                     in
                     row
                         [ El.width El.fill
@@ -6357,14 +6391,46 @@ viewReportScoringAnalysisByHammer theme translations event =
                             }
                         , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt gamesCount) }
                         , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt endsFor) }
-                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt blankEndsFor) }
-                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt blankEndsForPercent) }
-                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt stolenEndsAgainst) }
-                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt stolenEndsAgainstPercent) }
-                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt singlePointsFor) }
-                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt singlePointsForPercent) }
-                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt multiPointsFor) }
-                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt multiPointsForPercent) }
+                        , viewCell
+                            { portion = 1
+                            , align = El.alignRight
+                            , content = text (String.fromInt (blankEnds withHammer))
+                            }
+                        , viewCell
+                            { portion = 1
+                            , align = El.alignRight
+                            , content = text (String.fromInt (blankEndsPercent withHammer))
+                            }
+                        , viewCell
+                            { portion = 1
+                            , align = El.alignRight
+                            , content = text (String.fromInt (stolenEnds (not withHammer)))
+                            }
+                        , viewCell
+                            { portion = 1
+                            , align = El.alignRight
+                            , content = text (String.fromInt (stolenEndsPercent (not withHammer)))
+                            }
+                        , viewCell
+                            { portion = 1
+                            , align = El.alignRight
+                            , content = text (String.fromInt (singlePoints withHammer))
+                            }
+                        , viewCell
+                            { portion = 1
+                            , align = El.alignRight
+                            , content = text (String.fromInt (singlePointsPercent withHammer))
+                            }
+                        , viewCell
+                            { portion = 1
+                            , align = El.alignRight
+                            , content = text (String.fromInt (multiPoints withHammer))
+                            }
+                        , viewCell
+                            { portion = 1
+                            , align = El.alignRight
+                            , content = text (String.fromInt (multiPointsPercent withHammer))
+                            }
                         ]
             in
             column [ El.width El.fill ]
@@ -6379,10 +6445,46 @@ viewReportScoringAnalysisByHammer theme translations event =
                             else
                                 "without_hammer"
                         }
-                    , viewHeader { portion = 2, align = El.alignRight, content = "blank_ends_for" }
-                    , viewHeader { portion = 2, align = El.alignRight, content = "stolen_ends_against" }
-                    , viewHeader { portion = 2, align = El.alignRight, content = "single_points_for" }
-                    , viewHeader { portion = 2, align = El.alignRight, content = "multi_points_for" }
+                    , viewHeader
+                        { portion = 2
+                        , align = El.alignRight
+                        , content =
+                            if withHammer then
+                                "blanks_for"
+
+                            else
+                                "blanks_against"
+                        }
+                    , viewHeader
+                        { portion = 2
+                        , align = El.alignRight
+                        , content =
+                            if withHammer then
+                                "steals_against"
+
+                            else
+                                "steals_for"
+                        }
+                    , viewHeader
+                        { portion = 2
+                        , align = El.alignRight
+                        , content =
+                            if withHammer then
+                                "single_points_for"
+
+                            else
+                                "single_points_against"
+                        }
+                    , viewHeader
+                        { portion = 2
+                        , align = El.alignRight
+                        , content =
+                            if withHammer then
+                                "multi_points_for"
+
+                            else
+                                "multi_points_against"
+                        }
                     ]
                  , row [ El.width El.fill, Font.semiBold ]
                     [ viewHeader { portion = 2, align = El.alignLeft, content = "team" }
