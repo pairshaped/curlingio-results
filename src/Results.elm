@@ -397,15 +397,16 @@ type SideResult
 type alias EndStat =
     { teamId : Int
     , hammer : Bool
-    , score : Int
-    , opponentScore : Int
-    , blank : Bool
+    , firstHammerFor : Bool
+    , firstHammerAgainst : Bool
+    , scoreFor : Int
+    , scoreAgainst : Int
+    , blankFor : Bool
+    , blankAgainst : Bool
     , stolenFor : Bool
     , stolenAgainst : Bool
-    , singlePointFor : Bool
-    , singlePointAgainst : Bool
+    , onePointFor : Bool
     , multiPointFor : Bool
-    , multiPointAgainst : Bool
     }
 
 
@@ -1634,8 +1635,8 @@ gamesFromStages stages =
         |> List.concat
 
 
-gamesForTeam : List Game -> Team -> List Game
-gamesForTeam games team =
+gamesWithTeam : Team -> List Game -> List Game
+gamesWithTeam team games =
     let
         participatedIn sides =
             List.any (\s -> s.teamId == Just team.id) sides
@@ -1736,7 +1737,7 @@ teamsWithGames : List Team -> List Game -> List Team
 teamsWithGames teams games =
     let
         teamHasGames team =
-            not (List.isEmpty (gamesForTeam games team))
+            not (List.isEmpty (gamesWithTeam team games))
     in
     List.filter teamHasGames teams
 
@@ -1860,26 +1861,26 @@ gameScore game orderByTeamIds =
 
 
 hasHammerInEnd : Bool -> Side -> Side -> Int -> Bool
-hasHammerInEnd mixedDoubles side otherSide endIndex =
+hasHammerInEnd mixedDoubles sideFor sideAgainst endIndex =
     let
         previousEndScore s =
             List.Extra.getAt (endIndex - 1) s.endScores
     in
     if endIndex == 0 then
         -- If we're in the first end, then we check the firstHammer field.
-        side.firstHammer
+        sideFor.firstHammer
 
     else
         -- If we're not in the first end, then we compare the scores from the previous end.
-        case ( previousEndScore side, previousEndScore otherSide ) of
+        case ( previousEndScore sideFor, previousEndScore sideAgainst ) of
             ( Just 0, Just 0 ) ->
                 -- If the previous end was 0, we go back another end via recursion
                 if mixedDoubles then
                     -- For mixed doubles, a 0 0 end does the opposite and switches hammer
-                    not (hasHammerInEnd mixedDoubles side otherSide (endIndex - 1))
+                    not (hasHammerInEnd mixedDoubles sideFor sideAgainst (endIndex - 1))
 
                 else
-                    hasHammerInEnd mixedDoubles side otherSide (endIndex - 1)
+                    hasHammerInEnd mixedDoubles sideFor sideAgainst (endIndex - 1)
 
             ( Just 0, _ ) ->
                 True
@@ -1965,51 +1966,69 @@ stageWithGameId stages id =
     List.Extra.find hasGame stages
 
 
-endStatsForTeam : Bool -> List Game -> Team -> List (List EndStat)
-endStatsForTeam mixedDoubles games team =
+endStatsForGames : Event -> Team -> List (List EndStat)
+endStatsForGames { stages, mixedDoubles } team =
     let
+        games : List Game
+        games =
+            gamesFromStages stages
+                |> gamesWithTeam team
+                |> List.filter (\game -> game.state /= GamePending)
+
         endStatsForGame : Game -> List EndStat
         endStatsForGame game =
             let
-                sideMaybe =
+                sideForMaybe =
                     -- Get the side we're on
                     List.Extra.find (\side -> side.teamId == Just team.id) game.sides
 
-                opponentSideMaybe =
+                sideAgainstMaybe =
                     -- Get the side we aren't on
                     List.Extra.find (\side -> side.teamId /= Just team.id) game.sides
 
                 endStat : Side -> Side -> Int -> Int -> EndStat
-                endStat side opponentSide endIndex score =
+                endStat sideFor sideAgainst endIndex scoreFor =
                     let
-                        opponentScore =
-                            List.Extra.getAt endIndex opponentSide.endScores
+                        scoreAgainst =
+                            List.Extra.getAt endIndex sideAgainst.endScores
                                 |> Maybe.withDefault 0
 
                         hammer =
-                            hasHammerInEnd mixedDoubles side opponentSide endIndex
+                            hasHammerInEnd mixedDoubles sideFor sideAgainst endIndex
 
-                        scoredLastPoint =
-                            -- TODO
-                            False
+                        blank =
+                            scoreFor == 0 && scoreAgainst == 0
+
+                        blankFor =
+                            -- You keep the hammer on a blank end, so you can only have a "for" when you already have the hammer.
+                            -- Except in mixed doubles, where you lose the hammer on a blank end, so you can only have a "for" when you don't already have the hammer.
+                            blank
+                                && ((hammer && not mixedDoubles) || (not hammer && mixedDoubles))
+
+                        blankAgainst =
+                            -- You keep the hammer on a blank end, so you can only have an "against" when you don't already have the hammer.
+                            -- Except in mixed doubles, where you lose the hammer on a blank end, so you can only have a "against" when you already have the hammer.
+                            blank
+                                && ((not hammer && not mixedDoubles) || (hammer && mixedDoubles))
                     in
                     { teamId = team.id
                     , hammer = hammer
-                    , score = score
-                    , opponentScore = opponentScore
-                    , blank = score == 0 && opponentScore == 0
-                    , stolenFor = not hammer && score > 0
-                    , stolenAgainst = hammer && opponentScore > 0
-                    , singlePointFor = score == 1
-                    , singlePointAgainst = opponentScore == 1
-                    , multiPointFor = score > 1
-                    , multiPointAgainst = opponentScore > 1
+                    , firstHammerFor = sideFor.firstHammer
+                    , firstHammerAgainst = sideAgainst.firstHammer
+                    , scoreFor = scoreFor
+                    , scoreAgainst = scoreAgainst
+                    , blankFor = blankFor
+                    , blankAgainst = blankAgainst
+                    , stolenFor = not hammer && scoreFor > 0
+                    , stolenAgainst = hammer && scoreAgainst > 0
+                    , onePointFor = scoreFor == 1
+                    , multiPointFor = scoreFor > 1
                     }
             in
             -- Get the end scores for the side we're on
-            case ( sideMaybe, opponentSideMaybe ) of
-                ( Just side, Just opponentSide ) ->
-                    List.indexedMap (endStat side opponentSide) side.endScores
+            case ( sideForMaybe, sideAgainstMaybe ) of
+                ( Just sideFor, Just sideAgainst ) ->
+                    List.indexedMap (endStat sideFor sideAgainst) sideFor.endScores
 
                 _ ->
                     []
@@ -4621,21 +4640,21 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                 )
 
         viewEndScore : Int -> Side -> Element Msg
-        viewEndScore endNumber side =
+        viewEndScore endNumber sideFor =
             let
-                sideAgainst =
-                    List.Extra.find (\s -> s.firstHammer /= side.firstHammer) game.sides
+                sideAgainstMaybe =
+                    List.Extra.find (\s -> s.firstHammer /= sideFor.firstHammer) game.sides
 
                 hasHammer =
-                    case sideAgainst of
-                        Just otherSide ->
-                            hasHammerInEnd event.mixedDoubles side otherSide (endNumber - 1)
+                    case sideAgainstMaybe of
+                        Just sideAgainst ->
+                            hasHammerInEnd event.mixedDoubles sideFor sideAgainst (endNumber - 1)
 
                         Nothing ->
                             False
 
                 endScoreStr =
-                    case List.Extra.getAt (endNumber - 1) side.endScores of
+                    case List.Extra.getAt (endNumber - 1) sideFor.endScores of
                         Just es ->
                             String.fromInt es
 
@@ -4647,14 +4666,14 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                                 " "
 
                 endScoreInt =
-                    List.Extra.getAt (endNumber - 1) side.endScores
+                    List.Extra.getAt (endNumber - 1) sideFor.endScores
                         |> Maybe.withDefault 0
 
                 stolenEnd =
                     (endScoreInt > 0) && not hasHammer
 
                 blankEnd =
-                    isBlankEnd (Just side) sideAgainst endNumber
+                    isBlankEnd (Just sideFor) sideAgainstMaybe endNumber
 
                 isHilighted =
                     (scoringHilight == Just HilightHammers && hasHammer)
@@ -5784,6 +5803,9 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
                 |> List.length
 
         blankEndsForOrAgainst team =
+            -- TODO This is incorrect. We need for and against.
+            -- For is when you get the hammer after the blank end, which depends on whether it's a mixed doubles.
+            -- Against is when you lose the hammer after the blank end, which depends on whether it's a mixed doubles.
             let
                 -- A blank end is when neither teams gets a point.
                 blankEndsForGame game =
@@ -6206,13 +6228,6 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
 
 viewReportScoringAnalysisByHammer : Theme -> List Translation -> Event -> Element Msg
 viewReportScoringAnalysisByHammer theme translations event =
-    -- For each team,
-    -- get every game they played in by matching on side.teamId.
-    -- we want a data structure like:
-    -- ( List (hammer bool, endScore),
-    -- List (List { hammer = Bool, score = 4, scoreOther = 0 })
-    -- The first list is all of the games, and the list within each game is every end, indicating if they have the hammer and both scores.
-    -- get
     let
         viewByHammer withHammer =
             let
@@ -6237,47 +6252,28 @@ viewReportScoringAnalysisByHammer theme translations event =
 
                 viewTeamByHammer rowNumber team =
                     let
-                        games : List Game
-                        games =
-                            gamesForTeam (gamesForEvent event) team
-                                |> List.filter (\game -> game.state /= GamePending)
+                        endStats : List (List EndStat)
+                        endStats =
+                            endStatsForGames event team
 
                         gamesCount : Int
                         gamesCount =
-                            List.length games
-
-                        endStats : List (List EndStat)
-                        endStats =
-                            endStatsForTeam event.mixedDoubles games team
+                            List.length endStats
 
                         endsFor : Int
                         endsFor =
                             endStats
                                 |> List.concat
-                                |> List.filter (\hs -> hs.hammer == withHammer)
+                                |> List.filter (\es -> es.hammer == withHammer)
                                 |> List.length
 
                         blankEndsFor : Int
                         blankEndsFor =
-                            -- You keep the hammer on a blank end, so you can only have a "for" when you already have the hammer.
-                            -- Except in mixed doubles, where you lose the hammer on a blank end, so you can only have a "for" when you don't already have the hammer.
-                            -- Right?
-                            if (not event.mixedDoubles && withHammer) || (event.mixedDoubles && not withHammer) then
-                                endStats
-                                    |> List.concat
-                                    |> List.filter
-                                        (\hs ->
-                                            if event.mixedDoubles then
-                                                hs.hammer /= withHammer
-
-                                            else
-                                                hs.hammer == withHammer
-                                        )
-                                    |> List.filter (\hs -> hs.blank == True)
-                                    |> List.length
-
-                            else
-                                0
+                            endStats
+                                |> List.concat
+                                |> List.filter (\es -> es.hammer == withHammer)
+                                |> List.filter .blankFor
+                                |> List.length
 
                         blankEndsForPercent : Int
                         blankEndsForPercent =
@@ -6291,15 +6287,11 @@ viewReportScoringAnalysisByHammer theme translations event =
                         stolenEndsAgainst =
                             -- You can only be stolen against if you have the hammer.
                             -- Right?
-                            if withHammer then
-                                endStats
-                                    |> List.concat
-                                    |> List.filter (\hs -> hs.hammer == True)
-                                    |> List.filter (\state -> state.stolenAgainst == True)
-                                    |> List.length
-
-                            else
-                                0
+                            endStats
+                                |> List.concat
+                                |> List.filter (\es -> es.hammer == withHammer)
+                                |> List.filter .stolenAgainst
+                                |> List.length
 
                         stolenEndsAgainstPercent : Int
                         stolenEndsAgainstPercent =
@@ -6313,8 +6305,8 @@ viewReportScoringAnalysisByHammer theme translations event =
                         singlePointsFor =
                             endStats
                                 |> List.concat
-                                |> List.filter (\hs -> hs.hammer == withHammer)
-                                |> List.filter .singlePointFor
+                                |> List.filter (\es -> es.hammer == withHammer)
+                                |> List.filter .onePointFor
                                 |> List.length
 
                         singlePointsForPercent : Int
@@ -6329,7 +6321,7 @@ viewReportScoringAnalysisByHammer theme translations event =
                         multiPointsFor =
                             endStats
                                 |> List.concat
-                                |> List.filter (\hs -> hs.hammer == withHammer)
+                                |> List.filter (\es -> es.hammer == withHammer)
                                 |> List.filter .multiPointFor
                                 |> List.length
 
