@@ -1892,10 +1892,10 @@ hasHammerInEnd mixedDoubles sideFor sideAgainst endIndex =
 
 
 isBlankEnd : Maybe Side -> Maybe Side -> Int -> Bool
-isBlankEnd sideA sideB endNumber =
+isBlankEnd sideA sideB endIndex =
     let
         end side =
-            List.Extra.getAt (endNumber - 1) side.endScores
+            List.Extra.getAt endIndex side.endScores
     in
     case ( sideA, sideB ) of
         ( Just a, Just b ) ->
@@ -1968,15 +1968,9 @@ stageWithGameId stages id =
     List.Extra.find hasGame stages
 
 
-endStatsForGames : Event -> Team -> List (List EndStat)
-endStatsForGames { stages, mixedDoubles } team =
+endStatsForGames : Bool -> List Game -> Team -> List (List EndStat)
+endStatsForGames mixedDoubles games team =
     let
-        games : List Game
-        games =
-            gamesFromStages stages
-                |> gamesWithTeam team
-                |> List.filter (\game -> game.state /= GamePending)
-
         endStatsForGame : Game -> List EndStat
         endStatsForGame game =
             let
@@ -4677,7 +4671,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                     (endScoreInt > 0) && not hasHammer
 
                 blankEnd =
-                    isBlankEnd (Just sideFor) sideAgainstMaybe endNumber
+                    isBlankEnd (Just sideFor) sideAgainstMaybe (endNumber - 1)
 
                 isHilighted =
                     (scoringHilight == Just HilightHammers && hasHammer)
@@ -5806,8 +5800,8 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
             List.filter (\s -> s.firstHammer == True) (sidesAgainst team)
                 |> List.length
 
-        blankEndsForOrAgainst team =
-            -- TODO This is incorrect. We need for and against.
+        blankEndsFor : Bool -> Team -> Int
+        blankEndsFor for team =
             -- For is when you get the hammer after the blank end, which depends on whether it's a mixed doubles.
             -- Against is when you lose the hammer after the blank end, which depends on whether it's a mixed doubles.
             let
@@ -5825,9 +5819,33 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
                             List.map (\side -> List.length side.endScores) game.sides
                                 |> List.maximum
                                 |> Maybe.withDefault 0
+
+                        isBlankEndFor : Int -> Bool
+                        isBlankEndFor endIndex =
+                            case ( sideFor, sideAgainst ) of
+                                ( Just sideFor_, Just sideAgainst_ ) ->
+                                    let
+                                        hasHammer =
+                                            hasHammerInEnd event.mixedDoubles sideFor_ sideAgainst_ endIndex
+                                    in
+                                    -- This is ridiculous (but correct) and needs to be refactored.
+                                    if for then
+                                        isBlankEnd sideFor sideAgainst endIndex
+                                            && ((not event.mixedDoubles && hasHammer)
+                                                    || (event.mixedDoubles && not hasHammer)
+                                               )
+
+                                    else
+                                        isBlankEnd sideFor sideAgainst endIndex
+                                            && ((not event.mixedDoubles && not hasHammer)
+                                                    || (event.mixedDoubles && hasHammer)
+                                               )
+
+                                _ ->
+                                    False
                     in
                     List.range 0 numberOfEnds
-                        |> List.filter (isBlankEnd sideFor sideAgainst)
+                        |> List.filter isBlankEndFor
             in
             List.map (\game -> blankEndsForGame game) (games team)
                 |> List.concat
@@ -6101,11 +6119,11 @@ viewReportScoringAnalysis theme translations eventConfig event restrictToTeams =
                         \i team ->
                             if modBy 2 i == 0 then
                                 -- For
-                                tableCell El.centerX 1 (text (String.fromInt (blankEndsForOrAgainst team)))
+                                tableCell El.centerX 1 (text (String.fromInt (blankEndsFor True team)))
 
                             else
                                 -- Against
-                                tableCell El.centerX 1 (text (String.fromInt (blankEndsForOrAgainst team)))
+                                tableCell El.centerX 1 (text (String.fromInt (blankEndsFor False team)))
                   }
 
                 -- 1 point ends
@@ -6256,24 +6274,45 @@ viewReportScoringAnalysisByHammer theme translations event =
 
                 viewTeamByHammer rowNumber team =
                     let
-                        endStats : List (List EndStat)
-                        endStats =
-                            endStatsForGames event team
+                        games : List Game
+                        games =
+                            gamesFromStages event.stages
+                                |> gamesWithTeam team
+                                |> List.filter (\game -> game.state /= GamePending)
+
+                        endStatsGroupedByGame : List (List EndStat)
+                        endStatsGroupedByGame =
+                            endStatsForGames event.mixedDoubles games team
 
                         gamesCount : Int
                         gamesCount =
-                            List.length endStats
+                            endStatsGroupedByGame
+                                |> List.length
 
-                        endsFor : Int
-                        endsFor =
-                            endStats
+                        endStats : List EndStat
+                        endStats =
+                            endStatsGroupedByGame
                                 |> List.concat
+
+                        endsByHammer : List EndStat
+                        endsByHammer =
+                            endStats
                                 |> List.filter (\es -> es.hammer == withHammer)
+
+                        endsCountByHammer : Int
+                        endsCountByHammer =
+                            List.length endsByHammer
+
+                        endsCountByHammerAndFilter : Bool -> (EndStat -> Bool) -> Int
+                        endsCountByHammerAndFilter for statFilter =
+                            endsByHammer
+                                |> List.filter statFilter
                                 |> List.length
 
                         blankEnds : Bool -> Int
                         blankEnds for =
                             let
+                                statFilter : EndStat -> Bool
                                 statFilter es =
                                     if for then
                                         es.blankFor
@@ -6281,11 +6320,7 @@ viewReportScoringAnalysisByHammer theme translations event =
                                     else
                                         es.blankAgainst
                             in
-                            endStats
-                                |> List.concat
-                                |> List.filter (\es -> es.hammer == withHammer)
-                                |> List.filter statFilter
-                                |> List.length
+                            endsCountByHammerAndFilter for statFilter
 
                         blankEndsPercent : Bool -> Int
                         blankEndsPercent for =
@@ -6293,7 +6328,7 @@ viewReportScoringAnalysisByHammer theme translations event =
                                 0
 
                             else
-                                round ((toFloat (blankEnds for) / toFloat endsFor) * 100)
+                                round ((toFloat (blankEnds for) / toFloat endsCountByHammer) * 100)
 
                         stolenEnds : Bool -> Int
                         stolenEnds for =
@@ -6305,11 +6340,7 @@ viewReportScoringAnalysisByHammer theme translations event =
                                     else
                                         es.stolenAgainst
                             in
-                            endStats
-                                |> List.concat
-                                |> List.filter (\es -> es.hammer == withHammer)
-                                |> List.filter statFilter
-                                |> List.length
+                            endsCountByHammerAndFilter for statFilter
 
                         stolenEndsPercent : Bool -> Int
                         stolenEndsPercent for =
@@ -6317,7 +6348,7 @@ viewReportScoringAnalysisByHammer theme translations event =
                                 0
 
                             else
-                                round ((toFloat (stolenEnds for) / toFloat endsFor) * 100)
+                                round ((toFloat (stolenEnds for) / toFloat endsCountByHammer) * 100)
 
                         singlePoints : Bool -> Int
                         singlePoints for =
@@ -6329,11 +6360,7 @@ viewReportScoringAnalysisByHammer theme translations event =
                                     else
                                         es.onePointAgainst
                             in
-                            endStats
-                                |> List.concat
-                                |> List.filter (\es -> es.hammer == withHammer)
-                                |> List.filter statFilter
-                                |> List.length
+                            endsCountByHammerAndFilter for statFilter
 
                         singlePointsPercent : Bool -> Int
                         singlePointsPercent for =
@@ -6341,7 +6368,7 @@ viewReportScoringAnalysisByHammer theme translations event =
                                 0
 
                             else
-                                round ((toFloat (singlePoints for) / toFloat endsFor) * 100)
+                                round ((toFloat (singlePoints for) / toFloat endsCountByHammer) * 100)
 
                         multiPoints : Bool -> Int
                         multiPoints for =
@@ -6353,11 +6380,7 @@ viewReportScoringAnalysisByHammer theme translations event =
                                     else
                                         es.multiPointAgainst
                             in
-                            endStats
-                                |> List.concat
-                                |> List.filter (\es -> es.hammer == withHammer)
-                                |> List.filter statFilter
-                                |> List.length
+                            endsCountByHammerAndFilter for statFilter
 
                         multiPointsPercent : Bool -> Int
                         multiPointsPercent for =
@@ -6365,7 +6388,7 @@ viewReportScoringAnalysisByHammer theme translations event =
                                 0
 
                             else
-                                round ((toFloat (multiPoints for) / toFloat endsFor) * 100)
+                                round ((toFloat (multiPoints for) / toFloat endsCountByHammer) * 100)
                     in
                     row
                         [ El.width El.fill
@@ -6390,7 +6413,7 @@ viewReportScoringAnalysisByHammer theme translations event =
                                     }
                             }
                         , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt gamesCount) }
-                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt endsFor) }
+                        , viewCell { portion = 1, align = El.alignRight, content = text (String.fromInt endsCountByHammer) }
                         , viewCell
                             { portion = 1
                             , align = El.alignRight
