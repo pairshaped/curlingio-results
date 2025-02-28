@@ -213,7 +213,7 @@ type alias Event =
     , spares : List Spare
     , stages : List Stage
     , draws : List Draw
-    , activeDrawId : Maybe Int
+    , currentDrawId : Maybe Int
     }
 
 
@@ -702,7 +702,7 @@ decodeEvent =
         |> optional "spares" (list decodeSpare) []
         |> optional "stages" (list decodeStage) []
         |> optional "draws" (list decodeDraw) []
-        |> optional "active_draw_id" (nullable int) Nothing
+        |> optional "current_draw_id" (nullable int) Nothing
 
 
 decodeTeam : Decoder Team
@@ -1656,8 +1656,8 @@ gamesForDraw event draw =
         |> List.filterMap identity
 
 
-activeDrawForEvent : Event -> Maybe Draw
-activeDrawForEvent event =
+currentDrawForEvent : Event -> Maybe Draw
+currentDrawForEvent event =
     case List.Extra.find (\g -> g.state == GameActive) (gamesFromStages event.stages) of
         Just game ->
             let
@@ -1668,9 +1668,9 @@ activeDrawForEvent event =
                 |> List.head
 
         Nothing ->
-            case event.activeDrawId of
-                Just activeDrawId ->
-                    List.Extra.find (\d -> d.id == activeDrawId) event.draws
+            case event.currentDrawId of
+                Just currentDrawId ->
+                    List.Extra.find (\d -> d.id == currentDrawId) event.draws
 
                 Nothing ->
                     Nothing
@@ -1679,8 +1679,8 @@ activeDrawForEvent event =
 drawState : Event -> Draw -> DrawState
 drawState event draw =
     let
-        activeDraw =
-            activeDrawForEvent event
+        currentDraw =
+            currentDrawForEvent event
 
         findGame gameId =
             gamesFromStages event.stages
@@ -1711,7 +1711,7 @@ drawState event draw =
     if drawHasCompleteGame then
         DrawComplete
 
-    else if (Maybe.map .id activeDraw == Just draw.id) || drawHasActiveGame then
+    else if (Maybe.map .id currentDraw == Just draw.id) || drawHasActiveGame then
         -- Highlight the active (closest) draw if there are no active games, or the current
         -- draw is it has an active game.
         DrawActive
@@ -3684,8 +3684,8 @@ viewSpares flags translations event =
 viewDraws : Theme -> List Translation -> EventConfig -> Event -> Element Msg
 viewDraws theme translations eventConfig event =
     let
-        activeDraw =
-            activeDrawForEvent event
+        currentDraw =
+            currentDrawForEvent event
 
         drawLink : Draw -> String -> DrawState -> Element Msg
         drawLink draw label drawState_ =
@@ -3895,7 +3895,7 @@ viewDraws theme translations eventConfig event =
          else
             column [ El.width El.fill, El.spacing 20 ]
                 [ if event.eventType == Competition then
-                    case activeDraw of
+                    case currentDraw of
                         Just draw ->
                             El.table [ El.htmlAttribute (class "cio__event_draws_table") ]
                                 { data = [ draw ]
