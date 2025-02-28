@@ -7061,11 +7061,13 @@ viewReportPositionalPlusMinusComparison theme translations event =
                         ]
                         (el [ align ] (text (translate translations label)))
 
-                viewCell i align content =
+                viewCell i align fontWeight fontColor content =
                     el
                         [ El.padding 15
                         , Border.widthEach { top = 0, right = 0, bottom = 1, left = 0 }
                         , Border.color theme.grey
+                        , Maybe.withDefault Font.regular fontWeight
+                        , Font.color (Maybe.withDefault (El.rgb 0 0 0) fontColor)
                         , Background.color
                             (if modBy 2 i == 0 then
                                 theme.greyLight
@@ -7081,22 +7083,19 @@ viewReportPositionalPlusMinusComparison theme translations event =
                     , width = El.fill
                     , view =
                         \i shotSummary ->
-                            viewCell i
-                                El.centerX
-                                (case List.Extra.find (\ss -> ss.drawId == draw.id) shotSummary of
-                                    Just ss ->
-                                        if ss.plusMinus > 0 then
-                                            "+"
+                            case List.Extra.find (\ss -> ss.drawId == draw.id) shotSummary of
+                                Just ss ->
+                                    if ss.plusMinus > 0 then
+                                        viewCell i El.centerX (Just Font.semiBold) Nothing "+"
 
-                                        else if ss.plusMinus < 0 then
-                                            "-"
+                                    else if ss.plusMinus < 0 then
+                                        viewCell i El.centerX (Just Font.bold) Nothing "-"
 
-                                        else
-                                            "0"
+                                    else
+                                        viewCell i El.centerX Nothing Nothing "0"
 
-                                    _ ->
-                                        " "
-                                )
+                                _ ->
+                                    viewCell i El.centerX Nothing (Just (El.rgb 0.8 0.8 0.8)) "*"
                     }
             in
             El.indexedTable []
@@ -7108,6 +7107,8 @@ viewReportPositionalPlusMinusComparison theme translations event =
                             \i shotSummary ->
                                 viewCell i
                                     El.alignLeft
+                                    Nothing
+                                    Nothing
                                     (Maybe.map .curlerName (List.head shotSummary) |> Maybe.withDefault "")
                       }
                     , { header = viewHeader El.alignLeft (translate translations "team")
@@ -7116,6 +7117,8 @@ viewReportPositionalPlusMinusComparison theme translations event =
                             \i shotSummary ->
                                 viewCell i
                                     El.alignLeft
+                                    Nothing
+                                    Nothing
                                     (Maybe.map .teamName (List.head shotSummary) |> Maybe.withDefault "")
                       }
                     ]
@@ -7141,6 +7144,8 @@ viewReportPositionalPlusMinusComparison theme translations event =
                                     in
                                     viewCell i
                                         El.alignRight
+                                        Nothing
+                                        Nothing
                                         ((if tally > 0 then
                                             "+"
 
