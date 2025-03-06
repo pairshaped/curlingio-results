@@ -6995,7 +6995,7 @@ viewReportPositionalPercentageComparison theme translations event =
                                     viewCell i
                                         El.centerX
                                         (String.fromFloat
-                                            (toFloat (round ((List.sum (List.map .percentage shotSummaries) / toFloat (List.length shotSummaries)) * 10)) / 10)
+                                            (toFloat (round (List.sum (List.map .percentage shotSummaries) / toFloat (List.length shotSummaries))))
                                         )
                              }
                            ]
