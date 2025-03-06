@@ -2690,7 +2690,15 @@ view model =
         , Font.color theme.defaultText
         , El.width El.fill
         , El.padding 10
-        , El.htmlAttribute (style "z-index" "2")
+        , El.htmlAttribute
+            (style "z-index"
+                (if fullScreen then
+                    "2001"
+
+                 else
+                    "2"
+                )
+            )
         , Font.family
             [ Font.typeface "-apple-system"
             , Font.typeface "BlinkMacSystemFont"
@@ -2716,7 +2724,6 @@ view model =
                     , El.padding 10
                     , El.scrollbarY
                     , Background.color theme.white
-                    , El.htmlAttribute (style "z-index" "1002")
                     ]
                     viewMain
                 )
