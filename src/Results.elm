@@ -17,7 +17,7 @@ import Element.Input as Input exposing (button)
 import Element.Lazy as Lazy
 import Element.Region as Region
 import Html exposing (Html)
-import Html.Attributes exposing (attribute, class, style)
+import Html.Attributes exposing (attribute, class, classList, style)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
@@ -963,6 +963,11 @@ decodeGame =
 fromNonempty : ( a, List a ) -> List a
 fromNonempty ( x, xs ) =
     x :: xs
+
+
+attrNone : El.Attribute msg
+attrNone =
+    El.htmlAttribute (classList [])
 
 
 matchRoute : Maybe String -> Parser (Route -> a) a
@@ -2685,7 +2690,7 @@ view model =
         , Font.color theme.defaultText
         , El.width El.fill
         , El.padding 10
-        , El.htmlAttribute (style "z-index" "400")
+        , El.htmlAttribute (style "z-index" "2")
         , Font.family
             [ Font.typeface "-apple-system"
             , Font.typeface "BlinkMacSystemFont"
@@ -2703,13 +2708,21 @@ view model =
             , Font.sansSerif
             ]
         , El.htmlAttribute (class "cio__container")
-        , El.inFront
-            (if fullScreen then
-                el [ El.width El.fill, El.height El.fill, El.padding 10, El.scrollbarY, Background.color theme.white ] viewMain
+        , if fullScreen then
+            El.inFront
+                (el
+                    [ El.width El.fill
+                    , El.height El.fill
+                    , El.padding 10
+                    , El.scrollbarY
+                    , Background.color theme.white
+                    , El.htmlAttribute (style "z-index" "1002")
+                    ]
+                    viewMain
+                )
 
-             else
-                El.none
-            )
+          else
+            attrNone
         ]
     <|
         if fullScreen then
