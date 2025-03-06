@@ -3898,7 +3898,7 @@ viewDraws theme translations eventConfig event =
             El.paragraph [] [ text (translate translations "no_draws") ]
 
          else
-            column [ El.width El.fill, El.spacing 20 ]
+            column [ El.width El.fill, El.spacing 10 ]
                 [ if event.eventType == Competition then
                     case currentDraw of
                         Just draw ->
@@ -3912,13 +3912,25 @@ viewDraws theme translations eventConfig event =
 
                   else
                     El.none
-                , El.table [ El.paddingXY 0 30, El.htmlAttribute (class "cio__event_draws_table") ]
+                , El.table [ El.paddingXY 0 10, El.htmlAttribute (class "cio__event_draws_table") ]
                     { data = event.draws
                     , columns = tableColumns False
                     }
                 , case event.timeZone of
                     Just timeZone ->
-                        el [ Font.italic, Font.color theme.greyDark, El.padding 10 ] (text ("* " ++ timeZone))
+                        el [ Font.italic, Font.color theme.greyDark, El.paddingXY 10 10 ] (text ("* " ++ timeZone))
+
+                    Nothing ->
+                        El.none
+                , case event.note of
+                    Just note ->
+                        El.paragraph [ El.paddingXY 10 10 ]
+                            [ el
+                                [ Font.italic
+                                , Font.color theme.greyDark
+                                ]
+                                (text note)
+                            ]
 
                     Nothing ->
                         El.none
