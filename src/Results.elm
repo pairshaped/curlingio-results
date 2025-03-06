@@ -4538,6 +4538,12 @@ viewDraw theme translations eventConfig event draw =
             [ El.width El.fill, El.padding 16, Font.color theme.greyDark, Background.color theme.greyLight ]
             (text (translate translations "draw" ++ " " ++ draw.label ++ ": " ++ draw.startsAt))
         , column [ El.width El.fill, El.spacing 30 ] (List.map viewDrawSheet draw.drawSheets)
+        , case event.timeZone of
+            Just timeZone ->
+                el [ Font.italic, Font.color theme.greyDark, El.paddingXY 0 10 ] (text ("* " ++ timeZone))
+
+            Nothing ->
+                El.none
         ]
 
 
