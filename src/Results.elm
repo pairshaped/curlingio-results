@@ -18,6 +18,7 @@ import Element.Lazy as Lazy
 import Element.Region as Region
 import Html exposing (Html)
 import Html.Attributes exposing (attribute, class, classList, style)
+import Html.Events
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
@@ -2972,25 +2973,28 @@ viewItems flags device translations itemFilter items =
     column [ El.spacing 10, El.width El.fill ]
         [ row [ El.spacing 20, El.htmlAttribute (class "cio__filter_container") ]
             [ if flags.searchable then
-                Input.text
-                    [ El.width
-                        (El.px
-                            (case device.class of
-                                El.Phone ->
-                                    180
-
-                                _ ->
-                                    250
-                            )
-                        )
-                    , El.padding 10
-                    , El.htmlAttribute (class "cio__search")
-                    ]
-                    { placeholder = Just (Input.placeholder [] (text (translate translations "search")))
-                    , text = itemFilter.search
-                    , onChange = UpdateSearch
-                    , label = Input.labelHidden ""
-                    }
+                -- Input.text
+                --     [ El.width (El.px 200)
+                --     , El.padding 10
+                --     , El.htmlAttribute (class "cio__search")
+                --     ]
+                --     { placeholder = Just (Input.placeholder [] (text (translate translations "search")))
+                --     , text = itemFilter.search
+                --     , onChange = UpdateSearch
+                --     , label = Input.labelHidden ""
+                --     }
+                El.html
+                    (Html.input
+                        [ Html.Attributes.placeholder (translate translations "search")
+                        , style "height" "30px"
+                        , style "padding" "3px 10px 3px 10px"
+                        , style "margin-right" "10px"
+                        , style "border" "solid lightgray 1px"
+                        , style "width" "170px"
+                        , Html.Events.onInput UpdateSearch
+                        ]
+                        []
+                    )
 
               else
                 El.none
