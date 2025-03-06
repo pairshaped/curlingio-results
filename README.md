@@ -97,7 +97,9 @@ npm install
 
 ### Running It
 
-Edit dev.html and configure the application's parameters for your environment. Then run it:
+Edit dev.html and configure the application's parameters for your environment.
+You will want to change the host to your Curling IO site.
+Then run it:
 
 ```
 npm start

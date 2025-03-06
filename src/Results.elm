@@ -553,7 +553,7 @@ decodeFlags =
                     )
     in
     Decode.succeed Flags
-        |> required "host" (nullable string)
+        |> optional "host" (nullable string) Nothing
         |> required "hash" (nullable string)
         |> optional "lang" string "en"
         |> optional "apiKey" (nullable string) Nothing
@@ -1031,7 +1031,7 @@ toRoute defaultEventSection hash =
                     hash
                         |> String.replace "#" ""
             in
-            { host = "api.curling.io"
+            { host = "api-curlingio.global.ssl.fastly.net"
             , port_ = Nothing
             , protocol = Url.Https
             , query = Nothing
@@ -2657,24 +2657,9 @@ view model =
                                         1920
                                 )
                     )
-                , El.clipY
                 , El.scrollbarX
+                , El.clipY
                 , El.centerX
-                , El.inFront
-                    (row [ El.alignRight, El.spacing 10, El.paddingXY 0 10 ]
-                        [ el [ El.alignTop ] (viewReloadStatus model)
-                        , if fullScreenToggle then
-                            case device.class of
-                                El.Phone ->
-                                    El.none
-
-                                _ ->
-                                    el [] (viewFullScreenButton theme fullScreen)
-
-                          else
-                            El.none
-                        ]
-                    )
                 ]
                 (case model.errorMsg of
                     Just errorMsg ->
@@ -2720,7 +2705,7 @@ view model =
         , El.htmlAttribute (class "cio__container")
         , El.inFront
             (if fullScreen then
-                el [ El.width El.fill, El.height El.fill, El.padding 20, El.scrollbarY, Background.color theme.white ] viewMain
+                el [ El.width El.fill, El.height El.fill, El.padding 10, El.scrollbarY, Background.color theme.white ] viewMain
 
              else
                 El.none
@@ -2778,36 +2763,50 @@ viewRoute translations { flags, hash, itemFilter, eventConfig, items, product, e
                     viewLoading
 
 
-viewReloadStatus : Model -> Element Msg
-viewReloadStatus { flags, hash, event } =
+viewReloadStatus : Flags -> List Translation -> NestedEventRoute -> Event -> Element Msg
+viewReloadStatus flags translations nestedRoute event =
     let
         { device, theme } =
             flags
+
+        shouldReload =
+            (event.state == EventStateActive)
+                && event.endScoresEnabled
+                && not (List.member nestedRoute [ DetailsRoute, RegistrationsRoute, SparesRoute, TeamsRoute ])
     in
-    if reloadEnabled flags hash event && device.class /= El.Phone then
+    if shouldReload && device.class /= El.Phone then
         el
-            [ El.paddingXY 8 0
+            [ El.paddingXY 10 15
             , El.alignTop
             , Font.size 12
             , Font.color theme.secondary
             , El.htmlAttribute (class "cio__reload_button")
             ]
-            (text "Refresh every 30s")
+            (text (translate translations "refreshes_in" ++ " 30s"))
 
     else
         El.none
 
 
-viewFullScreenButton : Theme -> Bool -> Element Msg
-viewFullScreenButton theme fullScreen =
-    button [ El.focused [ Background.color theme.transparent ] ]
+viewFullScreenButton : Theme -> List Translation -> Bool -> Element Msg
+viewFullScreenButton theme translations fullScreen =
+    button
+        [ El.paddingXY 5 4
+        , Border.rounded 4
+        , Font.size 12
+        , Font.color theme.white
+        , Background.color theme.secondary
+        , El.focused [ Background.color theme.secondary ]
+        ]
         { onPress = Just ToggleFullScreen
         , label =
             if fullScreen then
-                El.html svgExitFullScreen
+                -- El.html svgExitFullScreen
+                text (translate translations "minimize" ++ " ↙")
 
             else
-                El.html svgFullScreen
+                -- El.html svgFullScreen
+                text (translate translations "fullscreen" ++ " ↗")
         }
 
 
@@ -2954,7 +2953,7 @@ viewItems flags device translations itemFilter items =
                 |> Array.slice ((itemFilter.page - 1) * 10) (itemFilter.page * 10)
                 |> Array.toList
     in
-    column [ El.spacing 10, El.width El.fill, El.height (El.fill |> El.minimum 250) ]
+    column [ El.spacing 10, El.width El.fill ]
         [ row [ El.spacing 20, El.htmlAttribute (class "cio__filter_container") ]
             [ if flags.searchable then
                 Input.text
@@ -2968,8 +2967,6 @@ viewItems flags device translations itemFilter items =
                                     250
                             )
                         )
-                    , Border.width 1
-                    , Border.color theme.grey
                     , El.padding 10
                     , El.htmlAttribute (class "cio__search")
                     ]
@@ -3202,7 +3199,7 @@ viewProduct { theme } translations fullScreen product =
 viewEvent : Flags -> List Translation -> EventConfig -> NestedEventRoute -> Event -> Element Msg
 viewEvent flags translations eventConfig nestedRoute event =
     let
-        { device, theme, fullScreen } =
+        { device, theme, fullScreenToggle, fullScreen } =
             flags
 
         viewNavItem eventSection =
@@ -3247,20 +3244,28 @@ viewEvent flags translations eventConfig nestedRoute event =
         , El.spacing 20
         , El.htmlAttribute (class "cio__event")
         ]
-        [ el
-            [ Font.size
-                (case device.class of
-                    El.Phone ->
-                        22
+        [ El.row [ El.spacing 10 ]
+            [ el
+                [ Font.size
+                    (case device.class of
+                        El.Phone ->
+                            22
 
-                    _ ->
-                        28
-                )
-            , El.width El.fill
-            , Font.medium
-            , El.htmlAttribute (class "cio__event_name")
+                        _ ->
+                            28
+                    )
+                , El.width El.fill
+                , Font.medium
+                , El.htmlAttribute (class "cio__event_name")
+                ]
+                (text event.name)
+            , el [ El.alignTop ] (viewReloadStatus flags translations nestedRoute event)
+            , if fullScreenToggle then
+                el [] (viewFullScreenButton theme translations fullScreen)
+
+              else
+                El.none
             ]
-            (text event.name)
         , El.row [ El.width El.fill, El.htmlAttribute (class "cio__event_nav") ]
             (List.map viewNavItem (eventSections flags.excludeEventSections event)
                 ++ (case event.videoUrl of

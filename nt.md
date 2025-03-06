@@ -40,7 +40,7 @@ Place the following raw javascript code in to your scoreboard page, customizing 
             //   secondary: "#5c5c5c" // OPTIONAL. The secondary color in hexadecimal (minor buttons / links / backgrounds). Default is a dark grey: #5c5c5c
             // },
             // lang: "en", // OPTIONAL. Options are "en" or "fr". Defaults to "en" if nothing is passed. If your using wordpress, it should expose a 2 letter language code that can be passed here.
-            host: document.location.host, // REQUIRED - DO NOT MODIFY. Let's us make slight behavioural changes when hosted offsite versus within your curling.io site.
+            // host: document.location.host, // OPTIONAL
             hash: document.location.hash, // REQUIRED - DO NOT MODIFY. This will allow users to bookmark and share specific event links.
           }
         }
