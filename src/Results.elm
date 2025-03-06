@@ -2986,8 +2986,9 @@ viewItems flags device translations itemFilter items =
                 El.html
                     (Html.input
                         [ Html.Attributes.placeholder (translate translations "search")
-                        , style "height" "30px"
-                        , style "padding" "3px 10px 3px 10px"
+                        , style "box-sizing" "border-box"
+                        , style "height" "38px"
+                        , style "padding" "3px 10px"
                         , style "margin-right" "10px"
                         , style "border" "solid lightgray 1px"
                         , style "width" "170px"
