@@ -2690,15 +2690,11 @@ view model =
         , Font.color theme.defaultText
         , El.width El.fill
         , El.padding 10
-        , El.htmlAttribute
-            (style "z-index"
-                (if fullScreen then
-                    "2001"
+        , if fullScreen then
+            El.htmlAttribute (style "z-index" "2001")
 
-                 else
-                    "2"
-                )
-            )
+          else
+            attrNone
         , Font.family
             [ Font.typeface "-apple-system"
             , Font.typeface "BlinkMacSystemFont"
