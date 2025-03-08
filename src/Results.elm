@@ -17,7 +17,7 @@ import Element.Input as Input exposing (button)
 import Element.Lazy as Lazy
 import Helpers exposing (..)
 import Html exposing (Html)
-import Html.Attributes exposing (class, style)
+import Html.Attributes exposing (attribute, class, style)
 import Html.Events
 import Http
 import Json.Decode as Decode
@@ -172,15 +172,6 @@ type alias Throws =
     , total : String
     , totalPercentage : String
     }
-
-
-
--- stage.id
--- draw.label
--- team.shortName
--- team.curlerName
--- shot.endNumber
--- shot.rating
 
 
 type alias LineConnector =
@@ -1084,8 +1075,7 @@ summarizeShotsByPositionForGame event game =
 
 
 type Msg
-    = NoOp
-    | InitDevice Browser.Dom.Viewport
+    = InitDevice Browser.Dom.Viewport
     | Tick Time.Posix
     | SetDevice Int Int
     | NavigateTo String
@@ -1112,9 +1102,6 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        NoOp ->
-            ( model, Cmd.none )
-
         InitDevice { viewport } ->
             let
                 updatedFlags flags =
@@ -1332,7 +1319,7 @@ viewButtonPrimary theme content msg =
         [ Background.color theme.primary
 
         -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
-        , El.htmlAttribute (style "color" "white !important")
+        , El.htmlAttribute (attribute "style" "color: white !important;")
         , El.paddingXY 12 10
         , Border.rounded 4
         , El.focused [ Background.color theme.primary ]
@@ -1567,7 +1554,7 @@ viewItems flags device translations itemFilter items =
                         , Border.rounded 3
 
                         -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
-                        , El.htmlAttribute (style "color" "white !important")
+                        , El.htmlAttribute (attribute "style" "color: white !important;")
                         , Background.color theme.primary
                         , El.focused [ Background.color theme.primary ]
                         ]
@@ -1780,7 +1767,7 @@ viewItems flags device translations itemFilter items =
                                                 [ Background.color theme.primary
 
                                                 -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
-                                                , El.htmlAttribute (style "color" "white !important")
+                                                , El.htmlAttribute (attribute "style" "color: white !important;")
                                                 , Font.size 14
                                                 , El.alignRight
                                                 , El.padding 8
@@ -1939,7 +1926,7 @@ viewEvent flags translations eventConfig nestedRoute event =
                         , Background.color theme.primary
 
                         -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
-                        , El.htmlAttribute (style "color" "white !important")
+                        , El.htmlAttribute (attribute "style" "color: white !important;")
                         , El.focused [ Background.color theme.primary ]
                         ]
                         { onPress = Just (NavigateTo newPath)
@@ -3349,7 +3336,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                         , El.padding 8
 
                         -- , Font.color theme.white -- Commented out in favour of using !important to deal with host site overrides.
-                        , El.htmlAttribute (style "color" "white !important")
+                        , El.htmlAttribute (attribute "style" "color: white !important;")
                         , Border.rounded 4
                         , Background.color theme.secondary
                         , El.focused [ Background.color theme.secondary ]
@@ -3517,7 +3504,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                             [ El.paddingXY 0 2
                             , Border.widthEach { top = 0, right = 0, bottom = 3, left = 0 }
                             , Border.color
-                                (colorNameToRGB
+                                (rockColorNameToRGB
                                     (if side.topRock then
                                         event.topRock
 

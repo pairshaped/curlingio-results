@@ -17,8 +17,8 @@ attrNone =
     Element.htmlAttribute (Html.Attributes.classList [])
 
 
-colorNameToRGB : String -> Element.Color
-colorNameToRGB color =
+rockColorNameToRGB : String -> Element.Color
+rockColorNameToRGB color =
     case color of
         "red" ->
             Element.rgb255 204 0 0
