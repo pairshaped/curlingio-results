@@ -3,7 +3,22 @@ module Types exposing (..)
 import Element as El exposing (Device)
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
+import RemoteData exposing (WebData)
 import Theme exposing (Theme, decodeTheme, defaultTheme)
+import Translation exposing (Translation)
+
+
+type alias Model =
+    { flags : Flags
+    , hash : String
+    , translations : WebData (List Translation)
+    , items : WebData ItemsResult
+    , itemFilter : ItemFilter
+    , product : WebData Product
+    , event : WebData Event
+    , eventConfig : EventConfig
+    , errorMsg : Maybe String
+    }
 
 
 type alias Item =

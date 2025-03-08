@@ -19,7 +19,6 @@ import Helpers exposing (..)
 import Html exposing (Html)
 import Html.Attributes exposing (attribute, class, style)
 import Html.Events
-import Http
 import Json.Decode as Decode
 import List.Extra
 import Markdown
@@ -36,148 +35,6 @@ import Url.Parser exposing ((</>), Parser)
 
 
 -- MODEL
-
-
-gridSize : Int
-gridSize =
-    50
-
-
-type alias Model =
-    { flags : Flags
-    , hash : String
-    , translations : WebData (List Translation)
-    , items : WebData ItemsResult
-    , itemFilter : ItemFilter
-    , product : WebData Product
-    , event : WebData Event
-    , eventConfig : EventConfig
-    , errorMsg : Maybe String
-    }
-
-
-type Route
-    = ItemsRoute
-    | ProductRoute Int
-    | EventRoute Int NestedEventRoute
-
-
-type NestedEventRoute
-    = DetailsRoute
-    | RegistrationsRoute
-    | SparesRoute
-    | DrawsRoute
-    | DrawRoute Int
-    | GameRoute String
-    | StagesRoute
-    | StageRoute Int
-    | TeamsRoute
-    | TeamRoute Int
-    | ReportsRoute
-    | ReportRoute String
-
-
-type DrawState
-    = DrawPending
-    | DrawActive
-    | DrawComplete
-
-
-type alias EndStat =
-    { teamId : Int
-    , hammer : Bool
-    , firstHammerFor : Bool
-    , firstHammerAgainst : Bool
-    , scoreFor : Int
-    , scoreAgainst : Int
-    , blankFor : Bool
-    , blankAgainst : Bool
-    , stolenFor : Bool
-    , stolenAgainst : Bool
-    , onePointFor : Bool
-    , onePointAgainst : Bool
-    , multiPointFor : Bool
-    , multiPointAgainst : Bool
-    }
-
-
-type alias ShotExpanded =
-    { gameId : String
-    , drawId : Int
-    , drawEpoch : Int
-    , drawLabel : String
-    , stageId : Int
-    , sideNumber : Int
-    , teamId : Int
-    , teamShortName : String
-    , curlerId : Int
-    , curlerName : String
-    , endNumber : Int
-    , lineupPosition : Int
-    , position : Int
-    , turn : Maybe String
-    , throw : Maybe String
-    , rating : Maybe String
-    }
-
-
-type alias ShotSummaryByPosition =
-    { position : Int
-    , lineupPosition : Int
-    , gameId : String
-    , drawId : Int
-    , drawEpoch : Int
-    , sideNumber : Int
-    , teamId : Int
-    , teamName : String
-    , curlerId : Int
-    , curlerName : String
-    , numberOfShots : Int
-    , totalRatings : Int
-    , percentage : Float
-    , overUnder : Float
-    , plusMinus : Int
-    }
-
-
-type alias PositionalPercentage =
-    { position : Int
-    , drawEpoch : Int
-    , curlerId : Int
-    , curlerName : String
-    , teamId : Int
-    , teamName : String
-    , alternate : Bool
-    , percentage : Float
-    , oppositePercentage : Float
-    }
-
-
-type alias TeamShot =
-    { curlerId : Int
-    , curlerName : String
-    , throw : String
-    , turn : String
-    , rating : String
-    }
-
-
-type alias Throws =
-    { throw : String
-    , name : String
-    , inTurn : String
-    , inTurnPercentage : String
-    , outTurn : String
-    , outTurnPercentage : String
-    , total : String
-    , totalPercentage : String
-    }
-
-
-type alias LineConnector =
-    { fromCoords : ( Int, Int )
-    , toCoords : ( Int, Int )
-    }
 
 
 init : Decode.Value -> ( Model, Cmd Msg )
@@ -293,6 +150,27 @@ port hashChangeReceiver : (String -> msg) -> Sub msg
 -- ROUTING
 
 
+type Route
+    = ItemsRoute
+    | ProductRoute Int
+    | EventRoute Int NestedEventRoute
+
+
+type NestedEventRoute
+    = DetailsRoute
+    | RegistrationsRoute
+    | SparesRoute
+    | DrawsRoute
+    | DrawRoute Int
+    | GameRoute String
+    | StagesRoute
+    | StageRoute Int
+    | TeamsRoute
+    | TeamRoute Int
+    | ReportsRoute
+    | ReportRoute String
+
+
 matchRoute : Maybe String -> Parser (Route -> a) a
 matchRoute defaultEventSection =
     Url.Parser.oneOf
@@ -375,123 +253,6 @@ toRoute defaultEventSection hash =
 
 
 -- FETCHING
-
-
-drawUrl : Int -> Int -> String
-drawUrl eventId drawId =
-    "/events/" ++ String.fromInt eventId ++ "/draws/" ++ String.fromInt drawId
-
-
-gameUrl : Int -> String -> String
-gameUrl eventId gameId =
-    "/events/" ++ String.fromInt eventId ++ "/games/" ++ gameId
-
-
-teamUrl : Int -> Int -> String
-teamUrl eventId teamId =
-    "/events/" ++ String.fromInt eventId ++ "/teams/" ++ String.fromInt teamId
-
-
-stageUrl : Int -> Stage -> String
-stageUrl eventId stage =
-    let
-        eventIdStr =
-            String.fromInt eventId
-
-        stageIdStr =
-            String.fromInt stage.id
-    in
-    "/events/" ++ String.fromInt eventId ++ "/stages/" ++ String.fromInt stage.id
-
-
-errorMessage : Http.Error -> String
-errorMessage error =
-    case error of
-        Http.BadUrl string ->
-            "Bad URL used: " ++ string
-
-        Http.Timeout ->
-            "Network timeout. Please check your internet connection."
-
-        Http.NetworkError ->
-            "Network error. Please check your internet connection."
-
-        Http.BadStatus int ->
-            "Bad status response from server. Please contact Curling I/O support if the issue persists for more than a few minutes."
-
-        Http.BadBody string ->
-            "Bad body response from server. Please contact Curling I/O support if the issue persists for more than a few minutes. Details: \"" ++ string ++ "\""
-
-
-baseUrl : Flags -> String
-baseUrl { host, lang } =
-    let
-        devUrl =
-            -- Development
-            "http://api.curling.test:3000/" ++ lang
-
-        -- "https://api-curlingio.global.ssl.fastly.net/" ++ lang
-        -- productionUrl =
-        --     -- Production without caching
-        --     "https://api.curling.io/" ++ lang
-        --
-        productionCachedUrl =
-            -- Production cached via CDN (Fastly)
-            "https://api-curlingio.global.ssl.fastly.net/" ++ lang
-    in
-    case host of
-        Just h ->
-            if String.contains "localhost" h || String.contains ".curling.test" h then
-                devUrl
-                --
-                -- else if String.contains ".curling.io" h then
-                --     productionUrl
-
-            else
-                productionCachedUrl
-
-        Nothing ->
-            productionCachedUrl
-
-
-clubId : Flags -> String
-clubId { apiKey, subdomain } =
-    case ( apiKey, subdomain ) of
-        ( _, Just subdomain_ ) ->
-            subdomain_
-
-        ( Just apiKey_, _ ) ->
-            apiKey_
-
-        _ ->
-            ""
-
-
-baseClubUrl : Flags -> String
-baseClubUrl flags =
-    baseUrl flags ++ "/clubs/" ++ clubId flags ++ "/"
-
-
-baseClubSubdomainUrl : Flags -> String
-baseClubSubdomainUrl flags =
-    let
-        devUrl =
-            -- Development
-            "http://" ++ clubId flags ++ ".curling.test:3000/" ++ flags.lang
-
-        productionUrl =
-            "https://" ++ clubId flags ++ ".curling.io/" ++ flags.lang
-    in
-    case flags.host of
-        Just h ->
-            if String.contains "localhost" h || String.contains ".curling.test" h then
-                devUrl
-
-            else
-                productionUrl
-
-        Nothing ->
-            productionUrl
 
 
 getItemsMaybe : Model -> String -> Bool -> ( WebData ItemsResult, Cmd Msg )
@@ -668,66 +429,6 @@ getProduct flags id =
     RemoteData.Http.get url GotProduct decodeProduct
 
 
-eventSections : List String -> Event -> List String
-eventSections excludeEventSections event =
-    let
-        -- Check if a section is included (not in the explicitly excluded sections list).
-        included section =
-            List.map String.toLower excludeEventSections
-                |> List.member (String.toLower section)
-                |> not
-
-        hasData section =
-            let
-                hasRegistrations =
-                    not (List.isEmpty event.registrations)
-
-                hasSpares =
-                    not (List.isEmpty event.spares)
-
-                hasDraws =
-                    not (List.isEmpty event.draws)
-
-                hasStages =
-                    not (List.isEmpty event.stages)
-
-                hasTeams =
-                    not (List.isEmpty event.teams)
-
-                hasCompletedGames =
-                    List.any (\g -> g.state == GameComplete) (gamesInEvent event)
-
-                hasEndScores =
-                    event.endScoresEnabled
-            in
-            case section of
-                "registrations" ->
-                    hasRegistrations
-
-                "spares" ->
-                    hasSpares
-
-                "draws" ->
-                    hasDraws
-
-                "stages" ->
-                    hasStages
-
-                "teams" ->
-                    hasTeams
-
-                "reports" ->
-                    (hasDraws && hasTeams)
-                        || hasCompletedGames
-
-                _ ->
-                    True
-    in
-    [ "details", "registrations", "spares", "draws", "stages", "teams", "reports" ]
-        |> List.filter included
-        |> List.filter hasData
-
-
 eventSectionForRoute : NestedEventRoute -> String
 eventSectionForRoute route =
     case route of
@@ -769,105 +470,110 @@ eventSectionForRoute route =
 
 
 
--- HELPERS
+-- LOCAL MODELS AND HELPERS
 
 
-gamesWithTeam : Event -> Team -> List Game
-gamesWithTeam event team =
-    let
-        participatedIn sides =
-            List.any (\s -> s.teamId == Just team.id) sides
-    in
-    gamesInEvent event
-        |> List.filter (\g -> participatedIn g.sides)
+type DrawState
+    = DrawPending
+    | DrawActive
+    | DrawComplete
 
 
-drawState : Event -> Draw -> DrawState
-drawState event draw =
-    let
-        currentDraw =
-            currentDrawForEvent event
-    in
-    if drawHasCompletedGame event draw then
-        DrawComplete
+type alias EndStat =
+    { teamId : Int
+    , hammer : Bool
+    , firstHammerFor : Bool
+    , firstHammerAgainst : Bool
+    , scoreFor : Int
+    , scoreAgainst : Int
+    , blankFor : Bool
+    , blankAgainst : Bool
+    , stolenFor : Bool
+    , stolenAgainst : Bool
+    , onePointFor : Bool
+    , onePointAgainst : Bool
+    , multiPointFor : Bool
+    , multiPointAgainst : Bool
+    }
 
-    else if (Maybe.map .id currentDraw == Just draw.id) || drawHasActiveGame event draw then
-        -- Highlight the active (closest) draw if there are no active games, or the current
-        -- draw is it has an active game.
-        DrawActive
 
-    else
-        DrawPending
+type alias ShotExpanded =
+    { gameId : String
+    , drawId : Int
+    , drawEpoch : Int
+    , drawLabel : String
+    , stageId : Int
+    , sideNumber : Int
+    , teamId : Int
+    , teamShortName : String
+    , curlerId : Int
+    , curlerName : String
+    , endNumber : Int
+    , lineupPosition : Int
+    , position : Int
+    , turn : Maybe String
+    , throw : Maybe String
+    , rating : Maybe String
+    }
 
 
-gameScore : Game -> Maybe ( Int, Int ) -> Maybe String
-gameScore game orderByTeamIds =
-    let
-        sides =
-            -- If we passed team ids to order by, use them. Otherwise just use the default side positions.
-            case orderByTeamIds of
-                Just teamIds ->
-                    [ List.Extra.find (\side -> side.teamId == Just (Tuple.first teamIds)) game.sides
-                    , List.Extra.find (\side -> side.teamId == Just (Tuple.second teamIds)) game.sides
-                    ]
-                        |> List.filterMap identity
+type alias ShotSummaryByPosition =
+    { position : Int
+    , lineupPosition : Int
+    , gameId : String
+    , drawId : Int
+    , drawEpoch : Int
+    , sideNumber : Int
+    , teamId : Int
+    , teamName : String
+    , curlerId : Int
+    , curlerName : String
+    , numberOfShots : Int
+    , totalRatings : Int
+    , percentage : Float
+    , overUnder : Float
+    , plusMinus : Int
+    }
 
-                Nothing ->
-                    game.sides
 
-        sideResults =
-            List.map (\s -> s.result) sides
-                |> List.filterMap identity
+type alias PositionalPercentage =
+    { position : Int
+    , drawEpoch : Int
+    , curlerId : Int
+    , curlerName : String
+    , teamId : Int
+    , teamName : String
+    , alternate : Bool
+    , percentage : Float
+    , oppositePercentage : Float
+    }
 
-        intScores =
-            List.map (\s -> s.score) sides
-                |> List.filterMap identity
 
-        strScores =
-            List.map String.fromInt intScores
+type alias TeamShot =
+    { curlerId : Int
+    , curlerName : String
+    , throw : String
+    , turn : String
+    , rating : String
+    }
 
-        fromScores =
-            case game.state of
-                GameComplete ->
-                    case ( Maybe.withDefault 0 (List.head intScores), Maybe.withDefault 0 (List.Extra.getAt 1 intScores) ) of
-                        ( 0, 0 ) ->
-                            -- Display a W if a won, an L if a lost, or a T if they tied.
-                            case List.head sideResults of
-                                Nothing ->
-                                    "-"
 
-                                Just SideResultWon ->
-                                    "W"
+type alias Throws =
+    { throw : String
+    , name : String
+    , inTurn : String
+    , inTurnPercentage : String
+    , outTurn : String
+    , outTurnPercentage : String
+    , total : String
+    , totalPercentage : String
+    }
 
-                                Just SideResultTied ->
-                                    "T"
 
-                                Just SideResultUnnecessary ->
-                                    "U"
-
-                                _ ->
-                                    "L"
-
-                        ( a, b ) ->
-                            -- if a > b then
-                            --     String.join " > " strScores
-                            --
-                            -- else if a < b then
-                            --     String.join " < " strScores
-                            --
-                            -- else
-                            --     String.join " = " strScores
-                            String.join " - " strScores
-
-                _ ->
-                    ""
-    in
-    case fromScores of
-        "" ->
-            Nothing
-
-        score ->
-            Just score
+type alias LineConnector =
+    { fromCoords : ( Int, Int )
+    , toCoords : ( Int, Int )
+    }
 
 
 expandShotsForGame : Event -> Game -> List ShotExpanded
@@ -1308,6 +1014,40 @@ update msg model =
             ( { model | eventConfig = updatedEventConfig model.eventConfig }
             , Cmd.none
             )
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    let
+        reloadEnabled =
+            -- Only if we're on an event, the event is active, end scores are enabled, and we're on a route / screen that is meaningfull to reload.
+            case toRoute model.flags.defaultEventSection model.hash of
+                EventRoute _ nestedRoute ->
+                    case model.event of
+                        Success event_ ->
+                            (event_.state == EventStateActive)
+                                && event_.endScoresEnabled
+                                && not (List.member nestedRoute [ DetailsRoute, RegistrationsRoute, SparesRoute, TeamsRoute ])
+
+                        _ ->
+                            False
+
+                _ ->
+                    False
+    in
+    Sub.batch
+        [ hashChangeReceiver (HashChanged False)
+        , Browser.Events.onResize (\values -> SetDevice values)
+        , if reloadEnabled then
+            Time.every 30000 Tick
+
+          else
+            Sub.none
+        ]
 
 
 
@@ -1909,6 +1649,65 @@ viewEvent flags translations eventConfig nestedRoute event =
         { device, theme, fullScreenToggle, fullScreen } =
             flags
 
+        eventSections : List String
+        eventSections =
+            let
+                -- Check if a section is included (not in the explicitly excluded sections list).
+                included section =
+                    List.map String.toLower flags.excludeEventSections
+                        |> List.member (String.toLower section)
+                        |> not
+
+                hasData section =
+                    let
+                        hasRegistrations =
+                            not (List.isEmpty event.registrations)
+
+                        hasSpares =
+                            not (List.isEmpty event.spares)
+
+                        hasDraws =
+                            not (List.isEmpty event.draws)
+
+                        hasStages =
+                            not (List.isEmpty event.stages)
+
+                        hasTeams =
+                            not (List.isEmpty event.teams)
+
+                        hasCompletedGames =
+                            List.any (\g -> g.state == GameComplete) (gamesInEvent event)
+
+                        hasEndScores =
+                            event.endScoresEnabled
+                    in
+                    case section of
+                        "registrations" ->
+                            hasRegistrations
+
+                        "spares" ->
+                            hasSpares
+
+                        "draws" ->
+                            hasDraws
+
+                        "stages" ->
+                            hasStages
+
+                        "teams" ->
+                            hasTeams
+
+                        "reports" ->
+                            (hasDraws && hasTeams)
+                                || hasCompletedGames
+
+                        _ ->
+                            True
+            in
+            [ "details", "registrations", "spares", "draws", "stages", "teams", "reports" ]
+                |> List.filter included
+                |> List.filter hasData
+
         viewNavItem eventSection =
             let
                 isActiveRoute =
@@ -1974,7 +1773,7 @@ viewEvent flags translations eventConfig nestedRoute event =
                 El.none
             ]
         , El.row [ El.width El.fill, El.htmlAttribute (class "cio__event_nav") ]
-            (List.map viewNavItem (eventSections flags.excludeEventSections event)
+            (List.map viewNavItem eventSections
                 ++ (case event.videoUrl of
                         Just videoUrl ->
                             [ el [ El.padding 8 ] (text "")
@@ -2483,6 +2282,19 @@ viewDraws theme translations eventConfig event =
 
         tableColumns onActive =
             let
+                drawState : Draw -> DrawState
+                drawState draw =
+                    if drawHasCompletedGame event draw then
+                        DrawComplete
+
+                    else if (Maybe.map .id currentDraw == Just draw.id) || drawHasActiveGame event draw then
+                        -- Highlight the active (closest) draw if there are no active games, or the current
+                        -- draw is it has an active game.
+                        DrawActive
+
+                    else
+                        DrawPending
+
                 hasAttendance =
                     List.any (\d -> d.attendance > 0) event.draws
 
@@ -2525,7 +2337,7 @@ viewDraws theme translations eventConfig event =
                     Just
                         { header = tableHeader El.alignLeft " "
                         , width = El.px 35
-                        , view = \draw -> tableCell El.alignLeft (drawState event draw) (drawLink draw draw.label (drawState event draw))
+                        , view = \draw -> tableCell El.alignLeft (drawState draw) (drawLink draw draw.label (drawState draw))
                         }
 
                 startsAtColumn =
@@ -2539,7 +2351,7 @@ viewDraws theme translations eventConfig event =
                                     translate translations "all_draws"
                                 )
                         , width = El.px 180
-                        , view = \draw -> tableCell El.alignLeft (drawState event draw) (drawLink draw draw.startsAt (drawState event draw))
+                        , view = \draw -> tableCell El.alignLeft (drawState draw) (drawLink draw draw.startsAt (drawState draw))
                         }
 
                 attendanceColumn =
@@ -2556,7 +2368,7 @@ viewDraws theme translations eventConfig event =
                             , width = El.px 65
                             , view =
                                 \draw ->
-                                    tableCell El.alignLeft (drawState event draw) (text (String.fromInt draw.attendance))
+                                    tableCell El.alignLeft (drawState draw) (text (String.fromInt draw.attendance))
                             }
 
                     else
@@ -2576,12 +2388,12 @@ viewDraws theme translations eventConfig event =
                         , view =
                             \draw ->
                                 tableCell El.centerX
-                                    (drawState event draw)
+                                    (drawState draw)
                                     (case List.Extra.getAt columnIndex draw.drawSheets of
                                         Just (Just gameId) ->
                                             case List.Extra.find (\g -> g.id == gameId) (gamesInEvent event) of
                                                 Just game ->
-                                                    gameLink game (drawState event draw)
+                                                    gameLink game (drawState draw)
 
                                                 Nothing ->
                                                     text "-"
@@ -2992,6 +2804,10 @@ viewStages theme device translations event onStage =
 
         viewBracket =
             let
+                gridSize : Int
+                gridSize =
+                    50
+
                 viewGroup group =
                     let
                         gamesForGroup =
@@ -6513,40 +6329,6 @@ viewReportStatisticsByTeam theme translations eventConfig event cumulative =
                 Nothing ->
                     []
             )
-        ]
-
-
-
--- SUBSCRIPTIONS
-
-
-subscriptions : Model -> Sub Msg
-subscriptions model =
-    let
-        reloadEnabled =
-            -- Only if we're on an event, the event is active, end scores are enabled, and we're on a route / screen that is meaningfull to reload.
-            case toRoute model.flags.defaultEventSection model.hash of
-                EventRoute _ nestedRoute ->
-                    case model.event of
-                        Success event_ ->
-                            (event_.state == EventStateActive)
-                                && event_.endScoresEnabled
-                                && not (List.member nestedRoute [ DetailsRoute, RegistrationsRoute, SparesRoute, TeamsRoute ])
-
-                        _ ->
-                            False
-
-                _ ->
-                    False
-    in
-    Sub.batch
-        [ hashChangeReceiver (HashChanged False)
-        , Browser.Events.onResize (\values -> SetDevice values)
-        , if reloadEnabled then
-            Time.every 30000 Tick
-
-          else
-            Sub.none
         ]
 
 

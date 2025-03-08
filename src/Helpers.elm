@@ -2,6 +2,7 @@ module Helpers exposing (..)
 
 import Element
 import Html.Attributes
+import Http
 import List.Extra
 import Translation exposing (Translation, translate)
 import Types exposing (..)
@@ -15,6 +16,127 @@ fromNonempty ( x, xs ) =
 attrNone : Element.Attribute msg
 attrNone =
     Element.htmlAttribute (Html.Attributes.classList [])
+
+
+
+-- FETCHING
+
+
+drawUrl : Int -> Int -> String
+drawUrl eventId drawId =
+    "/events/" ++ String.fromInt eventId ++ "/draws/" ++ String.fromInt drawId
+
+
+gameUrl : Int -> String -> String
+gameUrl eventId gameId =
+    "/events/" ++ String.fromInt eventId ++ "/games/" ++ gameId
+
+
+teamUrl : Int -> Int -> String
+teamUrl eventId teamId =
+    "/events/" ++ String.fromInt eventId ++ "/teams/" ++ String.fromInt teamId
+
+
+stageUrl : Int -> Stage -> String
+stageUrl eventId stage =
+    let
+        eventIdStr =
+            String.fromInt eventId
+
+        stageIdStr =
+            String.fromInt stage.id
+    in
+    "/events/" ++ String.fromInt eventId ++ "/stages/" ++ String.fromInt stage.id
+
+
+baseUrl : Flags -> String
+baseUrl { host, lang } =
+    let
+        devUrl =
+            -- Development
+            "http://api.curling.test:3000/" ++ lang
+
+        -- "https://api-curlingio.global.ssl.fastly.net/" ++ lang
+        -- productionUrl =
+        --     -- Production without caching
+        --     "https://api.curling.io/" ++ lang
+        --
+        productionCachedUrl =
+            -- Production cached via CDN (Fastly)
+            "https://api-curlingio.global.ssl.fastly.net/" ++ lang
+    in
+    case host of
+        Just h ->
+            if String.contains "localhost" h || String.contains ".curling.test" h then
+                devUrl
+                --
+                -- else if String.contains ".curling.io" h then
+                --     productionUrl
+
+            else
+                productionCachedUrl
+
+        Nothing ->
+            productionCachedUrl
+
+
+clubId : Flags -> String
+clubId { apiKey, subdomain } =
+    case ( apiKey, subdomain ) of
+        ( _, Just subdomain_ ) ->
+            subdomain_
+
+        ( Just apiKey_, _ ) ->
+            apiKey_
+
+        _ ->
+            ""
+
+
+baseClubUrl : Flags -> String
+baseClubUrl flags =
+    baseUrl flags ++ "/clubs/" ++ clubId flags ++ "/"
+
+
+baseClubSubdomainUrl : Flags -> String
+baseClubSubdomainUrl flags =
+    let
+        devUrl =
+            -- Development
+            "http://" ++ clubId flags ++ ".curling.test:3000/" ++ flags.lang
+
+        productionUrl =
+            "https://" ++ clubId flags ++ ".curling.io/" ++ flags.lang
+    in
+    case flags.host of
+        Just h ->
+            if String.contains "localhost" h || String.contains ".curling.test" h then
+                devUrl
+
+            else
+                productionUrl
+
+        Nothing ->
+            productionUrl
+
+
+errorMessage : Http.Error -> String
+errorMessage error =
+    case error of
+        Http.BadUrl string ->
+            "Bad URL used: " ++ string
+
+        Http.Timeout ->
+            "Network timeout. Please check your internet connection."
+
+        Http.NetworkError ->
+            "Network error. Please check your internet connection."
+
+        Http.BadStatus int ->
+            "Bad status response from server. Please contact Curling I/O support if the issue persists for more than a few minutes."
+
+        Http.BadBody string ->
+            "Bad body response from server. Please contact Curling I/O support if the issue persists for more than a few minutes. Details: \"" ++ string ++ "\""
 
 
 rockColorNameToRGB : String -> Element.Color
@@ -199,6 +321,16 @@ teamForSide teams side =
     List.Extra.find (\t -> Just t.id == side.teamId) teams
 
 
+gamesWithTeam : Event -> Team -> List Game
+gamesWithTeam event team =
+    let
+        participatedIn sides =
+            List.any (\s -> s.teamId == Just team.id) sides
+    in
+    gamesInEvent event
+        |> List.filter (\g -> participatedIn g.sides)
+
+
 sheetNameForGame : Event -> Game -> String
 sheetNameForGame event game =
     let
@@ -273,3 +405,73 @@ isBlankEnd sideA sideB endIndex =
 
         _ ->
             False
+
+
+gameScore : Game -> Maybe ( Int, Int ) -> Maybe String
+gameScore game orderByTeamIds =
+    let
+        sides =
+            -- If we passed team ids to order by, use them. Otherwise just use the default side positions.
+            case orderByTeamIds of
+                Just teamIds ->
+                    [ List.Extra.find (\side -> side.teamId == Just (Tuple.first teamIds)) game.sides
+                    , List.Extra.find (\side -> side.teamId == Just (Tuple.second teamIds)) game.sides
+                    ]
+                        |> List.filterMap identity
+
+                Nothing ->
+                    game.sides
+
+        sideResults =
+            List.map (\s -> s.result) sides
+                |> List.filterMap identity
+
+        intScores =
+            List.map (\s -> s.score) sides
+                |> List.filterMap identity
+
+        strScores =
+            List.map String.fromInt intScores
+
+        fromScores =
+            case game.state of
+                GameComplete ->
+                    case ( Maybe.withDefault 0 (List.head intScores), Maybe.withDefault 0 (List.Extra.getAt 1 intScores) ) of
+                        ( 0, 0 ) ->
+                            -- Display a W if a won, an L if a lost, or a T if they tied.
+                            case List.head sideResults of
+                                Nothing ->
+                                    "-"
+
+                                Just SideResultWon ->
+                                    "W"
+
+                                Just SideResultTied ->
+                                    "T"
+
+                                Just SideResultUnnecessary ->
+                                    "U"
+
+                                _ ->
+                                    "L"
+
+                        ( a, b ) ->
+                            -- if a > b then
+                            --     String.join " > " strScores
+                            --
+                            -- else if a < b then
+                            --     String.join " < " strScores
+                            --
+                            -- else
+                            --     String.join " = " strScores
+                            String.join " - " strScores
+
+                _ ->
+                    ""
+    in
+    case fromScores of
+        "" ->
+            Nothing
+
+        score ->
+            Just score
