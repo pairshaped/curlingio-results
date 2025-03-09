@@ -15,8 +15,8 @@ import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import List.Extra
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
-import Theme exposing (Theme, decodeTheme, defaultTheme)
-import Translation exposing (Translation, decodeTranslations, translate)
+import Shared.Theme exposing (Theme, decodeTheme, defaultTheme)
+import Shared.Translation exposing (Translation, decodeTranslations, translate)
 
 
 

@@ -1,4 +1,4 @@
-module Translation exposing (Translation, decodeTranslations, translate)
+module Shared.Translation exposing (Translation, decodeTranslations, translate)
 
 import Json.Decode as Decode exposing (Decoder, list, string)
 import Json.Decode.Pipeline exposing (required)

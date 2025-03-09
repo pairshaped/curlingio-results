@@ -1,340 +1,536 @@
-module Types exposing (..)
+module Results.Rest exposing (..)
 
-import Element as El exposing (Device)
+import Browser.Dom
+import Element exposing (Device)
+import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
-import RemoteData exposing (WebData)
-import Theme exposing (Theme, decodeTheme, defaultTheme)
-import Translation exposing (Translation)
+import RemoteData exposing (RemoteData(..), WebData)
+import RemoteData.Http
+import Results.Types exposing (..)
+import Shared.Theme exposing (Theme, decodeTheme, defaultTheme)
+import Shared.Translation exposing (Translation, decodeTranslations)
+import Task
+import Url
+import Url.Parser exposing ((</>), Parser)
 
 
-type alias Model =
-    { flags : Flags
-    , hash : String
-    , translations : WebData (List Translation)
-    , items : WebData ItemsResult
-    , itemFilter : ItemFilter
-    , product : WebData Product
-    , event : WebData Event
-    , eventConfig : EventConfig
-    , errorMsg : Maybe String
-    }
+init : Decode.Value -> ( Model, Cmd Msg )
+init flags_ =
+    let
+        device =
+            Element.classifyDevice { width = 800, height = 600 }
+    in
+    case Decode.decodeValue decodeFlags flags_ of
+        Ok flags ->
+            let
+                newHash =
+                    let
+                        eventRouteMaybe =
+                            case flags.eventId of
+                                Just eventId ->
+                                    let
+                                        section =
+                                            case flags.defaultEventSection of
+                                                Nothing ->
+                                                    "details"
+
+                                                Just "" ->
+                                                    "details"
+
+                                                Just defaultEventSection ->
+                                                    defaultEventSection
+                                    in
+                                    "/events/" ++ String.fromInt eventId ++ "/" ++ section
+
+                                Nothing ->
+                                    ""
+                    in
+                    case flags.hash of
+                        Just "" ->
+                            eventRouteMaybe
+
+                        Nothing ->
+                            eventRouteMaybe
+
+                        Just hash ->
+                            hash
+
+                newModel =
+                    { flags = flags
+                    , hash = newHash
+                    , translations = NotAsked
+                    , items = NotAsked
+                    , itemFilter = ItemFilter 1 0 "" False
+                    , product = NotAsked
+                    , event = NotAsked
+                    , eventConfig = EventConfig Nothing Nothing False Nothing False
+                    , errorMsg = Nothing
+                    }
+            in
+            ( newModel
+            , Cmd.batch
+                [ Task.perform InitDevice Browser.Dom.getViewport
+                , getTranslations flags
+                , Tuple.second (getItemsMaybe newModel newHash False)
+                , Tuple.second (getEventMaybe newModel newHash False)
+                , Tuple.second (getProductMaybe newModel newHash)
+                ]
+            )
+
+        Err error ->
+            let
+                flags =
+                    { host = Nothing
+                    , hash = Nothing
+                    , lang = "en"
+                    , apiKey = Nothing
+                    , subdomain = Nothing
+                    , fullScreenToggle = False
+                    , fullScreen = False
+                    , searchable = True
+                    , section = LeaguesSection
+                    , registration = False
+                    , showWaiversForTeams = False
+                    , excludeEventSections = []
+                    , defaultEventSection = Nothing
+                    , eventId = Nothing
+                    , theme = defaultTheme
+                    , loggedInCurlerIds = []
+                    , device = device
+                    }
+            in
+            ( { flags = flags
+              , hash = ""
+              , translations = NotAsked
+              , items = NotAsked
+              , itemFilter = ItemFilter 1 0 "" False
+              , product = NotAsked
+              , event = NotAsked
+              , eventConfig = EventConfig Nothing Nothing False Nothing False
+              , errorMsg = Just (Decode.errorToString error)
+              }
+            , Cmd.none
+            )
 
 
-type alias Item =
-    { id : Int
-    , name : String
-    , summary : Maybe String
-    , occursOn : Maybe String
-    , timeZoneShort : Maybe String
-    , location : Maybe String
-    , venue : Maybe String
-    , noRegistrationMessage : Maybe String
-    , price : Maybe String
-    , addToCartUrl : Maybe String
-    , addToCartText : Maybe String
-    , publishResults : Bool
-    }
+
+-- ROUTING
 
 
-type ItemsSection
-    = LeaguesSection
-    | CompetitionsSection
-    | ProductsSection
+matchRoute : Maybe String -> Parser (Route -> a) a
+matchRoute defaultEventSection =
+    Url.Parser.oneOf
+        [ Url.Parser.map ItemsRoute Url.Parser.top
+        , Url.Parser.map ProductRoute (Url.Parser.s "products" </> Url.Parser.int)
+        , Url.Parser.map EventRoute (Url.Parser.s "events" </> Url.Parser.int </> matchNestedEventRoute defaultEventSection)
+        ]
 
 
-type alias Flags =
-    { host : Maybe String
-    , hash : Maybe String
-    , lang : String
-    , apiKey : Maybe String
-    , subdomain : Maybe String
-    , fullScreenToggle : Bool
-    , fullScreen : Bool
-    , searchable : Bool
-    , section : ItemsSection
-    , registration : Bool
-    , showWaiversForTeams : Bool
-    , excludeEventSections : List String
-    , defaultEventSection : Maybe String
-    , eventId : Maybe Int
-    , theme : Theme
-    , loggedInCurlerIds : List Int
-    , device : Device
-    }
+matchNestedEventRoute : Maybe String -> Parser (NestedEventRoute -> a) a
+matchNestedEventRoute defaultEventSection =
+    let
+        defaultRoute =
+            case defaultEventSection of
+                Just section ->
+                    case section of
+                        "registrations" ->
+                            RegistrationsRoute
+
+                        "spares" ->
+                            SparesRoute
+
+                        "draws" ->
+                            DrawsRoute
+
+                        "stages" ->
+                            StagesRoute
+
+                        "teams" ->
+                            TeamsRoute
+
+                        "reports" ->
+                            ReportsRoute
+
+                        _ ->
+                            DetailsRoute
+
+                Nothing ->
+                    DetailsRoute
+    in
+    Url.Parser.oneOf
+        [ Url.Parser.map defaultRoute Url.Parser.top
+        , Url.Parser.map DetailsRoute (Url.Parser.s "details")
+        , Url.Parser.map RegistrationsRoute (Url.Parser.s "registrations")
+        , Url.Parser.map SparesRoute (Url.Parser.s "spares")
+        , Url.Parser.map DrawsRoute (Url.Parser.s "draws")
+        , Url.Parser.map StagesRoute (Url.Parser.s "stages")
+        , Url.Parser.map TeamsRoute (Url.Parser.s "teams")
+        , Url.Parser.map ReportsRoute (Url.Parser.s "reports")
+        , Url.Parser.map DrawRoute (Url.Parser.s "draws" </> Url.Parser.int)
+        , Url.Parser.map GameRoute (Url.Parser.s "games" </> Url.Parser.string)
+        , Url.Parser.map StageRoute (Url.Parser.s "stages" </> Url.Parser.int)
+        , Url.Parser.map TeamRoute (Url.Parser.s "teams" </> Url.Parser.int)
+        , Url.Parser.map ReportRoute (Url.Parser.s "reports" </> Url.Parser.string)
+        ]
 
 
-type alias Season =
-    { display : String
-    , delta : Int
-    }
+toRoute : Maybe String -> String -> Route
+toRoute defaultEventSection hash =
+    let
+        url =
+            let
+                fixedHash =
+                    hash
+                        |> String.replace "#" ""
+            in
+            { host = "api-curlingio.global.ssl.fastly.net"
+            , port_ = Nothing
+            , protocol = Url.Https
+            , query = Nothing
+            , fragment = Nothing
+            , path = fixedHash
+            }
+
+        parsed =
+            Maybe.withDefault ItemsRoute (Url.Parser.parse (matchRoute defaultEventSection) url)
+    in
+    parsed
 
 
-type alias ItemsResult =
-    { seasons : List Season
-    , items : List Item
-    }
+eventSectionForRoute : NestedEventRoute -> String
+eventSectionForRoute route =
+    case route of
+        DetailsRoute ->
+            "details"
+
+        RegistrationsRoute ->
+            "registrations"
+
+        SparesRoute ->
+            "spares"
+
+        DrawsRoute ->
+            "draws"
+
+        DrawRoute _ ->
+            "draws"
+
+        StagesRoute ->
+            "stages"
+
+        StageRoute _ ->
+            "stages"
+
+        GameRoute _ ->
+            "draws"
+
+        TeamsRoute ->
+            "teams"
+
+        TeamRoute _ ->
+            "teams"
+
+        ReportsRoute ->
+            "reports"
+
+        ReportRoute _ ->
+            "reports"
 
 
-type alias ItemFilter =
-    { page : Int
-    , seasonDelta : Int
-    , search : String
-    , seasonSearchOpen : Bool
-    }
+
+-- FETCHING
 
 
-type alias Sponsor =
-    { logoUrl : String
-    , name : Maybe String
-    , url : Maybe String
-    }
+drawUrl : Int -> Int -> String
+drawUrl eventId drawId =
+    "/events/" ++ String.fromInt eventId ++ "/draws/" ++ String.fromInt drawId
 
 
-type alias Product =
-    { id : Int
-    , name : String
-    , summary : Maybe String
-    , description : Maybe String
-    , sponsor : Maybe Sponsor
-    , addToCartUrl : Maybe String
-    , addToCartText : Maybe String
-    , total : Maybe String
-    , potentialDiscounts : List String
-    }
+gameUrl : Int -> String -> String
+gameUrl eventId gameId =
+    "/events/" ++ String.fromInt eventId ++ "/games/" ++ gameId
 
 
-type RockDelivery
-    = RockDeliveryRight
-    | RockDeliveryLeft
+teamUrl : Int -> Int -> String
+teamUrl eventId teamId =
+    "/events/" ++ String.fromInt eventId ++ "/teams/" ++ String.fromInt teamId
 
 
-type alias TeamCurler =
-    { curlerId : Int
-    , position : Maybe Int
-    , skip : Bool
-    , name : String
-    , delivery : Maybe RockDelivery
-    , photoUrl : Maybe String
-    , waiver : Bool
-    }
+stageUrl : Int -> Stage -> String
+stageUrl eventId stage =
+    let
+        eventIdStr =
+            String.fromInt eventId
+
+        stageIdStr =
+            String.fromInt stage.id
+    in
+    "/events/" ++ String.fromInt eventId ++ "/stages/" ++ String.fromInt stage.id
 
 
-type alias Team =
-    { id : Int
-    , name : String
-    , shortName : String
-    , coach : Maybe String
-    , affiliation : Maybe String
-    , location : Maybe String
-    , contactName : Maybe String
-    , email : Maybe String
-    , phone : Maybe String
-    , imageUrl : Maybe String
-    , lineup : List TeamCurler
-    }
+baseUrl : Flags -> String
+baseUrl { host, lang } =
+    let
+        devUrl =
+            -- Development
+            "http://api.curling.test:3000/" ++ lang
+
+        -- "https://api-curlingio.global.ssl.fastly.net/" ++ lang
+        -- productionUrl =
+        --     -- Production without caching
+        --     "https://api.curling.io/" ++ lang
+        --
+        productionCachedUrl =
+            -- Production cached via CDN (Fastly)
+            "https://api-curlingio.global.ssl.fastly.net/" ++ lang
+    in
+    case host of
+        Just h ->
+            if String.contains "localhost" h || String.contains ".curling.test" h then
+                devUrl
+                --
+                -- else if String.contains ".curling.io" h then
+                --     productionUrl
+
+            else
+                productionCachedUrl
+
+        Nothing ->
+            productionCachedUrl
 
 
-type alias Lineup =
-    { first : Maybe String
-    , second : Maybe String
-    , third : Maybe String
-    , fourth : Maybe String
-    , alternate : Maybe String
-    }
+clubId : Flags -> String
+clubId { apiKey, subdomain } =
+    case ( apiKey, subdomain ) of
+        ( _, Just subdomain_ ) ->
+            subdomain_
+
+        ( Just apiKey_, _ ) ->
+            apiKey_
+
+        _ ->
+            ""
 
 
-type alias Registration =
-    { curlerName : Maybe String
-    , teamName : Maybe String
-    , skipName : Maybe String
-    , position : Maybe String
-    , lineup : Maybe Lineup
-    }
+baseClubUrl : Flags -> String
+baseClubUrl flags =
+    baseUrl flags ++ "/clubs/" ++ clubId flags ++ "/"
 
 
-type EventType
-    = League
-    | Competition
+baseClubSubdomainUrl : Flags -> String
+baseClubSubdomainUrl flags =
+    let
+        devUrl =
+            -- Development
+            "http://" ++ clubId flags ++ ".curling.test:3000/" ++ flags.lang
+
+        productionUrl =
+            "https://" ++ clubId flags ++ ".curling.io/" ++ flags.lang
+    in
+    case flags.host of
+        Just h ->
+            if String.contains "localhost" h || String.contains ".curling.test" h then
+                devUrl
+
+            else
+                productionUrl
+
+        Nothing ->
+            productionUrl
 
 
-type EventState
-    = EventStatePending
-    | EventStateActive
-    | EventStateComplete
+errorMessage : Http.Error -> String
+errorMessage error =
+    case error of
+        Http.BadUrl string ->
+            "Bad URL used: " ++ string
+
+        Http.Timeout ->
+            "Network timeout. Please check your internet connection."
+
+        Http.NetworkError ->
+            "Network error. Please check your internet connection."
+
+        Http.BadStatus int ->
+            "Bad status response from server. Please contact Curling I/O support if the issue persists for more than a few minutes."
+
+        Http.BadBody string ->
+            "Bad body response from server. Please contact Curling I/O support if the issue persists for more than a few minutes. Details: \"" ++ string ++ "\""
 
 
-type ScoringHilight
-    = HilightHammers
-    | HilightStolenEnds
-    | HilightStolenPoints
-    | HilightBlankEnds
-    | Hilight1PointEnds
-    | Hilight2PointEnds
-    | Hilight3PointEnds
-    | Hilight4PointEnds
-    | Hilight5PlusPointEnds
+getItemsMaybe : Model -> String -> Bool -> ( WebData ItemsResult, Cmd Msg )
+getItemsMaybe { flags, itemFilter, items } hash reload =
+    case toRoute flags.defaultEventSection hash of
+        ItemsRoute ->
+            case ( items, reload ) of
+                ( Success _, False ) ->
+                    -- Already have the items.
+                    ( items, Cmd.none )
+
+                _ ->
+                    -- On items route and haven't loaded them yet.
+                    ( Loading, getItems flags itemFilter )
+
+        _ ->
+            -- Not on items route.
+            ( items, Cmd.none )
 
 
-type alias EventConfig =
-    { scoringHilight : Maybe ScoringHilight
-    , drawSelected : Maybe Int
-    , drawSelectionOpen : Bool
-    , teamSelected : Maybe Int
-    , teamSelectionOpen : Bool
-    }
+getEventMaybe : Model -> String -> Bool -> ( WebData Event, Cmd Msg )
+getEventMaybe { flags, event } hash reload =
+    case toRoute flags.defaultEventSection hash of
+        EventRoute eventId _ ->
+            if reload then
+                ( Loading, getEvent flags eventId )
+
+            else
+                case event of
+                    Success event_ ->
+                        if event_.id /= eventId then
+                            -- Different event selected, load it.
+                            ( Loading, getEvent flags eventId )
+
+                        else
+                            -- Already have the event.
+                            ( event, Cmd.none )
+
+                    _ ->
+                        -- Haven't loaded an event yet.
+                        ( Loading, getEvent flags eventId )
+
+        _ ->
+            -- Not on event route.
+            ( event, Cmd.none )
 
 
-type alias Spare =
-    { name : String
-    , positions : List String
-    }
+getProductMaybe : Model -> String -> ( WebData Product, Cmd Msg )
+getProductMaybe { flags, product } hash =
+    case toRoute flags.defaultEventSection hash of
+        ProductRoute productId ->
+            case product of
+                Success product_ ->
+                    if product_.id /= productId then
+                        -- Different product selected, load it.
+                        ( Loading, getProduct flags productId )
+
+                    else
+                        -- Already have the product.
+                        ( product, Cmd.none )
+
+                _ ->
+                    -- Haven't loaded a product yet.
+                    ( Loading, getProduct flags productId )
+
+        _ ->
+            -- Not o product route.
+            ( product, Cmd.none )
 
 
-type StageType
-    = RoundRobin
-    | Bracket
+getTranslations : Flags -> Cmd Msg
+getTranslations flags =
+    let
+        url =
+            baseUrl flags ++ "/translations"
+    in
+    RemoteData.Http.get url GotTranslations decodeTranslations
 
 
-type alias Group =
-    { id : Int
-    , name : String
-    }
+getItems : Flags -> ItemFilter -> Cmd Msg
+getItems flags itemFilter =
+    let
+        itemsSectionName : ItemsSection -> String
+        itemsSectionName section =
+            case section of
+                LeaguesSection ->
+                    "leagues"
+
+                CompetitionsSection ->
+                    "competitions"
+
+                ProductsSection ->
+                    "products"
+
+        params =
+            "?occurred="
+                ++ String.fromInt itemFilter.seasonDelta
+                ++ (case ( flags.section, flags.registration ) of
+                        ( ProductsSection, _ ) ->
+                            ""
+
+                        ( _, False ) ->
+                            "&registrations=f"
+
+                        _ ->
+                            ""
+                   )
+
+        url =
+            baseClubUrl flags
+                ++ itemsSectionName flags.section
+                ++ params
+    in
+    RemoteData.Http.get url GotItems decodeItemsResult
 
 
-type GameState
-    = GamePending
-    | GameActive
-    | GameComplete
+getEvent : Flags -> Int -> Cmd Msg
+getEvent flags id =
+    let
+        includeRegistrations =
+            if List.member "registrations" flags.excludeEventSections then
+                Nothing
+
+            else
+                Just "registrations"
+
+        includeSpares =
+            if List.member "spares" flags.excludeEventSections then
+                Nothing
+
+            else
+                Just "spares"
+
+        includeParamVal =
+            [ includeRegistrations, includeSpares ]
+                |> List.filterMap identity
+                |> String.join ","
+
+        includeParam =
+            if includeParamVal == "" then
+                ""
+
+            else
+                "?include=" ++ includeParamVal
+
+        url =
+            baseClubUrl flags
+                ++ "events/"
+                ++ String.fromInt id
+                ++ includeParam
+    in
+    RemoteData.Http.get url GotEvent decodeEvent
 
 
-type alias GameCoords =
-    { groupId : Int
-    , row : Int
-    , col : Int
-    }
+reloadEvent : Flags -> Int -> Cmd Msg
+reloadEvent flags id =
+    let
+        url =
+            baseClubUrl flags
+                ++ "events/"
+                ++ String.fromInt id
+    in
+    RemoteData.Http.get url ReloadedEvent decodeEvent
 
 
-type SideResult
-    = SideResultWon
-    | SideResultLost
-    | SideResultTied
-    | SideResultUnnecessary
-    | SideResultConceded
-    | SideResultForfeited
-    | SideResultTimePenalized
-
-
-type alias Shot =
-    { endNumber : Int
-    , shotNumber : Int
-    , curlerId : Maybe Int
-    , turn : Maybe String
-    , throw : Maybe String
-    , rating : Maybe String
-    }
-
-
-type alias Side =
-    { teamId : Maybe Int
-    , topRock : Bool
-    , firstHammer : Bool
-    , result : Maybe SideResult
-    , score : Maybe Int
-    , endScores : List Int
-    , winnerId : Maybe String
-    , loserId : Maybe String
-    , shots : List Shot
-    , timeRemaining : Maybe String
-    , lsd : Maybe Float
-    }
-
-
-type alias Game =
-    { id : String
-    , name : String
-    , state : GameState
-    , videoUrl : Maybe String
-    , coords : Maybe GameCoords
-    , sides : List Side
-    }
-
-
-type alias Standing =
-    { teamId : Int
-    , rank : Int
-    , played : Int
-    , wins : Int
-    , losses : Int
-    , ties : Int
-    , points : Float
-    , lsd : Maybe Float
-    , lsdRank : Maybe Int
-    }
-
-
-type alias Stage =
-    { id : Int
-    , stageType : StageType
-    , name : String
-    , groups : Maybe (List Group)
-    , games : List Game
-    , standings : List Standing
-    }
-
-
-type alias Draw =
-    { id : Int
-    , epoch : Int
-    , startsAt : String
-    , label : String
-    , attendance : Int
-    , drawSheets : List (Maybe String)
-    }
-
-
-type alias Event =
-    { id : Int
-    , eventType : EventType
-    , name : String
-    , summary : Maybe String
-    , description : Maybe String
-    , note : Maybe String
-    , teamRestriction : String
-    , mixedDoubles : Bool
-    , ageRange : String
-    , sponsor : Maybe Sponsor
-    , startsOn : String
-    , endsOn : String
-    , state : EventState
-    , timeZone : Maybe String
-    , timeZoneShort : Maybe String
-    , location : Maybe String
-    , venue : Maybe String
-    , videoUrl : Maybe String
-    , noRegistrationMessage : Maybe String
-    , registrationOpensAt : Maybe String
-    , registrationClosesAt : Maybe String
-    , spotsAvailable : Maybe Int
-    , spotsRemaining : Maybe Int
-    , addToCartUrl : Maybe String
-    , addToCartText : Maybe String
-    , total : Maybe String
-    , potentialDiscounts : List String
-    , endScoresEnabled : Bool
-    , shotByShotEnabled : Bool
-    , lastStoneDrawEnabled : Bool
-    , numberOfEnds : Int
-    , topRock : String
-    , botRock : String
-    , sheetNames : List String
-    , teams : List Team
-    , registrations : List Registration
-    , spares : List Spare
-    , stages : List Stage
-    , draws : List Draw
-    , currentDrawId : Maybe Int
-    }
+getProduct : Flags -> Int -> Cmd Msg
+getProduct flags id =
+    let
+        url =
+            baseClubUrl flags
+                ++ "products/"
+                ++ String.fromInt id
+    in
+    RemoteData.Http.get url GotProduct decodeProduct
 
 
 
@@ -383,7 +579,7 @@ decodeFlags =
         |> optional "eventId" (nullable int) Nothing
         |> optional "theme" decodeTheme defaultTheme
         |> optional "loggedInCurlerIds" (list int) []
-        |> hardcoded (El.classifyDevice { width = 800, height = 600 })
+        |> hardcoded (Element.classifyDevice { width = 800, height = 600 })
 
 
 decodeItemsResult : Decoder ItemsResult

@@ -1,4 +1,4 @@
-module Theme exposing (Theme, decodeTheme, defaultTheme)
+module Shared.Theme exposing (Theme, decodeTheme, defaultTheme)
 
 import Element exposing (Color, rgb255, rgba)
 import Hex

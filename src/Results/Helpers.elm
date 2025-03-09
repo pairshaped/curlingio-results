@@ -1,11 +1,24 @@
-module Helpers exposing (..)
+port module Results.Helpers exposing (..)
 
 import Element
 import Html.Attributes
-import Http
 import List.Extra
-import Translation exposing (Translation, translate)
-import Types exposing (..)
+import Results.Types exposing (..)
+import Shared.Translation exposing (Translation, translate)
+
+
+
+-- PORTS
+
+
+port navigateTo : String -> Cmd msg
+
+
+port hashChangeReceiver : (String -> msg) -> Sub msg
+
+
+
+-- HELPERS
 
 
 fromNonempty : ( a, List a ) -> List a
@@ -20,123 +33,6 @@ attrNone =
 
 
 -- FETCHING
-
-
-drawUrl : Int -> Int -> String
-drawUrl eventId drawId =
-    "/events/" ++ String.fromInt eventId ++ "/draws/" ++ String.fromInt drawId
-
-
-gameUrl : Int -> String -> String
-gameUrl eventId gameId =
-    "/events/" ++ String.fromInt eventId ++ "/games/" ++ gameId
-
-
-teamUrl : Int -> Int -> String
-teamUrl eventId teamId =
-    "/events/" ++ String.fromInt eventId ++ "/teams/" ++ String.fromInt teamId
-
-
-stageUrl : Int -> Stage -> String
-stageUrl eventId stage =
-    let
-        eventIdStr =
-            String.fromInt eventId
-
-        stageIdStr =
-            String.fromInt stage.id
-    in
-    "/events/" ++ String.fromInt eventId ++ "/stages/" ++ String.fromInt stage.id
-
-
-baseUrl : Flags -> String
-baseUrl { host, lang } =
-    let
-        devUrl =
-            -- Development
-            "http://api.curling.test:3000/" ++ lang
-
-        -- "https://api-curlingio.global.ssl.fastly.net/" ++ lang
-        -- productionUrl =
-        --     -- Production without caching
-        --     "https://api.curling.io/" ++ lang
-        --
-        productionCachedUrl =
-            -- Production cached via CDN (Fastly)
-            "https://api-curlingio.global.ssl.fastly.net/" ++ lang
-    in
-    case host of
-        Just h ->
-            if String.contains "localhost" h || String.contains ".curling.test" h then
-                devUrl
-                --
-                -- else if String.contains ".curling.io" h then
-                --     productionUrl
-
-            else
-                productionCachedUrl
-
-        Nothing ->
-            productionCachedUrl
-
-
-clubId : Flags -> String
-clubId { apiKey, subdomain } =
-    case ( apiKey, subdomain ) of
-        ( _, Just subdomain_ ) ->
-            subdomain_
-
-        ( Just apiKey_, _ ) ->
-            apiKey_
-
-        _ ->
-            ""
-
-
-baseClubUrl : Flags -> String
-baseClubUrl flags =
-    baseUrl flags ++ "/clubs/" ++ clubId flags ++ "/"
-
-
-baseClubSubdomainUrl : Flags -> String
-baseClubSubdomainUrl flags =
-    let
-        devUrl =
-            -- Development
-            "http://" ++ clubId flags ++ ".curling.test:3000/" ++ flags.lang
-
-        productionUrl =
-            "https://" ++ clubId flags ++ ".curling.io/" ++ flags.lang
-    in
-    case flags.host of
-        Just h ->
-            if String.contains "localhost" h || String.contains ".curling.test" h then
-                devUrl
-
-            else
-                productionUrl
-
-        Nothing ->
-            productionUrl
-
-
-errorMessage : Http.Error -> String
-errorMessage error =
-    case error of
-        Http.BadUrl string ->
-            "Bad URL used: " ++ string
-
-        Http.Timeout ->
-            "Network timeout. Please check your internet connection."
-
-        Http.NetworkError ->
-            "Network error. Please check your internet connection."
-
-        Http.BadStatus int ->
-            "Bad status response from server. Please contact Curling I/O support if the issue persists for more than a few minutes."
-
-        Http.BadBody string ->
-            "Bad body response from server. Please contact Curling I/O support if the issue persists for more than a few minutes. Details: \"" ++ string ++ "\""
 
 
 rockColorNameToRGB : String -> Element.Color
