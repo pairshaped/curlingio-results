@@ -502,7 +502,7 @@ view theme translations eventConfig event cumulative =
     in
     column [ El.width El.fill, El.spacing 30, El.paddingEach { top = 0, right = 0, bottom = 140, left = 0 } ]
         [ row [ El.width El.fill ]
-            [ el [ Font.size 24, El.width El.fill ]
+            [ el [ Font.size 24 ]
                 (text
                     (translate translations
                         ((if cumulative then
@@ -533,7 +533,7 @@ view theme translations eventConfig event cumulative =
                     ]
                         ++ List.map
                             (\curler ->
-                                column [ El.spacing 20 ]
+                                column [ El.width El.fill, El.spacing 20 ]
                                     [ el [ Font.size 20, El.paddingEach { top = 10, right = 0, bottom = 0, left = 0 } ] (text curler.name)
                                     , viewThrowsTable (throws team_ (Just curler))
                                     ]
