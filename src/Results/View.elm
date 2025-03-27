@@ -1868,7 +1868,7 @@ viewStages theme device translations event onStage =
                                     in
                                     button [ El.focused [ Background.color theme.transparent ] ]
                                         { onPress =
-                                            if gameHasBeenScheduled then
+                                            if gameHasBeenScheduled && event.endScoresEnabled then
                                                 Just (NavigateTo (gameUrl event.id game.id))
 
                                             else
