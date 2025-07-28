@@ -580,7 +580,7 @@ viewProduct { theme } translations fullScreen product =
                     El.none
             , case product.description of
                 Just description ->
-                    El.paragraph [ El.htmlAttribute (class "cio__product_description") ] [ text description ]
+                    El.paragraph [ El.htmlAttribute (class "cio__product_description") ] [ El.html (Markdown.toHtml [] description) ]
 
                 Nothing ->
                     El.none
