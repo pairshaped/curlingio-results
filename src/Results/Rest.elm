@@ -753,22 +753,22 @@ decodeTeamCurler =
                             "first" ->
                                 Decode.succeed 1
 
-                            "alternate1" ->
+                            "alternate_1" ->
                                 Decode.succeed 5
 
-                            "alternate2" ->
+                            "alternate_2" ->
                                 Decode.succeed 6
 
-                            "alternate3" ->
+                            "alternate_3" ->
                                 Decode.succeed 7
 
-                            "alternate4" ->
+                            "alternate_4" ->
                                 Decode.succeed 8
 
-                            "alternate5" ->
+                            "alternate_5" ->
                                 Decode.succeed 9
 
-                            "alternate6" ->
+                            "alternate_6" ->
                                 Decode.succeed 10
 
                             _ ->
@@ -809,7 +809,7 @@ decodeRegistration =
                 |> optional "second" (nullable string) Nothing
                 |> optional "third" (nullable string) Nothing
                 |> optional "fourth" (nullable string) Nothing
-                |> optional "alternate1" (nullable string) Nothing
+                |> optional "alternate_1" (nullable string) Nothing
     in
     Decode.succeed Registration
         |> optional "curler_name" (nullable string) Nothing
