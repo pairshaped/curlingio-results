@@ -1864,7 +1864,7 @@ viewStages theme device translations event onStage =
                                                  , Border.color theme.grey
                                                  ]
                                                     ++ (if side.result == Just SideResultWon then
-                                                            [ Font.bold, Font.color theme.primary ]
+                                                            [ Font.bold, Font.color theme.success ]
 
                                                         else
                                                             [ Font.regular ]
