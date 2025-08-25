@@ -2,7 +2,7 @@ module Results.CustomSvg exposing (..)
 
 import Results.Types exposing (GameResult(..))
 import Svg exposing (path, polyline, svg)
-import Svg.Attributes exposing (d, fill, height, points, stroke, strokeDasharray, strokeOpacity, viewBox, width)
+import Svg.Attributes exposing (d, fill, height, points, stroke, strokeDasharray, strokeOpacity, strokeWidth, viewBox, width)
 
 
 svgNoImage =
@@ -33,7 +33,15 @@ viewSvgConnector width_ height_ connectors =
                             "green"
 
                         Loser ->
-                            "red"
+                            "grey"
+                    )
+                , strokeWidth
+                    (case gameResult of
+                        Winner ->
+                            "2"
+
+                        Loser ->
+                            "1"
                     )
                 , points
                     (strPoint ( Tuple.first fromCoords + 6, Tuple.second fromCoords )
