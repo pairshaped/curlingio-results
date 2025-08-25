@@ -951,8 +951,6 @@ decodeGame =
                 |> optional "result" decodeSideResult Nothing
                 |> optional "score" (nullable int) Nothing
                 |> optional "end_scores" (list int) []
-                |> optional "winner_id" (nullable string) Nothing
-                |> optional "loser_id" (nullable string) Nothing
                 |> optional "shots" (list decodeShot) []
                 |> optional "time_remaining" (nullable string) Nothing
                 |> optional "lsd" (nullable float) Nothing
@@ -964,3 +962,7 @@ decodeGame =
         |> optional "video_url" (nullable string) Nothing
         |> optional "coords" (nullable decodeGameCoords) Nothing
         |> required "game_positions" (list decodeSide)
+        |> optional "winner_to_game_id" (nullable string) Nothing
+        |> optional "winner_to_side" (nullable int) Nothing
+        |> optional "loser_to_game_id" (nullable string) Nothing
+        |> optional "loser_to_side" (nullable int) Nothing

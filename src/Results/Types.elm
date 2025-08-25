@@ -227,6 +227,11 @@ type SideResult
     | SideResultTimePenalized
 
 
+type GameResult
+    = Winner
+    | Loser
+
+
 type alias Shot =
     { endNumber : Int
     , shotNumber : Int
@@ -244,8 +249,6 @@ type alias Side =
     , result : Maybe SideResult
     , score : Maybe Int
     , endScores : List Int
-    , winnerId : Maybe String
-    , loserId : Maybe String
     , shots : List Shot
     , timeRemaining : Maybe String
     , lsd : Maybe Float
@@ -259,6 +262,10 @@ type alias Game =
     , videoUrl : Maybe String
     , coords : Maybe GameCoords
     , sides : List Side
+    , winnerToGameId : Maybe String
+    , winnerToSide : Maybe Int
+    , loserToGameId : Maybe String
+    , loserToSide : Maybe Int
     }
 
 

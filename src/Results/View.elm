@@ -27,6 +27,27 @@ import Shared.Translation exposing (Translation, decodeTranslations, translate)
 
 
 
+-- HELPER FUNCTIONS
+
+
+findSourceConnection : List Game -> String -> Int -> Maybe ( Game, GameResult )
+findSourceConnection games targetGameId targetPosition =
+    let
+        checkGame game =
+            if game.winnerToGameId == Just targetGameId && game.winnerToSide == Just targetPosition then
+                Just ( game, Winner )
+
+            else if game.loserToGameId == Just targetGameId && game.loserToSide == Just targetPosition then
+                Just ( game, Loser )
+
+            else
+                Nothing
+    in
+    games
+        |> List.filterMap checkGame
+        |> List.head
+
+
 -- VIEWS
 
 
@@ -1810,8 +1831,8 @@ viewStages theme device translations event onStage =
                                         viewSide position side =
                                             let
                                                 label =
-                                                    case ( side.teamId, side.winnerId, side.loserId ) of
-                                                        ( Just id, _, _ ) ->
+                                                    case side.teamId of
+                                                        Just id ->
                                                             case List.Extra.find (\t -> t.id == id) event.teams of
                                                                 Just team ->
                                                                     team.name
@@ -1819,22 +1840,16 @@ viewStages theme device translations event onStage =
                                                                 Nothing ->
                                                                     "TBD"
 
-                                                        ( _, Just winnerId, _ ) ->
-                                                            "W: "
-                                                                ++ (List.Extra.find (\g -> g.id == winnerId) onStage.games
-                                                                        |> Maybe.map .name
-                                                                        |> Maybe.withDefault "TBD"
-                                                                   )
+                                                        Nothing ->
+                                                            case findSourceConnection onStage.games game.id position of
+                                                                Just ( sourceGame, Winner ) ->
+                                                                    "W: " ++ sourceGame.name
 
-                                                        ( _, _, Just loserId ) ->
-                                                            "L: "
-                                                                ++ (List.Extra.find (\g -> g.id == loserId) onStage.games
-                                                                        |> Maybe.map .name
-                                                                        |> Maybe.withDefault "TBD"
-                                                                   )
+                                                                Just ( sourceGame, Loser ) ->
+                                                                    "L: " ++ sourceGame.name
 
-                                                        _ ->
-                                                            "TBD"
+                                                                Nothing ->
+                                                                    "TBD"
                                             in
                                             el
                                                 ([ El.width El.fill
@@ -1912,65 +1927,87 @@ viewStages theme device translations event onStage =
                                 lineConnectors : List LineConnector
                                 lineConnectors =
                                     let
-                                        connectors : Game -> List (Maybe LineConnector)
-                                        connectors toGame =
+                                        connectorsFromGame : Game -> List LineConnector
+                                        connectorsFromGame sourceGame =
                                             let
-                                                connectorForPosition : Int -> Side -> Maybe LineConnector
-                                                connectorForPosition toPosition side =
-                                                    let
-                                                        fromCoords fromGameId =
-                                                            case List.Extra.find (\g -> g.id == fromGameId) gamesForGroup of
-                                                                Just fromGame ->
-                                                                    case fromGame.coords of
+                                                sourceCoords =
+                                                    case sourceGame.coords of
+                                                        Just coords ->
+                                                            Just
+                                                                ( coords.col * gridSize + 175
+                                                                , coords.row * gridSize + 45
+                                                                )
+
+                                                        _ ->
+                                                            Nothing
+
+                                                winnerConnector =
+                                                    case ( sourceGame.winnerToGameId, sourceGame.winnerToSide, sourceCoords ) of
+                                                        ( Just targetGameId, Just targetSide, Just fromCoords ) ->
+                                                            case List.Extra.find (\g -> g.id == targetGameId) gamesForGroup of
+                                                                Just targetGame ->
+                                                                    case targetGame.coords of
                                                                         Just coords ->
                                                                             Just
-                                                                                ( coords.col * gridSize + 175
-                                                                                , coords.row
-                                                                                    * gridSize
-                                                                                    + 45
+                                                                                (LineConnector Winner
+                                                                                    fromCoords
+                                                                                    ( coords.col * gridSize + 1
+                                                                                    , coords.row
+                                                                                        * gridSize
+                                                                                        + (if targetSide == 0 then
+                                                                                            32
+
+                                                                                           else
+                                                                                            57
+                                                                                          )
+                                                                                    )
                                                                                 )
 
-                                                                        _ ->
+                                                                        Nothing ->
                                                                             Nothing
-
-                                                                _ ->
-                                                                    Nothing
-
-                                                        toCoords =
-                                                            case toGame.coords of
-                                                                Just coords ->
-                                                                    Just
-                                                                        ( coords.col * gridSize + 1
-                                                                        , coords.row
-                                                                            * gridSize
-                                                                            + (if toPosition == 0 then
-                                                                                32
-
-                                                                               else
-                                                                                57
-                                                                              )
-                                                                        )
 
                                                                 Nothing ->
                                                                     Nothing
-                                                    in
-                                                    case side.winnerId of
-                                                        Just winnerId ->
-                                                            case ( fromCoords winnerId, toCoords ) of
-                                                                ( Just from, Just to ) ->
-                                                                    Just (LineConnector from to)
 
-                                                                _ ->
+                                                        _ ->
+                                                            Nothing
+
+                                                loserConnector =
+                                                    case ( sourceGame.loserToGameId, sourceGame.loserToSide, sourceCoords ) of
+                                                        ( Just targetGameId, Just targetSide, Just fromCoords ) ->
+                                                            case List.Extra.find (\g -> g.id == targetGameId) gamesForGroup of
+                                                                Just targetGame ->
+                                                                    case targetGame.coords of
+                                                                        Just coords ->
+                                                                            Just
+                                                                                (LineConnector Loser
+                                                                                    fromCoords
+                                                                                    ( coords.col * gridSize + 1
+                                                                                    , coords.row
+                                                                                        * gridSize
+                                                                                        + (if targetSide == 0 then
+                                                                                            32
+
+                                                                                           else
+                                                                                            57
+                                                                                          )
+                                                                                    )
+                                                                                )
+
+                                                                        Nothing ->
+                                                                            Nothing
+
+                                                                Nothing ->
                                                                     Nothing
 
                                                         _ ->
                                                             Nothing
                                             in
-                                            List.indexedMap connectorForPosition toGame.sides
+                                            [ winnerConnector, loserConnector ] |> List.filterMap identity
                                     in
-                                    List.map connectors gamesForGroup
+                                    gamesForGroup
+                                        |> List.map connectorsFromGame
                                         |> List.concat
-                                        |> List.filterMap identity
                             in
                             viewSvgConnector ((colsForGames + 1) * gridSize) ((rowsForGroup - 1) * gridSize) lineConnectors
                     in

@@ -107,7 +107,8 @@ type alias Throws =
 
 
 type alias LineConnector =
-    { fromCoords : ( Int, Int )
+    { gameResult : GameResult
+    , fromCoords : ( Int, Int )
     , toCoords : ( Int, Int )
     }
 
