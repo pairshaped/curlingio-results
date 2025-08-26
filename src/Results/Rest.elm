@@ -4,7 +4,7 @@ import Browser.Dom
 import Element exposing (Device)
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
-import Json.Decode.Pipeline exposing (hardcoded, optional, required)
+import Json.Decode.Pipeline exposing (custom, hardcoded, optional, required)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Results.Types exposing (..)
@@ -961,7 +961,12 @@ decodeGame =
         |> required "state" decodeGameState
         |> optional "video_url" (nullable string) Nothing
         |> optional "coords" (nullable decodeGameCoords) Nothing
-        |> required "game_positions" (list decodeSide)
+        |> custom
+            (Decode.oneOf
+                [ Decode.field "sides" (list decodeSide)
+                , Decode.field "game_positions" (list decodeSide)
+                ]
+            )
         |> optional "winner_to_game_id" (nullable string) Nothing
         |> optional "winner_to_side" (nullable int) Nothing
         |> optional "loser_to_game_id" (nullable string) Nothing
