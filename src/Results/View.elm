@@ -1864,13 +1864,26 @@ viewStages theme device translations event onStage =
                                                  , Border.color theme.grey
                                                  ]
                                                     ++ (if side.result == Just SideResultWon then
-                                                            [ Font.bold, Font.color theme.success ]
+                                                            [ Font.bold ]
 
                                                         else
                                                             [ Font.regular ]
                                                        )
                                                 )
-                                                (text label)
+                                                (el
+                                                    [ Border.widthEach { left = 0, right = 0, top = 0, bottom = 1 }
+                                                    , Border.color
+                                                        (rockColorNameToRGB
+                                                            (if side.topRock then
+                                                                event.topRock
+
+                                                             else
+                                                                event.botRock
+                                                            )
+                                                        )
+                                                    ]
+                                                    (text label)
+                                                )
 
                                         -- Only link if the game has been scheduled
                                         gameHasBeenScheduled =
@@ -1881,42 +1894,72 @@ viewStages theme device translations event onStage =
                                                 Nothing ->
                                                     False
                                     in
-                                    button [ El.focused [ Background.color theme.transparent ] ]
-                                        { onPress =
-                                            if gameHasBeenScheduled && event.endScoresEnabled then
-                                                Just (NavigateTo (gameUrl event.id game.id))
+                                    column []
+                                        ([ button [ El.focused [ Background.color theme.transparent ] ]
+                                            { onPress =
+                                                if gameHasBeenScheduled && event.endScoresEnabled then
+                                                    Just (NavigateTo (gameUrl event.id game.id))
 
-                                            else
-                                                Nothing
-                                        , label =
-                                            column
-                                                [ El.width (El.px 178)
-                                                , Background.color theme.greyLight
-                                                , Border.width 1
-                                                , Border.color theme.grey
-                                                , Font.size 12
-                                                , El.htmlAttribute (style "position" "absolute")
-                                                , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
-                                                , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize) ++ "px"))
-                                                , El.htmlAttribute (class "cio__event_bracket_game")
-                                                ]
-                                                [ el
-                                                    [ El.width El.fill
-                                                    , El.height (El.px 20)
-                                                    , El.paddingXY 4 3
-                                                    , Font.color theme.white
-                                                    , Background.color
-                                                        (if game.state == GameActive then
-                                                            theme.primary
-
-                                                         else
-                                                            theme.secondary
-                                                        )
+                                                else
+                                                    Nothing
+                                            , label =
+                                                column
+                                                    [ El.width (El.px 178)
+                                                    , Background.color theme.greyLight
+                                                    , Border.width 1
+                                                    , Border.color theme.grey
+                                                    , Font.size 12
+                                                    , El.htmlAttribute (style "position" "absolute")
+                                                    , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
+                                                    , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize) ++ "px"))
+                                                    , El.htmlAttribute (class "cio__event_bracket_game")
                                                     ]
-                                                    (el [] (text game.name))
-                                                , column [ El.width El.fill ] (List.indexedMap viewSide game.sides)
-                                                ]
-                                        }
+                                                    [ el
+                                                        [ El.width El.fill
+                                                        , El.height (El.px 20)
+                                                        , El.paddingXY 4 3
+                                                        , Font.color theme.white
+                                                        , Background.color
+                                                            (if game.state == GameActive then
+                                                                theme.primary
+
+                                                             else
+                                                                theme.secondary
+                                                            )
+                                                        ]
+                                                        (el [] (text game.name))
+                                                    , column [ El.width El.fill ] (List.indexedMap viewSide game.sides)
+                                                    ]
+                                            }
+                                        ] ++ 
+                                        (case game.winnerToGameId of
+                                            Just winnerGameId ->
+                                                case List.Extra.find (\g -> g.id == winnerGameId) onStage.games of
+                                                    Just winnerGame ->
+                                                        [ el
+                                                            [ El.htmlAttribute (style "position" "absolute")
+                                                            , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize + 178) ++ "px"))
+                                                            , El.htmlAttribute (style "transform" "translateX(-100%)")
+                                                            , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 71) ++ "px"))
+                                                            , El.height (El.px 17)
+                                                            , El.paddingXY 4 3
+                                                            , Font.size 10
+                                                            , Font.italic
+                                                            , Background.color theme.greyLight
+                                                            , Border.widthEach { left = 1, right = 1, top = 1, bottom = 1 }
+                                                            , Border.color theme.grey
+                                                            , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 4, bottomRight = 0 }
+                                                            ]
+                                                            (text ("Winner to " ++ winnerGame.name))
+                                                        ]
+                                                    
+                                                    Nothing ->
+                                                        []
+                                            
+                                            Nothing ->
+                                                []
+                                        )
+                                        )
 
                                 Nothing ->
                                     El.none

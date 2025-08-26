@@ -30,10 +30,10 @@ viewSvgConnector width_ height_ connectors =
                 , stroke
                     (case gameResult of
                         Winner ->
-                            "green"
+                            "black"
 
                         Loser ->
-                            "grey"
+                            "#888888"
                     )
                 , strokeWidth
                     (case gameResult of

@@ -16,7 +16,6 @@ type alias Theme =
     , greyDark : Color
     , primary : Color
     , secondary : Color
-    , success : Color
     }
 
 
@@ -31,7 +30,6 @@ defaultTheme =
     , greyDark = rgb255 52 58 64
     , primary = hexToColor "#ed1940"
     , secondary = hexToColor "#5c5c5c"
-    , success = hexToColor "#008000"
     }
 
 
@@ -57,7 +55,6 @@ decodeTheme =
         |> hardcoded defaultTheme.greyDark
         |> optional "primary" decodeStringColor defaultTheme.primary
         |> optional "secondary" decodeStringColor defaultTheme.secondary
-        |> optional "success" decodeStringColor defaultTheme.success
 
 
 hexToColor : String -> Color
