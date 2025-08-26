@@ -1870,19 +1870,47 @@ viewStages theme device translations event onStage =
                                                             [ Font.regular ]
                                                        )
                                                 )
-                                                (el
-                                                    [ Border.widthEach { left = 0, right = 0, top = 0, bottom = 1 }
-                                                    , Border.color
-                                                        (rockColorNameToRGB
-                                                            (if side.topRock then
-                                                                event.topRock
-
-                                                             else
-                                                                event.botRock
-                                                            )
+                                                (el 
+                                                    [ El.width El.fill
+                                                    , El.inFront 
+                                                        (if side.result == Just SideResultWon then
+                                                            el 
+                                                                [ El.alignRight
+                                                                , El.htmlAttribute (style "margin-right" "3px")
+                                                                , El.htmlAttribute (style "margin-top" "-2px")
+                                                                , El.padding 3
+                                                                , Background.color (El.rgb255 0 128 0)
+                                                                , Font.color theme.white
+                                                                , Font.size 10
+                                                                , Border.rounded 10
+                                                                ] 
+                                                                (text "W")
+                                                         else
+                                                            El.none
                                                         )
                                                     ]
-                                                    (text label)
+                                                    (el
+                                                        [ if side.result == Just SideResultWon then
+                                                            El.paddingEach { left = 0, right = 20, top = 0, bottom = 0 }
+                                                          else
+                                                            El.paddingEach { left = 0, right = 0, top = 0, bottom = 0 }
+                                                        , El.width El.fill
+                                                        ]
+                                                        (el
+                                                            [ Border.widthEach { left = 0, right = 0, top = 0, bottom = 2 }
+                                                            , Border.color
+                                                                (rockColorNameToRGB
+                                                                    (if side.topRock then
+                                                                        event.topRock
+
+                                                                     else
+                                                                        event.botRock
+                                                                    )
+                                                                )
+                                                            ]
+                                                            (text label)
+                                                        )
+                                                    )
                                                 )
 
                                         -- Only link if the game has been scheduled

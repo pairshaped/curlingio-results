@@ -26,14 +26,14 @@ viewSvgConnector width_ height_ connectors =
             polyline
                 [ fill "none"
                 , strokeOpacity "0.5"
-                , strokeDasharray "3"
+                , strokeDasharray "5"
                 , stroke
                     (case gameResult of
                         Winner ->
-                            "black"
+                            "#008000"
 
                         Loser ->
-                            "#888888"
+                            "#aaaaaa"
                     )
                 , strokeWidth
                     (case gameResult of
