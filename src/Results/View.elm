@@ -1950,7 +1950,7 @@ viewStages theme device translations event onStage =
                                                             , Border.color theme.grey
                                                             , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 4, bottomRight = 0 }
                                                             ]
-                                                            (text ("Winner to " ++ winnerGame.name))
+                                                            (text ("W to " ++ winnerGame.name))
                                                         ]
                                                     
                                                     Nothing ->
