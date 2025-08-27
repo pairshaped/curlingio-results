@@ -48,6 +48,7 @@ findSourceConnection games targetGameId targetPosition =
         |> List.head
 
 
+
 -- VIEWS
 
 
@@ -1870,21 +1871,22 @@ viewStages theme device translations event onStage =
                                                             [ Font.regular ]
                                                        )
                                                 )
-                                                (el 
+                                                (el
                                                     [ El.width El.fill
-                                                    , El.inFront 
+                                                    , El.inFront
                                                         (if side.result == Just SideResultWon then
-                                                            el 
+                                                            el
                                                                 [ El.alignRight
                                                                 , El.htmlAttribute (style "margin-right" "3px")
                                                                 , El.htmlAttribute (style "margin-top" "-2px")
-                                                                , El.padding 3
+                                                                , El.htmlAttribute (style "padding" "3px")
                                                                 , Background.color (El.rgb255 0 128 0)
                                                                 , Font.color theme.white
                                                                 , Font.size 10
                                                                 , Border.rounded 10
-                                                                ] 
+                                                                ]
                                                                 (text "W")
+
                                                          else
                                                             El.none
                                                         )
@@ -1892,6 +1894,7 @@ viewStages theme device translations event onStage =
                                                     (el
                                                         [ if side.result == Just SideResultWon then
                                                             El.paddingEach { left = 0, right = 20, top = 0, bottom = 0 }
+
                                                           else
                                                             El.paddingEach { left = 0, right = 0, top = 0, bottom = 0 }
                                                         , El.width El.fill
@@ -1959,34 +1962,34 @@ viewStages theme device translations event onStage =
                                                     , column [ El.width El.fill ] (List.indexedMap viewSide game.sides)
                                                     ]
                                             }
-                                        ] ++ 
-                                        (case game.winnerToGameId of
-                                            Just winnerGameId ->
-                                                case List.Extra.find (\g -> g.id == winnerGameId) onStage.games of
-                                                    Just winnerGame ->
-                                                        [ el
-                                                            [ El.htmlAttribute (style "position" "absolute")
-                                                            , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize + 178) ++ "px"))
-                                                            , El.htmlAttribute (style "transform" "translateX(-100%)")
-                                                            , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 71) ++ "px"))
-                                                            , El.height (El.px 17)
-                                                            , El.paddingXY 4 3
-                                                            , Font.size 10
-                                                            , Font.italic
-                                                            , Background.color theme.greyLight
-                                                            , Border.widthEach { left = 1, right = 1, top = 1, bottom = 1 }
-                                                            , Border.color theme.grey
-                                                            , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 4, bottomRight = 0 }
-                                                            ]
-                                                            (text ("W to " ++ winnerGame.name))
-                                                        ]
-                                                    
+                                         ]
+                                            ++ (case game.winnerToGameId of
+                                                    Just winnerGameId ->
+                                                        case List.Extra.find (\g -> g.id == winnerGameId) onStage.games of
+                                                            Just winnerGame ->
+                                                                [ el
+                                                                    [ El.htmlAttribute (style "position" "absolute")
+                                                                    , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize + 178) ++ "px"))
+                                                                    , El.htmlAttribute (style "transform" "translateX(-100%)")
+                                                                    , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 71) ++ "px"))
+                                                                    , El.height (El.px 17)
+                                                                    , El.paddingXY 4 2
+                                                                    , Font.size 10
+                                                                    , Font.italic
+                                                                    , Background.color theme.greyLight
+                                                                    , Border.widthEach { left = 1, right = 1, top = 1, bottom = 1 }
+                                                                    , Border.color theme.grey
+                                                                    , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 4, bottomRight = 0 }
+                                                                    ]
+                                                                    (text ("W to " ++ winnerGame.name))
+                                                                ]
+
+                                                            Nothing ->
+                                                                []
+
                                                     Nothing ->
                                                         []
-                                            
-                                            Nothing ->
-                                                []
-                                        )
+                                               )
                                         )
 
                                 Nothing ->
