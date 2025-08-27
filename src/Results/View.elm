@@ -1926,7 +1926,16 @@ viewStages theme device translations event onStage =
                                                     False
                                     in
                                     column []
-                                        ([ button [ El.focused [ Background.color theme.transparent ] ]
+                                        ([ button 
+                                            [ El.focused [ Background.color theme.transparent ]
+                                            , El.htmlAttribute (style "cursor" 
+                                                (if gameHasBeenScheduled && event.endScoresEnabled then
+                                                    "pointer"
+                                                 else
+                                                    "default"
+                                                )
+                                              )
+                                            ]
                                             { onPress =
                                                 if gameHasBeenScheduled && event.endScoresEnabled then
                                                     Just (NavigateTo (gameUrl event.id game.id))
