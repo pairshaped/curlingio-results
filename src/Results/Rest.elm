@@ -954,6 +954,40 @@ decodeGame =
                 |> optional "shots" (list decodeShot) []
                 |> optional "time_remaining" (nullable string) Nothing
                 |> optional "lsd" (nullable float) Nothing
+
+        emptySide : Side
+        emptySide =
+            { teamId = Nothing
+            , topRock = False
+            , firstHammer = False
+            , result = Nothing
+            , score = Nothing
+            , endScores = []
+            , shots = []
+            , timeRemaining = Nothing
+            , lsd = Nothing
+            }
+
+        ensureTwoSides : List Side -> List Side
+        ensureTwoSides sides =
+            let
+                -- Pad to exactly 2 sides using emptySide default
+                paddedSides = 
+                    case sides of
+                        [] -> [emptySide, emptySide]
+                        [side1] -> [side1, emptySide]
+                        side1 :: side2 :: _ -> [side1, side2]
+                
+                -- Check if any side has topRock = True
+                hasTopRock = List.any .topRock paddedSides
+            in
+            if hasTopRock then
+                paddedSides
+            else
+                -- No topRock found, set first side to topRock = True
+                case paddedSides of
+                    first :: rest -> { first | topRock = True } :: rest
+                    [] -> paddedSides -- shouldn't happen
     in
     Decode.succeed Game
         |> required "id" string
@@ -962,10 +996,8 @@ decodeGame =
         |> optional "video_url" (nullable string) Nothing
         |> optional "coords" (nullable decodeGameCoords) Nothing
         |> custom
-            (Decode.oneOf
-                [ Decode.field "sides" (list decodeSide)
-                , Decode.field "game_positions" (list decodeSide)
-                ]
+            (Decode.field "sides" (list decodeSide)
+                |> Decode.map ensureTwoSides
             )
         |> optional "winner_to_game_id" (nullable string) Nothing
         |> optional "winner_to_side" (nullable int) Nothing
