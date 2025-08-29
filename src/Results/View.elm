@@ -1983,9 +1983,8 @@ viewStages theme device translations event onStage =
                                                         [ row
                                                             [ El.htmlAttribute (style "position" "absolute")
                                                             , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
-                                                            , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 71) ++ "px"))
+                                                            , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 72) ++ "px"))
                                                             , El.width (El.px 178)
-                                                            , El.height (El.px 17)
                                                             , Font.size 9
                                                             , Font.italic
                                                             ]
@@ -1994,7 +1993,7 @@ viewStages theme device translations event onStage =
                                                                 , Background.color theme.greyLight
                                                                 , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
                                                                 , Border.color theme.grey
-                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 0, bottomRight = 4 }
+                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 0, bottomRight = 3 }
                                                                 ]
                                                                 (text (draw.startsAt |> String.replace "at  " " " |> String.replace "à  " " " |> String.replace " pm" "pm" |> String.replace " am" "am"))
                                                             , el
@@ -2005,7 +2004,7 @@ viewStages theme device translations event onStage =
                                                                 , Background.color theme.greyLight
                                                                 , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
                                                                 , Border.color theme.grey
-                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 4, bottomRight = 0 }
+                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 3, bottomRight = 0 }
                                                                 ]
                                                                 (text ("L: " ++ 
                                                                     (if String.length loserGame.name > 12 then
@@ -2020,9 +2019,8 @@ viewStages theme device translations event onStage =
                                                         [ row
                                                             [ El.htmlAttribute (style "position" "absolute")
                                                             , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
-                                                            , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 71) ++ "px"))
+                                                            , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 72) ++ "px"))
                                                             , El.width (El.px 178)
-                                                            , El.height (El.px 17)
                                                             , Font.size 9
                                                             , Font.italic
                                                             ]
@@ -2031,7 +2029,7 @@ viewStages theme device translations event onStage =
                                                                 , Background.color theme.greyLight
                                                                 , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
                                                                 , Border.color theme.grey
-                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 0, bottomRight = 4 }
+                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 0, bottomRight = 3 }
                                                                 ]
                                                                 (text (draw.startsAt |> String.replace "at  " " " |> String.replace "à  " " " |> String.replace " pm" "pm" |> String.replace " am" "am"))
                                                             ]
@@ -2041,9 +2039,8 @@ viewStages theme device translations event onStage =
                                                         [ row
                                                             [ El.htmlAttribute (style "position" "absolute")
                                                             , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
-                                                            , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 71) ++ "px"))
+                                                            , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 72) ++ "px"))
                                                             , El.width (El.px 178)
-                                                            , El.height (El.px 17)
                                                             , Font.size 9
                                                             , Font.italic
                                                             ]
@@ -2055,7 +2052,7 @@ viewStages theme device translations event onStage =
                                                                 , Background.color theme.greyLight
                                                                 , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
                                                                 , Border.color theme.grey
-                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 4, bottomRight = 0 }
+                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 3, bottomRight = 0 }
                                                                 ]
                                                                 (text ("L: " ++ 
                                                                     (if String.length loserGame.name > 12 then
