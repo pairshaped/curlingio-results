@@ -1972,58 +1972,101 @@ viewStages theme device translations event onStage =
                                                     ]
                                             }
                                          ]
-                                            ++ (case game.loserToGameId of
-                                                    Just loserGameId ->
-                                                        case List.Extra.find (\g -> g.id == loserGameId) onStage.games of
-                                                            Just loserGame ->
-                                                                let
-                                                                    maybeDraw = drawWithGameId event.draws game.id
-                                                                in
-                                                                [ row
-                                                                    [ El.htmlAttribute (style "position" "absolute")
-                                                                    , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
-                                                                    , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 71) ++ "px"))
-                                                                    , El.width (El.px 178)
-                                                                    , El.height (El.px 17)
-                                                                    , Font.size 9
-                                                                    , Font.italic
-                                                                    ]
-                                                                    ([ case maybeDraw of
-                                                                        Just draw ->
-                                                                            el
-                                                                                [ El.paddingXY 4 2
-                                                                                , Background.color theme.greyLight
-                                                                                , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
-                                                                                , Border.color theme.grey
-                                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 0, bottomRight = 4 }
-                                                                                ]
-                                                                                (text (draw.startsAt |> String.replace "at  " " " |> String.replace "à  " " " |> String.replace " pm" "pm" |> String.replace " am" "am"))
-                                                                        
-                                                                        Nothing ->
-                                                                            El.none
-                                                                    , el
-                                                                        [ El.alignRight
-                                                                        , El.width (El.maximum 92 El.shrink)
-                                                                        , El.clipX
-                                                                        , El.paddingXY 4 2
-                                                                        , Background.color theme.greyLight
-                                                                        , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
-                                                                        , Border.color theme.grey
-                                                                        , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 4, bottomRight = 0 }
-                                                                        ]
-                                                                        (text ("L: " ++ 
-                                                                            (if String.length loserGame.name > 12 then
-                                                                                String.left 12 loserGame.name ++ "…"
-                                                                            else
-                                                                                loserGame.name
-                                                                            )))
-                                                                    ])
+                                            ++ (let
+                                                    maybeDraw = drawWithGameId event.draws game.id
+                                                    maybeLoserGame = 
+                                                        game.loserToGameId
+                                                            |> Maybe.andThen (\loserGameId -> List.Extra.find (\g -> g.id == loserGameId) onStage.games)
+                                                in
+                                                case ( maybeDraw, maybeLoserGame ) of
+                                                    ( Just draw, Just loserGame ) ->
+                                                        [ row
+                                                            [ El.htmlAttribute (style "position" "absolute")
+                                                            , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
+                                                            , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 71) ++ "px"))
+                                                            , El.width (El.px 178)
+                                                            , El.height (El.px 17)
+                                                            , Font.size 9
+                                                            , Font.italic
+                                                            ]
+                                                            [ el
+                                                                [ El.paddingXY 4 2
+                                                                , Background.color theme.greyLight
+                                                                , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
+                                                                , Border.color theme.grey
+                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 0, bottomRight = 4 }
                                                                 ]
-
-                                                            Nothing ->
-                                                                []
-
-                                                    Nothing ->
+                                                                (text (draw.startsAt |> String.replace "at  " " " |> String.replace "à  " " " |> String.replace " pm" "pm" |> String.replace " am" "am"))
+                                                            , el
+                                                                [ El.alignRight
+                                                                , El.width (El.maximum 92 El.shrink)
+                                                                , El.clipX
+                                                                , El.paddingXY 4 2
+                                                                , Background.color theme.greyLight
+                                                                , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
+                                                                , Border.color theme.grey
+                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 4, bottomRight = 0 }
+                                                                ]
+                                                                (text ("L: " ++ 
+                                                                    (if String.length loserGame.name > 12 then
+                                                                        String.left 12 loserGame.name ++ "…"
+                                                                    else
+                                                                        loserGame.name
+                                                                    )))
+                                                            ]
+                                                        ]
+                                                    
+                                                    ( Just draw, Nothing ) ->
+                                                        [ row
+                                                            [ El.htmlAttribute (style "position" "absolute")
+                                                            , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
+                                                            , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 71) ++ "px"))
+                                                            , El.width (El.px 178)
+                                                            , El.height (El.px 17)
+                                                            , Font.size 9
+                                                            , Font.italic
+                                                            ]
+                                                            [ el
+                                                                [ El.paddingXY 4 2
+                                                                , Background.color theme.greyLight
+                                                                , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
+                                                                , Border.color theme.grey
+                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 0, bottomRight = 4 }
+                                                                ]
+                                                                (text (draw.startsAt |> String.replace "at  " " " |> String.replace "à  " " " |> String.replace " pm" "pm" |> String.replace " am" "am"))
+                                                            ]
+                                                        ]
+                                                    
+                                                    ( Nothing, Just loserGame ) ->
+                                                        [ row
+                                                            [ El.htmlAttribute (style "position" "absolute")
+                                                            , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
+                                                            , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 71) ++ "px"))
+                                                            , El.width (El.px 178)
+                                                            , El.height (El.px 17)
+                                                            , Font.size 9
+                                                            , Font.italic
+                                                            ]
+                                                            [ el
+                                                                [ El.alignRight
+                                                                , El.width (El.maximum 92 El.shrink)
+                                                                , El.clipX
+                                                                , El.paddingXY 4 2
+                                                                , Background.color theme.greyLight
+                                                                , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
+                                                                , Border.color theme.grey
+                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 4, bottomRight = 0 }
+                                                                ]
+                                                                (text ("L: " ++ 
+                                                                    (if String.length loserGame.name > 12 then
+                                                                        String.left 12 loserGame.name ++ "…"
+                                                                    else
+                                                                        loserGame.name
+                                                                    )))
+                                                            ]
+                                                        ]
+                                                    
+                                                    ( Nothing, Nothing ) ->
                                                         []
                                                )
                                         )

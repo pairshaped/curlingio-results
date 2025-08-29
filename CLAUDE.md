@@ -85,3 +85,6 @@ Both widgets are configured via JavaScript flags including:
 2. Modify dev.html or current-games-dev.html to test widget configurations
 3. Use `npm start` or `npm run current` for development
 4. Build production assets with `./prod.sh` before deployment
+
+## Git Workflow
+- **IMPORTANT**: Always run `./prod.sh` when committing changes to ensure production builds are updated
