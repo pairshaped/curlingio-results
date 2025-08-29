@@ -1972,10 +1972,10 @@ viewStages theme device translations event onStage =
                                                     ]
                                             }
                                          ]
-                                            ++ (case game.winnerToGameId of
-                                                    Just winnerGameId ->
-                                                        case List.Extra.find (\g -> g.id == winnerGameId) onStage.games of
-                                                            Just winnerGame ->
+                                            ++ (case game.loserToGameId of
+                                                    Just loserGameId ->
+                                                        case List.Extra.find (\g -> g.id == loserGameId) onStage.games of
+                                                            Just loserGame ->
                                                                 [ el
                                                                     [ El.htmlAttribute (style "position" "absolute")
                                                                     , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize + 178) ++ "px"))
@@ -1990,7 +1990,7 @@ viewStages theme device translations event onStage =
                                                                     , Border.color theme.grey
                                                                     , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 4, bottomRight = 0 }
                                                                     ]
-                                                                    (text ("W to " ++ winnerGame.name))
+                                                                    (text ("L: " ++ loserGame.name))
                                                                 ]
 
                                                             Nothing ->
