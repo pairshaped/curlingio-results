@@ -41,19 +41,14 @@ type alias Flags =
 
 
 type alias Side =
-    { id : Int
-    , gameId : String
-    , drawId : Int
-    , eventId : Int
+    { gameId : String
     , startsAt : String
     , gameName : Maybe String
-    , rockColor : String
     , result : Maybe SideResult
     , score : Maybe Int
     , teamShortName : String
     , gameState : GameState
     , eventName : String
-    , firstHammer : Bool
     , endScores : List Int
     }
 
@@ -138,19 +133,14 @@ decodeSides =
                             )
             in
             Decode.succeed Side
-                |> required "id" int
                 |> required "game_id" string
-                |> required "draw_id" int
-                |> required "event_id" int
                 |> required "starts_at" string
                 |> optional "game_name" (nullable string) Nothing
-                |> required "rock_color" string
                 |> optional "result" decodeSideResult Nothing
                 |> required "score" (nullable int)
                 |> required "team_short_name" string
                 |> required "game_state" decodeGameState
                 |> required "event_name" string
-                |> optional "first_hammer" bool False
                 |> optional "end_scores" (list int) []
     in
     list decodeSide
@@ -158,11 +148,6 @@ decodeSides =
 
 
 -- HELPERS
-
-
-drawUrl : Int -> Int -> String
-drawUrl eventId drawId =
-    "/events/" ++ String.fromInt eventId ++ "/draws/" ++ String.fromInt drawId
 
 
 gameStateToString : List Translation -> GameState -> String
@@ -309,9 +294,7 @@ init flags_ =
 
 
 type Msg
-    = NoOp
-    | NavigateOut String
-    | GotTranslations (WebData (List Translation))
+    = GotTranslations (WebData (List Translation))
     | GotSides (WebData (List Side))
     | Reload
 
@@ -319,12 +302,6 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        NoOp ->
-            ( model, Cmd.none )
-
-        NavigateOut url ->
-            ( model, Navigation.load url )
-
         GotTranslations response ->
             ( { model | translations = response, errorMsg = Nothing }, Cmd.none )
 
