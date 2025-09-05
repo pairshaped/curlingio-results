@@ -346,7 +346,6 @@ view model =
     El.layout
         [ Font.size 16
         , Font.color model.flags.theme.defaultText
-        , El.width (El.px 300)
         , El.height El.fill
         , El.padding 10
         , Font.family
@@ -481,9 +480,10 @@ viewGames { theme, showEndScores } translations sides =
                         [ viewTeamName, viewEndScores, viewScore ]
             in
             column
-                [ El.width El.fill
-                , El.spacing 10
-                , El.padding 10
+                -- [ El.width El.fill
+                [ El.width (El.px 280)
+                , El.spacing 5
+                , El.padding 5
                 , Border.width 1
                 , case Maybe.map .gameState (List.head gameSides) of
                     Just GameActive ->
@@ -501,7 +501,7 @@ viewGames { theme, showEndScores } translations sides =
         el [] (text (translate translations "no_current_games"))
 
     else
-        column [ El.width El.fill, El.spacing 20 ]
+        El.wrappedRow [ El.width El.fill, El.spacing 10 ]
             (groupWhile (\a b -> a.gameId == b.gameId) sides
                 |> List.map viewGame
             )
