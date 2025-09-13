@@ -2574,7 +2574,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                             , Border.color theme.grey
                             , Font.bold
                             ]
-                            (el [ El.centerX ] (text (translate translations "time")))
+                            (el [ El.centerX ] (text (translate translations "time_remaining_abbr")))
                     , width = El.px 80
                     , view =
                         \side ->
