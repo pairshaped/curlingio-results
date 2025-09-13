@@ -6,7 +6,7 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
-import Element.Input as Input exposing (button)
+import Element.Input exposing (button)
 import Element.Lazy as Lazy
 import Html exposing (Html)
 import Html.Attributes exposing (attribute, class, style)
@@ -22,8 +22,8 @@ import Results.Reports.ScoringAndPercentages
 import Results.Reports.View
 import Results.Rest exposing (..)
 import Results.Types exposing (..)
-import Shared.Theme exposing (Theme, defaultTheme)
-import Shared.Translation exposing (Translation, decodeTranslations, translate)
+import Shared.Theme exposing (Theme)
+import Shared.Translation exposing (Translation, translate)
 
 
 
@@ -52,6 +52,7 @@ findSourceConnection games targetGameId targetPosition =
 -- VIEWS
 
 
+viewButtonPrimary : Theme -> String -> Msg -> Element Msg
 viewButtonPrimary theme content msg =
     button
         [ Background.color theme.primary
@@ -70,7 +71,7 @@ viewButtonPrimary theme content msg =
 view : Model -> Html Msg
 view model =
     let
-        { device, fullScreenToggle, fullScreen } =
+        { device, fullScreen } =
             model.flags
 
         viewMain =
@@ -103,7 +104,7 @@ view model =
                 ]
                 (case model.errorMsg of
                     Just errorMsg ->
-                        viewNotReady fullScreen errorMsg
+                        viewNotReady errorMsg
 
                     Nothing ->
                         case model.translations of
@@ -114,7 +115,7 @@ view model =
                                 Lazy.lazy2 viewFetchError model.flags.theme (errorMessage error)
 
                             _ ->
-                                viewNotReady fullScreen "Loading..."
+                                viewNotReady "Loading..."
                 )
 
         theme =
@@ -173,17 +174,14 @@ view model =
 viewRoute : List Translation -> Model -> Element Msg
 viewRoute translations { flags, hash, itemFilter, eventConfig, items, product, event } =
     let
-        { device, fullScreen } =
-            flags
-
         viewLoading =
-            Lazy.lazy2 viewNotReady fullScreen "Loading..."
+            Lazy.lazy viewNotReady "Loading..."
     in
     case toRoute flags.defaultEventSection hash of
         ItemsRoute ->
             case items of
                 Success items_ ->
-                    Lazy.lazy5 viewItems flags device translations itemFilter items_
+                    Lazy.lazy4 viewItems flags translations itemFilter items_
 
                 Failure error ->
                     Lazy.lazy2 viewFetchError flags.theme (errorMessage error)
@@ -191,10 +189,10 @@ viewRoute translations { flags, hash, itemFilter, eventConfig, items, product, e
                 _ ->
                     viewLoading
 
-        ProductRoute id ->
+        ProductRoute _ ->
             case product of
                 Success product_ ->
-                    Lazy.lazy4 viewProduct flags translations fullScreen product_
+                    Lazy.lazy3 viewProduct flags translations product_
 
                 Failure error ->
                     Lazy.lazy2 viewFetchError flags.theme (errorMessage error)
@@ -202,7 +200,7 @@ viewRoute translations { flags, hash, itemFilter, eventConfig, items, product, e
                 _ ->
                     viewLoading
 
-        EventRoute id nestedRoute ->
+        EventRoute _ nestedRoute ->
             case event of
                 Success event_ ->
                     Lazy.lazy5 viewEvent flags translations eventConfig nestedRoute event_
@@ -261,8 +259,8 @@ viewFullScreenButton theme translations fullScreen =
         }
 
 
-viewNotReady : Bool -> String -> Element Msg
-viewNotReady fullScreen message =
+viewNotReady : String -> Element Msg
+viewNotReady message =
     el [ El.htmlAttribute (class "cio__not_ready") ] (text message)
 
 
@@ -277,10 +275,10 @@ viewFetchError theme message =
         ]
 
 
-viewItems : Flags -> Device -> List Translation -> ItemFilter -> ItemsResult -> Element Msg
-viewItems flags device translations itemFilter items =
+viewItems : Flags -> List Translation -> ItemFilter -> ItemsResult -> Element Msg
+viewItems flags translations itemFilter items =
     let
-        { theme, fullScreen, section, registration } =
+        { theme, section, registration } =
             flags
 
         viewPaging =
@@ -578,8 +576,8 @@ viewSponsor sponsor =
         ]
 
 
-viewProduct : Flags -> List Translation -> Bool -> Product -> Element Msg
-viewProduct { theme } translations fullScreen product =
+viewProduct : Flags -> List Translation -> Product -> Element Msg
+viewProduct { theme } translations product =
     row
         [ El.width El.fill
         , El.height El.fill
@@ -675,9 +673,6 @@ viewEvent flags translations eventConfig nestedRoute event =
 
                         hasCompletedGames =
                             List.any (\g -> g.state == GameComplete) (gamesInEvent event)
-
-                        hasEndScores =
-                            event.endScoresEnabled
                     in
                     case section of
                         "registrations" ->
@@ -801,7 +796,7 @@ viewEvent flags translations eventConfig nestedRoute event =
                 Lazy.lazy3 viewSpares flags translations event
 
             DrawsRoute ->
-                Lazy.lazy4 viewDraws theme translations eventConfig event
+                Lazy.lazy3 viewDraws theme translations event
 
             DrawRoute drawId ->
                 case List.Extra.find (\d -> d.id == drawId) event.draws of
@@ -1187,8 +1182,8 @@ viewSpares flags translations event =
         ]
 
 
-viewDraws : Theme -> List Translation -> EventConfig -> Event -> Element Msg
-viewDraws theme translations eventConfig event =
+viewDraws : Theme -> List Translation -> Event -> Element Msg
+viewDraws theme translations event =
     let
         currentDraw =
             currentDrawForEvent event
@@ -1926,15 +1921,17 @@ viewStages theme device translations event onStage =
                                                     False
                                     in
                                     column []
-                                        ([ button 
+                                        ([ button
                                             [ El.focused [ Background.color theme.transparent ]
-                                            , El.htmlAttribute (style "cursor" 
-                                                (if gameHasBeenScheduled && event.endScoresEnabled then
-                                                    "pointer"
-                                                 else
-                                                    "default"
+                                            , El.htmlAttribute
+                                                (style "cursor"
+                                                    (if gameHasBeenScheduled && event.endScoresEnabled then
+                                                        "pointer"
+
+                                                     else
+                                                        "default"
+                                                    )
                                                 )
-                                              )
                                             ]
                                             { onPress =
                                                 if gameHasBeenScheduled && event.endScoresEnabled then
@@ -1973,8 +1970,10 @@ viewStages theme device translations event onStage =
                                             }
                                          ]
                                             ++ (let
-                                                    maybeDraw = drawWithGameId event.draws game.id
-                                                    maybeLoserGame = 
+                                                    maybeDraw =
+                                                        drawWithGameId event.draws game.id
+
+                                                    maybeLoserGame =
                                                         game.loserToGameId
                                                             |> Maybe.andThen (\loserGameId -> List.Extra.find (\g -> g.id == loserGameId) onStage.games)
                                                 in
@@ -2006,15 +2005,19 @@ viewStages theme device translations event onStage =
                                                                 , Border.color theme.grey
                                                                 , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 3, bottomRight = 0 }
                                                                 ]
-                                                                (text ("L: " ++ 
-                                                                    (if String.length loserGame.name > 12 then
-                                                                        String.left 12 loserGame.name ++ "…"
-                                                                    else
-                                                                        loserGame.name
-                                                                    )))
+                                                                (text
+                                                                    ("L: "
+                                                                        ++ (if String.length loserGame.name > 12 then
+                                                                                String.left 12 loserGame.name ++ "…"
+
+                                                                            else
+                                                                                loserGame.name
+                                                                           )
+                                                                    )
+                                                                )
                                                             ]
                                                         ]
-                                                    
+
                                                     ( Just draw, Nothing ) ->
                                                         [ row
                                                             [ El.htmlAttribute (style "position" "absolute")
@@ -2034,7 +2037,7 @@ viewStages theme device translations event onStage =
                                                                 (text (draw.startsAt |> String.replace "at  " " " |> String.replace "à  " " " |> String.replace " pm" "pm" |> String.replace " am" "am"))
                                                             ]
                                                         ]
-                                                    
+
                                                     ( Nothing, Just loserGame ) ->
                                                         [ row
                                                             [ El.htmlAttribute (style "position" "absolute")
@@ -2054,15 +2057,19 @@ viewStages theme device translations event onStage =
                                                                 , Border.color theme.grey
                                                                 , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 3, bottomRight = 0 }
                                                                 ]
-                                                                (text ("L: " ++ 
-                                                                    (if String.length loserGame.name > 12 then
-                                                                        String.left 12 loserGame.name ++ "…"
-                                                                    else
-                                                                        loserGame.name
-                                                                    )))
+                                                                (text
+                                                                    ("L: "
+                                                                        ++ (if String.length loserGame.name > 12 then
+                                                                                String.left 12 loserGame.name ++ "…"
+
+                                                                            else
+                                                                                loserGame.name
+                                                                           )
+                                                                    )
+                                                                )
                                                             ]
                                                         ]
-                                                    
+
                                                     ( Nothing, Nothing ) ->
                                                         []
                                                )
@@ -2801,7 +2808,7 @@ viewTeam theme translations flags event team =
                                         )
                                     ]
                                     (case curler.position of
-                                        Just position ->
+                                        Just _ ->
                                             text (positionNumberToString translations curler.position)
 
                                         Nothing ->
@@ -2994,7 +3001,7 @@ viewTeam theme translations flags event team =
                     else
                         tableCell (text (drawAndSheetName draw game))
 
-                viewTeamDrawStartsAt { draw, game } =
+                viewTeamDrawStartsAt { draw } =
                     if event.endScoresEnabled then
                         tableCell
                             (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
@@ -3006,7 +3013,7 @@ viewTeam theme translations flags event team =
                     else
                         tableCell (text draw.startsAt)
 
-                viewTeamDrawResult { draw, game } =
+                viewTeamDrawResult { game } =
                     let
                         resultText =
                             let
@@ -3041,7 +3048,7 @@ viewTeam theme translations flags event team =
                         Nothing ->
                             tableCell (text "-")
 
-                viewTeamDrawScore { draw, game } =
+                viewTeamDrawScore { game } =
                     case opponent game of
                         Just oppo ->
                             case gameScore game (Just ( team.id, oppo.id )) of
@@ -3063,7 +3070,7 @@ viewTeam theme translations flags event team =
                         Nothing ->
                             tableCell (text "-")
 
-                viewTeamDrawOpponent { draw, game } =
+                viewTeamDrawOpponent { game } =
                     case opponent game of
                         Just oppo ->
                             let

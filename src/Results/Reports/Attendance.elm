@@ -1,14 +1,10 @@
 module Results.Reports.Attendance exposing (view)
 
-import Element as El exposing (Device, Element, column, el, row, text)
+import Element as El exposing (Element, column, el, text)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
-import Element.Input as Input exposing (button)
 import Html.Attributes exposing (class)
-import List.Extra
-import Results.Helpers exposing (..)
-import Results.Rest exposing (..)
 import Results.Types exposing (..)
 import Shared.Theme exposing (Theme)
 import Shared.Translation exposing (Translation, translate)
@@ -57,7 +53,7 @@ view theme translations draws =
                 , { header = viewHeader "total"
                   , width = El.fill
                   , view =
-                        \idx draw ->
+                        \idx _ ->
                             viewCell idx
                                 (List.take (idx + 1) draws
                                     |> List.map (\d -> d.attendance)

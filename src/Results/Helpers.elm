@@ -76,9 +76,6 @@ sideResultToString translations result =
             Just SideResultUnnecessary ->
                 "unnecessary"
 
-            Just SideResultConceded ->
-                "forfeited"
-
             Just SideResultForfeited ->
                 "forfeited"
 
@@ -136,12 +133,6 @@ gamesInEvent event =
                 |> List.concat
     in
     gamesFromStages event.stages
-
-
-gameInEventById : Event -> String -> Maybe Game
-gameInEventById event id =
-    gamesInEvent event
-        |> List.Extra.find (\g -> g.id == id)
 
 
 findGameById : Event -> String -> Maybe Game
@@ -351,7 +342,7 @@ gameScore game orderByTeamIds =
                                 _ ->
                                     "L"
 
-                        ( a, b ) ->
+                        _ ->
                             -- if a > b then
                             --     String.join " > " strScores
                             --

@@ -1,15 +1,12 @@
 module Results.Reports.PositionalComparison exposing (viewPercentage, viewPlusMinus)
 
-import Element as El exposing (Device, Element, column, el, row, text)
+import Element as El exposing (Element, column, el, text)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
-import Element.Input as Input exposing (button)
-import Html.Attributes exposing (class)
 import List.Extra
 import Results.Helpers exposing (..)
 import Results.Reports.Helpers exposing (..)
-import Results.Rest exposing (..)
 import Results.Types exposing (..)
 import Shared.Theme exposing (Theme)
 import Shared.Translation exposing (Translation, translate)
@@ -53,10 +50,6 @@ viewPercentage theme translations event =
                         |> List.map fromNonempty
                         |> List.sortBy (\g -> List.sum (List.map .percentage g) / toFloat (List.length g))
                         |> List.reverse
-
-                data : List ShotSummaryByPosition
-                data =
-                    []
 
                 viewHeader align label =
                     el
@@ -180,10 +173,6 @@ viewPlusMinus theme translations event =
                         |> List.sortBy (\g -> List.sum (List.map .overUnder g))
                         |> List.sortBy (\g -> List.sum (List.map .plusMinus g))
                         |> List.reverse
-
-                data : List ShotSummaryByPosition
-                data =
-                    []
 
                 viewHeader align label =
                     el

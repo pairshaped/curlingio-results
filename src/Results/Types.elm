@@ -1,11 +1,9 @@
 module Results.Types exposing (..)
 
 import Browser.Dom
-import Element as El exposing (Device)
-import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
-import Json.Decode.Pipeline exposing (hardcoded, optional, required)
+import Element exposing (Device)
 import RemoteData exposing (WebData)
-import Shared.Theme exposing (Theme, decodeTheme, defaultTheme)
+import Shared.Theme exposing (Theme)
 import Shared.Translation exposing (Translation)
 import Time
 
@@ -222,7 +220,6 @@ type SideResult
     | SideResultLost
     | SideResultTied
     | SideResultUnnecessary
-    | SideResultConceded
     | SideResultForfeited
     | SideResultTimePenalized
 

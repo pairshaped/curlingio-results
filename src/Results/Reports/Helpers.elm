@@ -72,19 +72,6 @@ type alias ShotSummaryByPosition =
     }
 
 
-type alias PositionalPercentage =
-    { position : Int
-    , drawEpoch : Int
-    , curlerId : Int
-    , curlerName : String
-    , teamId : Int
-    , teamName : String
-    , alternate : Bool
-    , percentage : Float
-    , oppositePercentage : Float
-    }
-
-
 type alias TeamShot =
     { curlerId : Int
     , curlerName : String

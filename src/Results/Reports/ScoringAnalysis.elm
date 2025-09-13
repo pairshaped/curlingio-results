@@ -1,14 +1,13 @@
 module Results.Reports.ScoringAnalysis exposing (view)
 
-import Element as El exposing (Device, Element, column, el, row, text)
+import Element as El exposing (Element, column, el, text)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
-import Element.Input as Input exposing (button)
+import Element.Input exposing (button)
 import Html.Attributes exposing (class)
 import List.Extra
 import Results.Helpers exposing (..)
-import Results.Reports.Helpers exposing (..)
 import Results.Rest exposing (..)
 import Results.Types exposing (..)
 import Shared.Theme exposing (Theme)
@@ -33,9 +32,6 @@ view theme translations eventConfig event restrictToTeams =
         rows =
             -- TODO: Structure the data so that for and against are just rows, but when rendering we know due to missing data or a flag which is which.
             List.Extra.interweave teams teams
-
-        isHilighted onHilight =
-            eventConfig.scoringHilight == Just onHilight
 
         isForGame =
             List.length teams == 2
@@ -348,7 +344,7 @@ view theme translations eventConfig event restrictToTeams =
                 , { header = tableHeader " " El.alignLeft Nothing Nothing
                   , width = El.fillPortion 2 |> El.minimum 40
                   , view =
-                        \i team ->
+                        \i _ ->
                             if modBy 2 i == 0 then
                                 tableCell El.centerX 1 (text (translate translations "for"))
 

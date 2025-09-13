@@ -1,15 +1,15 @@
 module Results.Rest exposing (..)
 
 import Browser.Dom
-import Element exposing (Device)
+import Element
 import Http
 import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
 import Json.Decode.Pipeline exposing (custom, hardcoded, optional, required)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Results.Types exposing (..)
-import Shared.Theme exposing (Theme, decodeTheme, defaultTheme)
-import Shared.Translation exposing (Translation, decodeTranslations)
+import Shared.Theme exposing (decodeTheme, defaultTheme)
+import Shared.Translation exposing (decodeTranslations)
 import Task
 import Url
 import Url.Parser exposing ((</>), Parser)
@@ -259,13 +259,6 @@ teamUrl eventId teamId =
 
 stageUrl : Int -> Stage -> String
 stageUrl eventId stage =
-    let
-        eventIdStr =
-            String.fromInt eventId
-
-        stageIdStr =
-            String.fromInt stage.id
-    in
     "/events/" ++ String.fromInt eventId ++ "/stages/" ++ String.fromInt stage.id
 
 
@@ -352,7 +345,7 @@ errorMessage error =
         Http.NetworkError ->
             "Network error. Please check your internet connection."
 
-        Http.BadStatus int ->
+        Http.BadStatus _ ->
             "Bad status response from server. Please contact Curling I/O support if the issue persists for more than a few minutes."
 
         Http.BadBody string ->
@@ -972,22 +965,34 @@ decodeGame =
         ensureTwoSides sides =
             let
                 -- Pad to exactly 2 sides using emptySide default
-                paddedSides = 
+                paddedSides =
                     case sides of
-                        [] -> [emptySide, emptySide]
-                        [side1] -> [side1, emptySide]
-                        side1 :: side2 :: _ -> [side1, side2]
-                
+                        [] ->
+                            [ emptySide, emptySide ]
+
+                        [ side1 ] ->
+                            [ side1, emptySide ]
+
+                        side1 :: side2 :: _ ->
+                            [ side1, side2 ]
+
                 -- Check if any side has topRock = True
-                hasTopRock = List.any .topRock paddedSides
+                hasTopRock =
+                    List.any .topRock paddedSides
             in
             if hasTopRock then
                 paddedSides
+
             else
                 -- No topRock found, set first side to topRock = True
                 case paddedSides of
-                    first :: rest -> { first | topRock = True } :: rest
-                    [] -> paddedSides -- shouldn't happen
+                    first :: rest ->
+                        { first | topRock = True } :: rest
+
+                    [] ->
+                        paddedSides
+
+        -- shouldn't happen
     in
     Decode.succeed Game
         |> required "id" string

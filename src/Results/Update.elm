@@ -153,7 +153,7 @@ update msg model =
             -- The different between this and GetEvent is that we only update the event on the model
             -- when the request succeeds.
             ( case response of
-                Success event ->
+                Success _ ->
                     { model | event = response }
 
                 _ ->

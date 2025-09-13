@@ -1,16 +1,14 @@
 module Results.Reports.StatisticsByTeam exposing (view)
 
-import Element as El exposing (Device, Element, column, el, row, text)
+import Element as El exposing (Element, column, el, row, text)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
-import Element.Input as Input exposing (button)
 import Html.Attributes exposing (class)
 import List.Extra
 import Results.Helpers exposing (..)
 import Results.Reports.Helpers exposing (..)
-import Results.Rest exposing (..)
 import Results.Types exposing (..)
 import Shared.Theme exposing (Theme)
 import Shared.Translation exposing (Translation, translate)

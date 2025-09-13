@@ -1,17 +1,15 @@
 module CurrentGames exposing (init)
 
 import Browser
-import Browser.Navigation as Navigation
-import Element as El exposing (Device, Element, column, el, row, text)
+import Element as El exposing (Element, column, el, row, text)
 import Element.Background as Background
 import Element.Border as Border
-import Element.Events as Events
 import Element.Font as Font
-import Element.Input as Input exposing (button)
+import Element.Input exposing (button)
 import Html exposing (Html)
 import Http
-import Json.Decode as Decode exposing (Decoder, bool, float, int, list, nullable, string)
-import Json.Decode.Pipeline exposing (hardcoded, optional, required)
+import Json.Decode as Decode exposing (Decoder, bool, int, list, nullable, string)
+import Json.Decode.Pipeline exposing (optional, required)
 import List.Extra
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
@@ -165,19 +163,6 @@ gameStateToString translations gameState =
         )
 
 
-colorNameToRGB : String -> El.Color
-colorNameToRGB color =
-    case color of
-        "red" ->
-            El.rgb255 204 0 0
-
-        "yellow" ->
-            El.rgb255 204 204 0
-
-        _ ->
-            El.rgb255 204 204 0
-
-
 errorMessage : Http.Error -> String
 errorMessage error =
     case error of
@@ -190,7 +175,7 @@ errorMessage error =
         Http.NetworkError ->
             "Network error. Please check your internet connection."
 
-        Http.BadStatus int ->
+        Http.BadStatus _ ->
             "Bad status response from server. Please contact Curling I/O support if the issue persists for more than a few minutes."
 
         Http.BadBody string ->
@@ -270,7 +255,7 @@ init flags_ =
                 ]
             )
 
-        Err error ->
+        Err _ ->
             let
                 flags =
                     { subdomain = ""

@@ -1,4 +1,4 @@
-module Results.CustomSvg exposing (..)
+module Results.CustomSvg exposing (svgNoImage, viewSvgConnector)
 
 import Results.Types exposing (GameResult(..))
 import Svg exposing (path, polyline, svg)

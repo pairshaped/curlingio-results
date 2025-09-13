@@ -1,11 +1,11 @@
 module Results.Reports.View exposing (viewReport, viewReports)
 
-import Element as El exposing (Device, Element, column, el, row, text)
+import Element as El exposing (Element, column, el, text)
 import Element.Background as Background
 import Element.Font as Font
-import Element.Input as Input exposing (button)
+import Element.Input exposing (button)
 import Element.Lazy as Lazy
-import Html.Attributes exposing (attribute, class, style)
+import Html.Attributes exposing (class)
 import Results.Reports.Attendance
 import Results.Reports.CompetitionMatrix
 import Results.Reports.HogLineViolation
@@ -16,8 +16,8 @@ import Results.Reports.ScoringAndPercentages
 import Results.Reports.StatisticsByTeam
 import Results.Reports.TeamRosters
 import Results.Types exposing (..)
-import Shared.Theme exposing (Theme, defaultTheme)
-import Shared.Translation exposing (Translation, decodeTranslations, translate)
+import Shared.Theme exposing (Theme)
+import Shared.Translation exposing (Translation, translate)
 
 
 viewNoDataForRoute : List Translation -> Element Msg
@@ -33,9 +33,6 @@ viewReports theme translations event =
 
         hasAttendance =
             (List.map .attendance event.draws |> List.sum) > 0
-
-        hasShots =
-            True
 
         reportButton id =
             let
