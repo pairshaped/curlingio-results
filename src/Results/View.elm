@@ -2536,6 +2536,11 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                     event.lastStoneDrawEnabled
                         && List.any (\side -> side.lsd /= Nothing) game.sides
 
+                bothHaveTimeRemaining =
+                    game.sides
+                        |> List.filterMap .timeRemaining
+                        |> (\times -> List.length times == 2)
+
                 totalColumn =
                     { header =
                         el
@@ -2559,6 +2564,26 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                                     Font.regular
                                 ]
                                 (el [ El.centerX ] (text (String.fromInt (List.sum side.endScores))))
+                    }
+
+                timeRemainingColumn =
+                    { header =
+                        el
+                            [ El.paddingXY 10 15
+                            , Border.widthEach { left = 0, top = 1, right = 1, bottom = 2 }
+                            , Border.color theme.grey
+                            , Font.bold
+                            ]
+                            (el [ El.centerX ] (text (translate translations "time")))
+                    , width = El.px 80
+                    , view =
+                        \side ->
+                            el
+                                [ El.paddingXY 10 15
+                                , Border.widthEach { left = 0, top = 0, right = 1, bottom = 1 }
+                                , Border.color theme.grey
+                                ]
+                                (el [ El.centerX ] (text (Maybe.withDefault "" side.timeRemaining)))
                     }
 
                 teamColumn =
@@ -2667,6 +2692,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                    )
                 ++ List.map endColumn (List.range 1 maxNumberOfEnds)
                 ++ [ totalColumn ]
+                ++ (if bothHaveTimeRemaining then [ timeRemainingColumn ] else [])
     in
     column [ El.width El.fill, El.spacing 10 ]
         -- Breadcrumb
