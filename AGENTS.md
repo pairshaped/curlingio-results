@@ -26,8 +26,14 @@
 - Place new report views under `src/Results/Reports/`; shared utilities under `src/Shared/`.
 
 ### Formatting
-- Use `elm-format` on save. Configure your editor to run it automatically.
-- CLI example: `elm-format --yes src` (run before committing to normalize style).
+- Use `elm-format` on every save. Configure your editor to run it automatically.
+- Do not rely on pre-commit formatting; code should already be formatted before staging.
+- CLI example: `elm-format --yes src` (handy for bulk normalizing).
+
+### Linting & Review
+- Run `elm-review` before committing to catch unused code and API issues.
+- Command: `npx elm-review` (uses the repo’s default configuration automatically).
+- Examine the output and address findings deliberately. Only apply `--fix` after reviewing changes; do not auto‑apply blindly.
 
 ## Testing Guidelines
 - No automated test harness is configured. Validate changes by:

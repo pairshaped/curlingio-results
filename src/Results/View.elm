@@ -311,72 +311,6 @@ viewItems flags translations itemFilter items =
                     El.none
                 ]
 
-        viewSeasonDropDown =
-            let
-                seasonOption { display, delta } =
-                    el
-                        [ El.width El.fill
-                        , El.padding 10
-                        , Events.onClick (UpdateSeasonDelta delta)
-                        , if delta == itemFilter.seasonDelta then
-                            Background.color theme.greyLight
-
-                          else
-                            Background.color theme.transparent
-                        ]
-                        (text (translate translations display))
-
-                seasonOptions =
-                    if itemFilter.seasonSearchOpen then
-                        let
-                            scrolling =
-                                if List.length items.seasons > 5 then
-                                    [ El.height (El.fill |> El.minimum 210), El.scrollbarY ]
-
-                                else
-                                    []
-                        in
-                        column
-                            ([ El.width El.fill
-                             , Border.width 1
-                             , Border.color theme.grey
-                             , Background.color theme.white
-                             ]
-                                ++ scrolling
-                            )
-                            (List.map seasonOption items.seasons)
-
-                    else
-                        El.none
-
-                seasonSelected =
-                    List.filter (\season -> season.delta == itemFilter.seasonDelta) items.seasons
-                        |> List.map .display
-                        |> List.head
-                        |> Maybe.withDefault "-"
-            in
-            row
-                [ El.width (El.px 150)
-                , El.padding 10
-                , Border.width 1
-                , Border.color theme.grey
-                , El.pointer
-                , Events.onClick ToggleSeasonSearch
-                , El.below seasonOptions
-                , El.htmlAttribute (class "cio__season_dropdown")
-                ]
-                [ el [] (text seasonSelected)
-                , el [ El.alignRight ]
-                    (text
-                        (if itemFilter.seasonSearchOpen then
-                            "▼"
-
-                         else
-                            "►"
-                        )
-                    )
-                ]
-
         filteredItems =
             case String.trim itemFilter.search of
                 "" ->
@@ -395,12 +329,6 @@ viewItems flags translations itemFilter items =
                                    )
                     in
                     List.filter matches items.items
-
-        pagedItems =
-            filteredItems
-                |> Array.fromList
-                |> Array.slice ((itemFilter.page - 1) * 10) (itemFilter.page * 10)
-                |> Array.toList
     in
     column [ El.spacing 10, El.width El.fill ]
         [ row [ El.spacing 20, El.htmlAttribute (class "cio__filter_container") ]
@@ -422,7 +350,70 @@ viewItems flags translations itemFilter items =
               else
                 El.none
             , if List.length items.seasons > 1 then
-                viewSeasonDropDown
+                let
+                    seasonOption { display, delta } =
+                        el
+                            [ El.width El.fill
+                            , El.padding 10
+                            , Events.onClick (UpdateSeasonDelta delta)
+                            , if delta == itemFilter.seasonDelta then
+                                Background.color theme.greyLight
+
+                              else
+                                Background.color theme.transparent
+                            ]
+                            (text (translate translations display))
+
+                    seasonOptions =
+                        if itemFilter.seasonSearchOpen then
+                            let
+                                scrolling =
+                                    if List.length items.seasons > 5 then
+                                        [ El.height (El.fill |> El.minimum 210), El.scrollbarY ]
+
+                                    else
+                                        []
+                            in
+                            column
+                                ([ El.width El.fill
+                                 , Border.width 1
+                                 , Border.color theme.grey
+                                 , Background.color theme.white
+                                 ]
+                                    ++ scrolling
+                                )
+                                (List.map seasonOption items.seasons)
+
+                        else
+                            El.none
+
+                    seasonSelected =
+                        List.filter (\season -> season.delta == itemFilter.seasonDelta) items.seasons
+                            |> List.map .display
+                            |> List.head
+                            |> Maybe.withDefault "-"
+                in
+                row
+                    [ El.width (El.px 150)
+                    , El.padding 10
+                    , Border.width 1
+                    , Border.color theme.grey
+                    , El.pointer
+                    , Events.onClick ToggleSeasonSearch
+                    , El.below seasonOptions
+                    , El.htmlAttribute (class "cio__season_dropdown")
+                    ]
+                    [ el [] (text seasonSelected)
+                    , el [ El.alignRight ]
+                        (text
+                            (if itemFilter.seasonSearchOpen then
+                                "▼"
+
+                             else
+                                "►"
+                            )
+                        )
+                    ]
 
               else
                 El.none
@@ -432,6 +423,12 @@ viewItems flags translations itemFilter items =
 
           else
             let
+                pagedItems =
+                    filteredItems
+                        |> Array.fromList
+                        |> Array.slice ((itemFilter.page - 1) * 10) (itemFilter.page * 10)
+                        |> Array.toList
+
                 viewItemName item =
                     let
                         newPath =
@@ -656,41 +653,45 @@ viewEvent flags translations eventConfig nestedRoute event =
 
                 hasData section =
                     let
-                        hasRegistrations =
-                            not (List.isEmpty event.registrations)
-
-                        hasSpares =
-                            not (List.isEmpty event.spares)
-
                         hasDraws =
                             not (List.isEmpty event.draws)
 
-                        hasStages =
-                            not (List.isEmpty event.stages)
-
                         hasTeams =
                             not (List.isEmpty event.teams)
-
-                        hasCompletedGames =
-                            List.any (\g -> g.state == GameComplete) (gamesInEvent event)
                     in
                     case section of
                         "registrations" ->
+                            let
+                                hasRegistrations =
+                                    not (List.isEmpty event.registrations)
+                            in
                             hasRegistrations
 
                         "spares" ->
+                            let
+                                hasSpares =
+                                    not (List.isEmpty event.spares)
+                            in
                             hasSpares
 
                         "draws" ->
                             hasDraws
 
                         "stages" ->
+                            let
+                                hasStages =
+                                    not (List.isEmpty event.stages)
+                            in
                             hasStages
 
                         "teams" ->
                             hasTeams
 
                         "reports" ->
+                            let
+                                hasCompletedGames =
+                                    List.any (\g -> g.state == GameComplete) (gamesInEvent event)
+                            in
                             (hasDraws && hasTeams)
                                 || hasCompletedGames
 
@@ -984,21 +985,6 @@ viewDetails theme device translations event =
 viewRegistrations : Theme -> List Translation -> List Registration -> Element Msg
 viewRegistrations theme translations registrations =
     let
-        hasCurlers =
-            List.any (\r -> r.curlerName /= Nothing) registrations
-
-        hasTeamNames =
-            List.any (\r -> r.teamName /= Nothing) registrations
-
-        hasSkipNames =
-            List.any (\r -> r.skipName /= Nothing) registrations
-
-        hasPositions =
-            List.any (\r -> r.position /= Nothing) registrations
-
-        hasLineups =
-            List.any (\r -> r.lineup /= Nothing) registrations
-
         tableHeader content =
             el
                 [ Font.bold
@@ -1020,95 +1006,111 @@ viewRegistrations theme translations registrations =
                     )
                 ]
                 (text content)
-
-        curlerColumn =
-            if hasCurlers then
-                Just
-                    { header = tableHeader "curler"
-                    , width = El.fill
-                    , view = \i reg -> tableCell i (Maybe.withDefault "-" reg.curlerName)
-                    }
-
-            else
-                Nothing
-
-        teamColumn =
-            if hasTeamNames then
-                Just
-                    { header = tableHeader "team"
-                    , width = El.fill
-                    , view = \i reg -> tableCell i (Maybe.withDefault "-" reg.teamName)
-                    }
-
-            else
-                Nothing
-
-        skipColumn =
-            if hasSkipNames then
-                Just
-                    { header = tableHeader "skip"
-                    , width = El.fill
-                    , view = \i reg -> tableCell i (Maybe.withDefault "-" reg.skipName)
-                    }
-
-            else
-                Nothing
-
-        positionColumn =
-            if hasPositions then
-                Just
-                    { header = tableHeader "position"
-                    , width = El.fill
-                    , view =
-                        \i reg ->
-                            tableCell i
-                                (case reg.position of
-                                    Just pos ->
-                                        translate translations pos
-
-                                    Nothing ->
-                                        "-"
-                                )
-                    }
-
-            else
-                Nothing
-
-        lineupColumn =
-            if hasLineups then
-                Just
-                    { header = tableHeader "lineup"
-                    , width = El.fill
-                    , view =
-                        \i reg ->
-                            tableCell i
-                                (case reg.lineup of
-                                    Just lineup ->
-                                        [ lineup.first
-                                        , lineup.second
-                                        , lineup.third
-                                        , lineup.fourth
-                                        , lineup.alternate
-                                        ]
-                                            |> List.filterMap identity
-                                            |> String.join ", "
-
-                                    Nothing ->
-                                        "-"
-                                )
-                    }
-
-            else
-                Nothing
-
-        tableColumns =
-            List.filterMap identity [ curlerColumn, teamColumn, skipColumn, positionColumn, lineupColumn ]
     in
     el [ El.width El.fill, El.htmlAttribute (class "cio__event_registrations") ]
         (if List.isEmpty registrations then
             El.paragraph [] [ text (translate translations "no_registrations") ]
 
          else
+            let
+                hasCurlers =
+                    List.any (\r -> r.curlerName /= Nothing) registrations
+
+                curlerColumn =
+                    if hasCurlers then
+                        Just
+                            { header = tableHeader "curler"
+                            , width = El.fill
+                            , view = \i reg -> tableCell i (Maybe.withDefault "-" reg.curlerName)
+                            }
+
+                    else
+                        Nothing
+
+                hasTeamNames =
+                    List.any (\r -> r.teamName /= Nothing) registrations
+
+                teamColumn =
+                    if hasTeamNames then
+                        Just
+                            { header = tableHeader "team"
+                            , width = El.fill
+                            , view = \i reg -> tableCell i (Maybe.withDefault "-" reg.teamName)
+                            }
+
+                    else
+                        Nothing
+
+                hasSkipNames =
+                    List.any (\r -> r.skipName /= Nothing) registrations
+
+                skipColumn =
+                    if hasSkipNames then
+                        Just
+                            { header = tableHeader "skip"
+                            , width = El.fill
+                            , view = \i reg -> tableCell i (Maybe.withDefault "-" reg.skipName)
+                            }
+
+                    else
+                        Nothing
+
+                hasPositions =
+                    List.any (\r -> r.position /= Nothing) registrations
+
+                positionColumn =
+                    if hasPositions then
+                        Just
+                            { header = tableHeader "position"
+                            , width = El.fill
+                            , view =
+                                \i reg ->
+                                    tableCell i
+                                        (case reg.position of
+                                            Just pos ->
+                                                translate translations pos
+
+                                            Nothing ->
+                                                "-"
+                                        )
+                            }
+
+                    else
+                        Nothing
+
+                hasLineups =
+                    List.any (\r -> r.lineup /= Nothing) registrations
+
+                lineupColumn =
+                    if hasLineups then
+                        Just
+                            { header = tableHeader "lineup"
+                            , width = El.fill
+                            , view =
+                                \i reg ->
+                                    tableCell i
+                                        (case reg.lineup of
+                                            Just lineup ->
+                                                [ lineup.first
+                                                , lineup.second
+                                                , lineup.third
+                                                , lineup.fourth
+                                                , lineup.alternate
+                                                ]
+                                                    |> List.filterMap identity
+                                                    |> String.join ", "
+
+                                            Nothing ->
+                                                "-"
+                                        )
+                            }
+
+                    else
+                        Nothing
+
+                tableColumns =
+                    List.filterMap identity [ curlerColumn, teamColumn, skipColumn, positionColumn, lineupColumn ]
+            in
             El.indexedTable [ El.htmlAttribute (class "cio__event_registrations_table") ]
                 { data = registrations
                 , columns = tableColumns
@@ -1143,33 +1145,34 @@ viewSpares flags translations event =
                     )
                 ]
                 (text content)
-
-        nameColumn =
-            { header = tableHeader "curler"
-            , width = El.fill
-            , view = \i spare -> tableCell i spare.name
-            }
-
-        positionsColumn =
-            { header = tableHeader "position"
-            , width = El.fill
-            , view =
-                \i spare ->
-                    tableCell i
-                        (if List.isEmpty spare.positions then
-                            "-"
-
-                         else
-                            List.map (\pos -> translate translations pos) spare.positions
-                                |> String.join ", "
-                        )
-            }
     in
     column [ El.width El.fill, El.spacing 30, El.htmlAttribute (class "cio__event_spares") ]
         [ if List.isEmpty event.spares then
             El.paragraph [] [ text (translate translations "no_spares") ]
 
           else
+            let
+                nameColumn =
+                    { header = tableHeader "curler"
+                    , width = El.fill
+                    , view = \i spare -> tableCell i spare.name
+                    }
+
+                positionsColumn =
+                    { header = tableHeader "position"
+                    , width = El.fill
+                    , view =
+                        \i spare ->
+                            tableCell i
+                                (if List.isEmpty spare.positions then
+                                    "-"
+
+                                 else
+                                    List.map (\pos -> translate translations pos) spare.positions
+                                        |> String.join ", "
+                                )
+                    }
+            in
             El.indexedTable [ El.htmlAttribute (class "cio__event_spares_table") ]
                 { data = event.spares
                 , columns = [ nameColumn, positionsColumn ]
@@ -1218,9 +1221,6 @@ viewDraws theme translations event =
                     List.map teamNameForSide game.sides
                         |> List.filterMap identity
 
-                hasScores =
-                    List.any (\s -> s.score /= Nothing) game.sides
-
                 teamNameForSideWithScore side =
                     teamForSide event.teams side
                         |> Maybe.map
@@ -1234,16 +1234,21 @@ viewDraws theme translations event =
                                         text team.shortName
                             )
 
-                teamNamesWithScores =
-                    List.map teamNameForSideWithScore game.sides
-                        |> List.filterMap identity
-
                 gameNameWithScores =
                     -- Show the teams that are playing once a game is active.
                     case game.state of
                         GameComplete ->
+                            let
+                                hasScores =
+                                    List.any (\s -> s.score /= Nothing) game.sides
+                            in
                             -- Show the scores for the teams that played once a game is complete.
                             if hasScores then
+                                let
+                                    teamNamesWithScores =
+                                        List.map teamNameForSideWithScore game.sides
+                                            |> List.filterMap identity
+                                in
                                 row [ El.spacing 6 ] teamNamesWithScores
 
                             else
@@ -1450,15 +1455,6 @@ viewDraws theme translations event =
 viewTeams : Theme -> List Translation -> Event -> Element Msg
 viewTeams theme translations event =
     let
-        hasCoaches =
-            List.any (\t -> t.coach /= Nothing) event.teams
-
-        hasAffiliations =
-            List.any (\t -> t.affiliation /= Nothing) event.teams
-
-        hasLocations =
-            List.any (\t -> t.location /= Nothing) event.teams
-
         tableHeader content =
             el
                 [ Font.bold
@@ -1482,63 +1478,73 @@ viewTeams theme translations event =
                     )
                 ]
                 content
-
-        teamColumn =
-            Just
-                { header = tableHeader "team"
-                , width = El.fill
-                , view =
-                    \i team ->
-                        tableCell i
-                            (button
-                                [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                { onPress = Just (NavigateTo (teamUrl event.id team.id))
-                                , label = text team.name
-                                }
-                            )
-                }
-
-        coachColumn =
-            if hasCoaches then
-                Just
-                    { header = tableHeader "coach"
-                    , width = El.fill
-                    , view = \i team -> tableCell i (text (Maybe.withDefault "-" team.coach))
-                    }
-
-            else
-                Nothing
-
-        affiliationColumn =
-            if hasAffiliations then
-                Just
-                    { header = tableHeader "affiliation"
-                    , width = El.fill
-                    , view = \i team -> tableCell i (text (Maybe.withDefault "-" team.affiliation))
-                    }
-
-            else
-                Nothing
-
-        locationColumn =
-            if hasLocations then
-                Just
-                    { header = tableHeader "location"
-                    , width = El.fill
-                    , view = \i team -> tableCell i (text (Maybe.withDefault "-" team.location))
-                    }
-
-            else
-                Nothing
-
-        tableColumns =
-            List.filterMap identity [ teamColumn, coachColumn, affiliationColumn, locationColumn ]
     in
     el [ El.width El.fill, El.htmlAttribute (class "cio__event_teams") ]
         (if List.isEmpty event.teams then
             El.paragraph [] [ text (translate translations "no_teams") ]
 
          else
+            let
+                hasLocations =
+                    List.any (\t -> t.location /= Nothing) event.teams
+
+                locationColumn =
+                    if hasLocations then
+                        Just
+                            { header = tableHeader "location"
+                            , width = El.fill
+                            , view = \i team -> tableCell i (text (Maybe.withDefault "-" team.location))
+                            }
+
+                    else
+                        Nothing
+
+                hasAffiliations =
+                    List.any (\t -> t.affiliation /= Nothing) event.teams
+
+                affiliationColumn =
+                    if hasAffiliations then
+                        Just
+                            { header = tableHeader "affiliation"
+                            , width = El.fill
+                            , view = \i team -> tableCell i (text (Maybe.withDefault "-" team.affiliation))
+                            }
+
+                    else
+                        Nothing
+
+                hasCoaches =
+                    List.any (\t -> t.coach /= Nothing) event.teams
+
+                coachColumn =
+                    if hasCoaches then
+                        Just
+                            { header = tableHeader "coach"
+                            , width = El.fill
+                            , view = \i team -> tableCell i (text (Maybe.withDefault "-" team.coach))
+                            }
+
+                    else
+                        Nothing
+
+                teamColumn =
+                    Just
+                        { header = tableHeader "team"
+                        , width = El.fill
+                        , view =
+                            \i team ->
+                                tableCell i
+                                    (button
+                                        [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                        { onPress = Just (NavigateTo (teamUrl event.id team.id))
+                                        , label = text team.name
+                                        }
+                                    )
+                        }
+
+                tableColumns =
+                    List.filterMap identity [ teamColumn, coachColumn, affiliationColumn, locationColumn ]
+            in
             El.indexedTable [ El.htmlAttribute (class "cio__event_teams_table") ]
                 { data = event.teams
                 , columns = tableColumns
@@ -1574,691 +1580,685 @@ viewStages theme device translations event onStage =
                 { onPress = Just (NavigateTo (stageUrl event.id stage))
                 , label = text stage.name
                 }
-
-        viewRoundRobin =
-            let
-                teams =
-                    -- Only teams that have IDs in the current stages standings.
-                    List.filter (\t -> List.any (\s -> s.teamId == t.id) onStage.standings) event.teams
-
-                teamForStanding standing =
-                    List.Extra.find (\t -> t.id == standing.teamId) teams
-
-                hasTies =
-                    List.any (\standing -> standing.ties > 0) onStage.standings
-
-                hasPoints =
-                    List.any (\standing -> standing.points > 0) onStage.standings
-
-                hasLsdCumulative =
-                    List.any (\standing -> standing.lsd /= Nothing) onStage.standings
-
-                hasLsdRank =
-                    List.any (\standing -> standing.lsdRank /= Nothing) onStage.standings
-
-                tableHeader align content =
-                    el
-                        [ Font.bold
-                        , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
-                        , Border.color theme.grey
-                        , El.paddingXY 12 16
-                        ]
-                        (el [ align ] (text (translate translations content)))
-
-                tableCell i align content =
-                    el
-                        [ El.paddingXY 12 16
-                        , Background.color
-                            (if modBy 2 i == 0 then
-                                theme.greyLight
-
-                             else
-                                theme.transparent
-                            )
-                        ]
-                        (el [ align ] content)
-
-                teamColumn =
-                    Just
-                        { header = tableHeader El.alignLeft " "
-                        , width = El.fill
-                        , view =
-                            \i standing ->
-                                case teamForStanding standing of
-                                    Just team ->
-                                        let
-                                            teamName =
-                                                if device.class == El.Phone then
-                                                    team.shortName
-
-                                                else
-                                                    team.name
-                                        in
-                                        tableCell i
-                                            El.alignLeft
-                                            (button
-                                                [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                                { onPress = Just (NavigateTo (teamUrl event.id standing.teamId))
-                                                , label = text teamName
-                                                }
-                                            )
-
-                                    Nothing ->
-                                        text " "
-                        }
-
-                lsdCumulativeColumn =
-                    if hasLsdCumulative then
-                        Just
-                            { header =
-                                tableHeader El.alignRight
-                                    (if device.class == El.Phone then
-                                        "LSD"
-
-                                     else
-                                        -- "lsd_cumulative"
-                                        "LSD Rank Distance"
-                                    )
-                            , width = El.fill
-                            , view =
-                                \i standing ->
-                                    tableCell i
-                                        El.alignRight
-                                        (text
-                                            (case standing.lsd of
-                                                Just lsd ->
-                                                    String.fromFloat lsd
-
-                                                Nothing ->
-                                                    "-"
-                                            )
-                                        )
-                            }
-
-                    else
-                        Nothing
-
-                lsdRankColumn =
-                    if hasLsdRank then
-                        Just
-                            { header =
-                                tableHeader El.alignRight
-                                    (if device.class == El.Phone then
-                                        "LSD #"
-
-                                     else
-                                        -- "lsd_standings"
-                                        "LSD Standings"
-                                    )
-                            , width = El.fill
-                            , view =
-                                \i standing ->
-                                    tableCell i
-                                        El.alignRight
-                                        (text
-                                            (case standing.lsdRank of
-                                                Just lsdRank ->
-                                                    String.fromInt lsdRank
-
-                                                Nothing ->
-                                                    "-"
-                                            )
-                                        )
-                            }
-
-                    else
-                        Nothing
-
-                gamesColumn =
-                    Just
-                        { header =
-                            tableHeader El.alignRight
-                                (if device.class == El.Phone then
-                                    "G"
-
-                                 else
-                                    "games"
-                                )
-                        , width = El.fill
-                        , view = \i standing -> tableCell i El.alignRight (text (String.fromInt standing.played))
-                        }
-
-                winsColumn =
-                    Just
-                        { header =
-                            tableHeader El.alignRight
-                                (if device.class == El.Phone then
-                                    "W"
-
-                                 else
-                                    "wins"
-                                )
-                        , width = El.fill
-                        , view = \i standing -> tableCell i El.alignRight (text (String.fromInt standing.wins))
-                        }
-
-                lossesColumn =
-                    Just
-                        { header =
-                            tableHeader El.alignRight
-                                (if device.class == El.Phone then
-                                    "L"
-
-                                 else
-                                    "losses"
-                                )
-                        , width = El.fill
-                        , view = \i standing -> tableCell i El.alignRight (text (String.fromInt standing.losses))
-                        }
-
-                tiesColumn =
-                    if hasTies then
-                        Just
-                            { header =
-                                tableHeader El.alignRight
-                                    (if device.class == El.Phone then
-                                        "T"
-
-                                     else
-                                        "ties"
-                                    )
-                            , width = El.fill
-                            , view = \i standing -> tableCell i El.alignRight (text (String.fromInt standing.ties))
-                            }
-
-                    else
-                        Nothing
-
-                pointsColumn =
-                    if hasPoints then
-                        Just
-                            { header =
-                                tableHeader El.alignRight
-                                    (if device.class == El.Phone then
-                                        "P"
-
-                                     else
-                                        "points"
-                                    )
-                            , width = El.fill
-                            , view = \i standing -> tableCell i El.alignRight (text (String.fromFloat standing.points))
-                            }
-
-                    else
-                        Nothing
-
-                tableColumns =
-                    List.filterMap identity [ teamColumn, gamesColumn, winsColumn, lossesColumn, tiesColumn, pointsColumn, lsdCumulativeColumn, lsdRankColumn ]
-            in
-            El.indexedTable [ El.htmlAttribute (class "cio__event_round_robin_table") ]
-                { data = onStage.standings
-                , columns = tableColumns
-                }
-
-        viewBracket =
-            let
-                gridSize : Int
-                gridSize =
-                    50
-
-                viewGroup group =
-                    let
-                        gamesForGroup =
-                            onStage.games
-                                |> List.filter (\g -> Maybe.map (\c -> c.groupId) g.coords == Just group.id)
-
-                        colsForGames =
-                            gamesForGroup
-                                |> List.map (\g -> Maybe.map (\coords -> coords.col + 5) g.coords |> Maybe.withDefault 0)
-                                |> List.maximum
-                                |> Maybe.withDefault 10
-
-                        rowsForGroup =
-                            gamesForGroup
-                                |> List.filter (\g -> Maybe.map (\coords -> coords.groupId == group.id) g.coords |> Maybe.withDefault False)
-                                |> List.map (\g -> Maybe.map (\coords -> coords.row + 3) g.coords |> Maybe.withDefault 4)
-                                |> List.maximum
-                                |> Maybe.withDefault 4
-
-                        viewGroupGame game =
-                            case game.coords of
-                                Just coords ->
-                                    let
-                                        viewSide position side =
-                                            let
-                                                label =
-                                                    case side.teamId of
-                                                        Just id ->
-                                                            case List.Extra.find (\t -> t.id == id) event.teams of
-                                                                Just team ->
-                                                                    team.name
-
-                                                                Nothing ->
-                                                                    "TBD"
-
-                                                        Nothing ->
-                                                            case findSourceConnection onStage.games game.id position of
-                                                                Just ( sourceGame, Winner ) ->
-                                                                    "W: " ++ sourceGame.name
-
-                                                                Just ( sourceGame, Loser ) ->
-                                                                    "L: " ++ sourceGame.name
-
-                                                                Nothing ->
-                                                                    "TBD"
-                                            in
-                                            el
-                                                ([ El.width El.fill
-                                                 , El.height (El.px 25)
-                                                 , El.clip
-                                                 , El.paddingEach { left = 3, right = 0, top = 6, bottom = 0 }
-                                                 , if position == 0 then
-                                                    Border.widthEach { left = 0, right = 0, top = 0, bottom = 1 }
-
-                                                   else
-                                                    Border.width 0
-                                                 , Border.color theme.grey
-                                                 ]
-                                                    ++ (if side.result == Just SideResultWon then
-                                                            [ Font.bold ]
-
-                                                        else
-                                                            [ Font.regular ]
-                                                       )
-                                                )
-                                                (el
-                                                    [ El.width El.fill
-                                                    , El.inFront
-                                                        (if side.result == Just SideResultWon then
-                                                            el
-                                                                [ El.alignRight
-                                                                , El.htmlAttribute (style "margin-right" "3px")
-                                                                , El.htmlAttribute (style "margin-top" "-2px")
-                                                                , El.htmlAttribute (style "padding" "3px")
-                                                                , Background.color (El.rgb255 0 128 0)
-                                                                , Font.color theme.white
-                                                                , Font.size 10
-                                                                , Border.rounded 10
-                                                                ]
-                                                                (text "W")
-
-                                                         else
-                                                            El.none
-                                                        )
-                                                    ]
-                                                    (el
-                                                        [ if side.result == Just SideResultWon then
-                                                            El.paddingEach { left = 0, right = 20, top = 0, bottom = 0 }
-
-                                                          else
-                                                            El.paddingEach { left = 0, right = 0, top = 0, bottom = 0 }
-                                                        , El.width El.fill
-                                                        ]
-                                                        (el
-                                                            [ Border.widthEach { left = 0, right = 0, top = 0, bottom = 2 }
-                                                            , Border.color
-                                                                (rockColorNameToRGB
-                                                                    (if side.topRock then
-                                                                        event.topRock
-
-                                                                     else
-                                                                        event.botRock
-                                                                    )
-                                                                )
-                                                            ]
-                                                            (text label)
-                                                        )
-                                                    )
-                                                )
-
-                                        -- Only link if the game has been scheduled
-                                        gameHasBeenScheduled =
-                                            case drawWithGameId event.draws game.id of
-                                                Just _ ->
-                                                    True
-
-                                                Nothing ->
-                                                    False
-                                    in
-                                    column []
-                                        ([ button
-                                            [ El.focused [ Background.color theme.transparent ]
-                                            , El.htmlAttribute
-                                                (style "cursor"
-                                                    (if gameHasBeenScheduled && event.endScoresEnabled then
-                                                        "pointer"
-
-                                                     else
-                                                        "default"
-                                                    )
-                                                )
-                                            ]
-                                            { onPress =
-                                                if gameHasBeenScheduled && event.endScoresEnabled then
-                                                    Just (NavigateTo (gameUrl event.id game.id))
-
-                                                else
-                                                    Nothing
-                                            , label =
-                                                column
-                                                    [ El.width (El.px 178)
-                                                    , Background.color theme.greyLight
-                                                    , Border.width 1
-                                                    , Border.color theme.grey
-                                                    , Font.size 12
-                                                    , El.htmlAttribute (style "position" "absolute")
-                                                    , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
-                                                    , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize) ++ "px"))
-                                                    , El.htmlAttribute (class "cio__event_bracket_game")
-                                                    ]
-                                                    [ el
-                                                        [ El.width El.fill
-                                                        , El.height (El.px 20)
-                                                        , El.paddingXY 4 3
-                                                        , Font.color theme.white
-                                                        , Background.color
-                                                            (if game.state == GameActive then
-                                                                theme.primary
-
-                                                             else
-                                                                theme.secondary
-                                                            )
-                                                        ]
-                                                        (el [] (text game.name))
-                                                    , column [ El.width El.fill ] (List.indexedMap viewSide game.sides)
-                                                    ]
-                                            }
-                                         ]
-                                            ++ (let
-                                                    maybeDraw =
-                                                        drawWithGameId event.draws game.id
-
-                                                    maybeLoserGame =
-                                                        game.loserToGameId
-                                                            |> Maybe.andThen (\loserGameId -> List.Extra.find (\g -> g.id == loserGameId) onStage.games)
-                                                in
-                                                case ( maybeDraw, maybeLoserGame ) of
-                                                    ( Just draw, Just loserGame ) ->
-                                                        [ row
-                                                            [ El.htmlAttribute (style "position" "absolute")
-                                                            , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
-                                                            , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 72) ++ "px"))
-                                                            , El.width (El.px 178)
-                                                            , Font.size 9
-                                                            , Font.italic
-                                                            ]
-                                                            [ el
-                                                                [ El.paddingXY 4 2
-                                                                , Background.color theme.greyLight
-                                                                , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
-                                                                , Border.color theme.grey
-                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 0, bottomRight = 3 }
-                                                                ]
-                                                                (text (draw.startsAt |> String.replace "at  " " " |> String.replace "à  " " " |> String.replace " pm" "pm" |> String.replace " am" "am"))
-                                                            , el
-                                                                [ El.alignRight
-                                                                , El.width (El.maximum 92 El.shrink)
-                                                                , El.clipX
-                                                                , El.paddingXY 4 2
-                                                                , Background.color theme.greyLight
-                                                                , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
-                                                                , Border.color theme.grey
-                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 3, bottomRight = 0 }
-                                                                ]
-                                                                (text
-                                                                    ("L: "
-                                                                        ++ (if String.length loserGame.name > 12 then
-                                                                                String.left 12 loserGame.name ++ "…"
-
-                                                                            else
-                                                                                loserGame.name
-                                                                           )
-                                                                    )
-                                                                )
-                                                            ]
-                                                        ]
-
-                                                    ( Just draw, Nothing ) ->
-                                                        [ row
-                                                            [ El.htmlAttribute (style "position" "absolute")
-                                                            , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
-                                                            , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 72) ++ "px"))
-                                                            , El.width (El.px 178)
-                                                            , Font.size 9
-                                                            , Font.italic
-                                                            ]
-                                                            [ el
-                                                                [ El.paddingXY 4 2
-                                                                , Background.color theme.greyLight
-                                                                , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
-                                                                , Border.color theme.grey
-                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 0, bottomRight = 3 }
-                                                                ]
-                                                                (text (draw.startsAt |> String.replace "at  " " " |> String.replace "à  " " " |> String.replace " pm" "pm" |> String.replace " am" "am"))
-                                                            ]
-                                                        ]
-
-                                                    ( Nothing, Just loserGame ) ->
-                                                        [ row
-                                                            [ El.htmlAttribute (style "position" "absolute")
-                                                            , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
-                                                            , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 72) ++ "px"))
-                                                            , El.width (El.px 178)
-                                                            , Font.size 9
-                                                            , Font.italic
-                                                            ]
-                                                            [ el
-                                                                [ El.alignRight
-                                                                , El.width (El.maximum 92 El.shrink)
-                                                                , El.clipX
-                                                                , El.paddingXY 4 2
-                                                                , Background.color theme.greyLight
-                                                                , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
-                                                                , Border.color theme.grey
-                                                                , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 3, bottomRight = 0 }
-                                                                ]
-                                                                (text
-                                                                    ("L: "
-                                                                        ++ (if String.length loserGame.name > 12 then
-                                                                                String.left 12 loserGame.name ++ "…"
-
-                                                                            else
-                                                                                loserGame.name
-                                                                           )
-                                                                    )
-                                                                )
-                                                            ]
-                                                        ]
-
-                                                    ( Nothing, Nothing ) ->
-                                                        []
-                                               )
-                                        )
-
-                                Nothing ->
-                                    El.none
-
-                        viewSvgConnectors : Html Msg
-                        viewSvgConnectors =
-                            let
-                                lineConnectors : List LineConnector
-                                lineConnectors =
-                                    let
-                                        getWinningSideIndex : List Side -> Maybe Int
-                                        getWinningSideIndex sides =
-                                            sides
-                                                |> List.indexedMap (\index side -> ( index, side ))
-                                                |> List.filterMap
-                                                    (\( index, side ) ->
-                                                        if side.result == Just SideResultWon then
-                                                            Just index
-
-                                                        else
-                                                            Nothing
-                                                    )
-                                                |> List.head
-
-                                        getLosingSideIndex : List Side -> Maybe Int
-                                        getLosingSideIndex sides =
-                                            sides
-                                                |> List.indexedMap (\index side -> ( index, side ))
-                                                |> List.filterMap
-                                                    (\( index, side ) ->
-                                                        if side.result == Just SideResultLost then
-                                                            Just index
-
-                                                        else
-                                                            Nothing
-                                                    )
-                                                |> List.head
-
-                                        connectorsFromGame : Game -> List LineConnector
-                                        connectorsFromGame sourceGame =
-                                            let
-                                                getSourceCoords : GameResult -> Maybe ( Int, Int )
-                                                getSourceCoords gameResult =
-                                                    case sourceGame.coords of
-                                                        Just coords ->
-                                                            let
-                                                                yOffset =
-                                                                    if sourceGame.state == GameComplete then
-                                                                        case gameResult of
-                                                                            Winner ->
-                                                                                case getWinningSideIndex sourceGame.sides of
-                                                                                    Just 0 ->
-                                                                                        32
-
-                                                                                    Just 1 ->
-                                                                                        57
-
-                                                                                    _ ->
-                                                                                        45
-
-                                                                            Loser ->
-                                                                                case getLosingSideIndex sourceGame.sides of
-                                                                                    Just 0 ->
-                                                                                        32
-
-                                                                                    Just 1 ->
-                                                                                        57
-
-                                                                                    _ ->
-                                                                                        45
-
-                                                                    else
-                                                                        45
-                                                            in
-                                                            Just
-                                                                ( coords.col * gridSize + 175
-                                                                , coords.row * gridSize + yOffset
-                                                                )
-
-                                                        _ ->
-                                                            Nothing
-
-                                                winnerConnector =
-                                                    case ( sourceGame.winnerToGameId, sourceGame.winnerToSide, getSourceCoords Winner ) of
-                                                        ( Just targetGameId, Just targetSide, Just fromCoords ) ->
-                                                            case List.Extra.find (\g -> g.id == targetGameId) gamesForGroup of
-                                                                Just targetGame ->
-                                                                    case targetGame.coords of
-                                                                        Just coords ->
-                                                                            Just
-                                                                                (LineConnector Winner
-                                                                                    fromCoords
-                                                                                    ( coords.col * gridSize + 1
-                                                                                    , coords.row
-                                                                                        * gridSize
-                                                                                        + (if targetSide == 0 then
-                                                                                            32
-
-                                                                                           else
-                                                                                            57
-                                                                                          )
-                                                                                    )
-                                                                                )
-
-                                                                        Nothing ->
-                                                                            Nothing
-
-                                                                Nothing ->
-                                                                    Nothing
-
-                                                        _ ->
-                                                            Nothing
-
-                                                loserConnector =
-                                                    case ( sourceGame.loserToGameId, sourceGame.loserToSide, getSourceCoords Loser ) of
-                                                        ( Just targetGameId, Just targetSide, Just fromCoords ) ->
-                                                            case List.Extra.find (\g -> g.id == targetGameId) gamesForGroup of
-                                                                Just targetGame ->
-                                                                    case targetGame.coords of
-                                                                        Just coords ->
-                                                                            Just
-                                                                                (LineConnector Loser
-                                                                                    fromCoords
-                                                                                    ( coords.col * gridSize + 1
-                                                                                    , coords.row
-                                                                                        * gridSize
-                                                                                        + (if targetSide == 0 then
-                                                                                            32
-
-                                                                                           else
-                                                                                            57
-                                                                                          )
-                                                                                    )
-                                                                                )
-
-                                                                        Nothing ->
-                                                                            Nothing
-
-                                                                Nothing ->
-                                                                    Nothing
-
-                                                        _ ->
-                                                            Nothing
-                                            in
-                                            [ winnerConnector, loserConnector ] |> List.filterMap identity
-                                    in
-                                    gamesForGroup
-                                        |> List.map connectorsFromGame
-                                        |> List.concat
-                            in
-                            viewSvgConnector ((colsForGames + 1) * gridSize) ((rowsForGroup - 1) * gridSize) lineConnectors
-                    in
-                    column
-                        [ El.width El.fill, El.spacing 20, El.paddingXY 0 20 ]
-                        [ el
-                            [ El.width El.fill
-                            , El.paddingEach { left = 10, top = 7, right = 0, bottom = 7 }
-                            , Background.color theme.greyLight
-                            , Font.size 20
-                            , Font.medium
-                            , El.htmlAttribute (class "cio__event_bracket_group")
-                            ]
-                            (text ("☷ " ++ group.name))
-                        , column [ El.width El.fill, El.htmlAttribute (style "position" "relative") ]
-                            [ el [ El.width El.fill ] (El.html viewSvgConnectors)
-                            , el [ El.width El.fill, El.height (El.px 12), El.htmlAttribute (style "position" "absolute") ]
-                                (column [ El.htmlAttribute (style "position" "relative") ] (List.map viewGroupGame gamesForGroup))
-                            ]
-                        ]
-            in
-            case onStage.groups of
-                Just groups ->
-                    column [ El.width El.fill, El.htmlAttribute (class "cio__event_bracket") ] (List.map viewGroup groups)
-
-                Nothing ->
-                    el [] (text "No groups")
     in
     column [ El.width El.fill, El.htmlAttribute (class "cio__event_stages") ]
         [ row [] (List.map viewStageLink event.stages)
         , case onStage.stageType of
             RoundRobin ->
-                viewRoundRobin
+                let
+                    teams =
+                        -- Only teams that have IDs in the current stages standings.
+                        List.filter (\t -> List.any (\s -> s.teamId == t.id) onStage.standings) event.teams
+
+                    teamForStanding standing =
+                        List.Extra.find (\t -> t.id == standing.teamId) teams
+
+                    hasTies =
+                        List.any (\standing -> standing.ties > 0) onStage.standings
+
+                    hasPoints =
+                        List.any (\standing -> standing.points > 0) onStage.standings
+
+                    hasLsdCumulative =
+                        List.any (\standing -> standing.lsd /= Nothing) onStage.standings
+
+                    hasLsdRank =
+                        List.any (\standing -> standing.lsdRank /= Nothing) onStage.standings
+
+                    tableHeader align content =
+                        el
+                            [ Font.bold
+                            , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                            , Border.color theme.grey
+                            , El.paddingXY 12 16
+                            ]
+                            (el [ align ] (text (translate translations content)))
+
+                    tableCell i align content =
+                        el
+                            [ El.paddingXY 12 16
+                            , Background.color
+                                (if modBy 2 i == 0 then
+                                    theme.greyLight
+
+                                 else
+                                    theme.transparent
+                                )
+                            ]
+                            (el [ align ] content)
+
+                    teamColumn =
+                        Just
+                            { header = tableHeader El.alignLeft " "
+                            , width = El.fill
+                            , view =
+                                \i standing ->
+                                    case teamForStanding standing of
+                                        Just team ->
+                                            let
+                                                teamName =
+                                                    if device.class == El.Phone then
+                                                        team.shortName
+
+                                                    else
+                                                        team.name
+                                            in
+                                            tableCell i
+                                                El.alignLeft
+                                                (button
+                                                    [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                                    { onPress = Just (NavigateTo (teamUrl event.id standing.teamId))
+                                                    , label = text teamName
+                                                    }
+                                                )
+
+                                        Nothing ->
+                                            text " "
+                            }
+
+                    lsdCumulativeColumn =
+                        if hasLsdCumulative then
+                            Just
+                                { header =
+                                    tableHeader El.alignRight
+                                        (if device.class == El.Phone then
+                                            "LSD"
+
+                                         else
+                                            -- "lsd_cumulative"
+                                            "LSD Rank Distance"
+                                        )
+                                , width = El.fill
+                                , view =
+                                    \i standing ->
+                                        tableCell i
+                                            El.alignRight
+                                            (text
+                                                (case standing.lsd of
+                                                    Just lsd ->
+                                                        String.fromFloat lsd
+
+                                                    Nothing ->
+                                                        "-"
+                                                )
+                                            )
+                                }
+
+                        else
+                            Nothing
+
+                    lsdRankColumn =
+                        if hasLsdRank then
+                            Just
+                                { header =
+                                    tableHeader El.alignRight
+                                        (if device.class == El.Phone then
+                                            "LSD #"
+
+                                         else
+                                            -- "lsd_standings"
+                                            "LSD Standings"
+                                        )
+                                , width = El.fill
+                                , view =
+                                    \i standing ->
+                                        tableCell i
+                                            El.alignRight
+                                            (text
+                                                (case standing.lsdRank of
+                                                    Just lsdRank ->
+                                                        String.fromInt lsdRank
+
+                                                    Nothing ->
+                                                        "-"
+                                                )
+                                            )
+                                }
+
+                        else
+                            Nothing
+
+                    gamesColumn =
+                        Just
+                            { header =
+                                tableHeader El.alignRight
+                                    (if device.class == El.Phone then
+                                        "G"
+
+                                     else
+                                        "games"
+                                    )
+                            , width = El.fill
+                            , view = \i standing -> tableCell i El.alignRight (text (String.fromInt standing.played))
+                            }
+
+                    winsColumn =
+                        Just
+                            { header =
+                                tableHeader El.alignRight
+                                    (if device.class == El.Phone then
+                                        "W"
+
+                                     else
+                                        "wins"
+                                    )
+                            , width = El.fill
+                            , view = \i standing -> tableCell i El.alignRight (text (String.fromInt standing.wins))
+                            }
+
+                    lossesColumn =
+                        Just
+                            { header =
+                                tableHeader El.alignRight
+                                    (if device.class == El.Phone then
+                                        "L"
+
+                                     else
+                                        "losses"
+                                    )
+                            , width = El.fill
+                            , view = \i standing -> tableCell i El.alignRight (text (String.fromInt standing.losses))
+                            }
+
+                    tiesColumn =
+                        if hasTies then
+                            Just
+                                { header =
+                                    tableHeader El.alignRight
+                                        (if device.class == El.Phone then
+                                            "T"
+
+                                         else
+                                            "ties"
+                                        )
+                                , width = El.fill
+                                , view = \i standing -> tableCell i El.alignRight (text (String.fromInt standing.ties))
+                                }
+
+                        else
+                            Nothing
+
+                    pointsColumn =
+                        if hasPoints then
+                            Just
+                                { header =
+                                    tableHeader El.alignRight
+                                        (if device.class == El.Phone then
+                                            "P"
+
+                                         else
+                                            "points"
+                                        )
+                                , width = El.fill
+                                , view = \i standing -> tableCell i El.alignRight (text (String.fromFloat standing.points))
+                                }
+
+                        else
+                            Nothing
+
+                    tableColumns =
+                        List.filterMap identity [ teamColumn, gamesColumn, winsColumn, lossesColumn, tiesColumn, pointsColumn, lsdCumulativeColumn, lsdRankColumn ]
+                in
+                El.indexedTable [ El.htmlAttribute (class "cio__event_round_robin_table") ]
+                    { data = onStage.standings
+                    , columns = tableColumns
+                    }
 
             Bracket ->
-                viewBracket
+                let
+                    gridSize : Int
+                    gridSize =
+                        50
+
+                    viewGroup group =
+                        let
+                            gamesForGroup =
+                                onStage.games
+                                    |> List.filter (\g -> Maybe.map (\c -> c.groupId) g.coords == Just group.id)
+
+                            viewGroupGame game =
+                                case game.coords of
+                                    Just coords ->
+                                        let
+                                            viewSide position side =
+                                                let
+                                                    label =
+                                                        case side.teamId of
+                                                            Just id ->
+                                                                case List.Extra.find (\t -> t.id == id) event.teams of
+                                                                    Just team ->
+                                                                        team.name
+
+                                                                    Nothing ->
+                                                                        "TBD"
+
+                                                            Nothing ->
+                                                                case findSourceConnection onStage.games game.id position of
+                                                                    Just ( sourceGame, Winner ) ->
+                                                                        "W: " ++ sourceGame.name
+
+                                                                    Just ( sourceGame, Loser ) ->
+                                                                        "L: " ++ sourceGame.name
+
+                                                                    Nothing ->
+                                                                        "TBD"
+                                                in
+                                                el
+                                                    ([ El.width El.fill
+                                                     , El.height (El.px 25)
+                                                     , El.clip
+                                                     , El.paddingEach { left = 3, right = 0, top = 6, bottom = 0 }
+                                                     , if position == 0 then
+                                                        Border.widthEach { left = 0, right = 0, top = 0, bottom = 1 }
+
+                                                       else
+                                                        Border.width 0
+                                                     , Border.color theme.grey
+                                                     ]
+                                                        ++ (if side.result == Just SideResultWon then
+                                                                [ Font.bold ]
+
+                                                            else
+                                                                [ Font.regular ]
+                                                           )
+                                                    )
+                                                    (el
+                                                        [ El.width El.fill
+                                                        , El.inFront
+                                                            (if side.result == Just SideResultWon then
+                                                                el
+                                                                    [ El.alignRight
+                                                                    , El.htmlAttribute (style "margin-right" "3px")
+                                                                    , El.htmlAttribute (style "margin-top" "-2px")
+                                                                    , El.htmlAttribute (style "padding" "3px")
+                                                                    , Background.color (El.rgb255 0 128 0)
+                                                                    , Font.color theme.white
+                                                                    , Font.size 10
+                                                                    , Border.rounded 10
+                                                                    ]
+                                                                    (text "W")
+
+                                                             else
+                                                                El.none
+                                                            )
+                                                        ]
+                                                        (el
+                                                            [ if side.result == Just SideResultWon then
+                                                                El.paddingEach { left = 0, right = 20, top = 0, bottom = 0 }
+
+                                                              else
+                                                                El.paddingEach { left = 0, right = 0, top = 0, bottom = 0 }
+                                                            , El.width El.fill
+                                                            ]
+                                                            (el
+                                                                [ Border.widthEach { left = 0, right = 0, top = 0, bottom = 2 }
+                                                                , Border.color
+                                                                    (rockColorNameToRGB
+                                                                        (if side.topRock then
+                                                                            event.topRock
+
+                                                                         else
+                                                                            event.botRock
+                                                                        )
+                                                                    )
+                                                                ]
+                                                                (text label)
+                                                            )
+                                                        )
+                                                    )
+
+                                            -- Only link if the game has been scheduled
+                                            gameHasBeenScheduled =
+                                                case drawWithGameId event.draws game.id of
+                                                    Just _ ->
+                                                        True
+
+                                                    Nothing ->
+                                                        False
+                                        in
+                                        column []
+                                            ([ button
+                                                [ El.focused [ Background.color theme.transparent ]
+                                                , El.htmlAttribute
+                                                    (style "cursor"
+                                                        (if gameHasBeenScheduled && event.endScoresEnabled then
+                                                            "pointer"
+
+                                                         else
+                                                            "default"
+                                                        )
+                                                    )
+                                                ]
+                                                { onPress =
+                                                    if gameHasBeenScheduled && event.endScoresEnabled then
+                                                        Just (NavigateTo (gameUrl event.id game.id))
+
+                                                    else
+                                                        Nothing
+                                                , label =
+                                                    column
+                                                        [ El.width (El.px 178)
+                                                        , Background.color theme.greyLight
+                                                        , Border.width 1
+                                                        , Border.color theme.grey
+                                                        , Font.size 12
+                                                        , El.htmlAttribute (style "position" "absolute")
+                                                        , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
+                                                        , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize) ++ "px"))
+                                                        , El.htmlAttribute (class "cio__event_bracket_game")
+                                                        ]
+                                                        [ el
+                                                            [ El.width El.fill
+                                                            , El.height (El.px 20)
+                                                            , El.paddingXY 4 3
+                                                            , Font.color theme.white
+                                                            , Background.color
+                                                                (if game.state == GameActive then
+                                                                    theme.primary
+
+                                                                 else
+                                                                    theme.secondary
+                                                                )
+                                                            ]
+                                                            (el [] (text game.name))
+                                                        , column [ El.width El.fill ] (List.indexedMap viewSide game.sides)
+                                                        ]
+                                                }
+                                             ]
+                                                ++ (let
+                                                        maybeDraw =
+                                                            drawWithGameId event.draws game.id
+
+                                                        maybeLoserGame =
+                                                            game.loserToGameId
+                                                                |> Maybe.andThen (\loserGameId -> List.Extra.find (\g -> g.id == loserGameId) onStage.games)
+                                                    in
+                                                    case ( maybeDraw, maybeLoserGame ) of
+                                                        ( Just draw, Just loserGame ) ->
+                                                            [ row
+                                                                [ El.htmlAttribute (style "position" "absolute")
+                                                                , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
+                                                                , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 72) ++ "px"))
+                                                                , El.width (El.px 178)
+                                                                , Font.size 9
+                                                                , Font.italic
+                                                                ]
+                                                                [ el
+                                                                    [ El.paddingXY 4 2
+                                                                    , Background.color theme.greyLight
+                                                                    , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
+                                                                    , Border.color theme.grey
+                                                                    , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 0, bottomRight = 3 }
+                                                                    ]
+                                                                    (text (draw.startsAt |> String.replace "at  " " " |> String.replace "à  " " " |> String.replace " pm" "pm" |> String.replace " am" "am"))
+                                                                , el
+                                                                    [ El.alignRight
+                                                                    , El.width (El.maximum 92 El.shrink)
+                                                                    , El.clipX
+                                                                    , El.paddingXY 4 2
+                                                                    , Background.color theme.greyLight
+                                                                    , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
+                                                                    , Border.color theme.grey
+                                                                    , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 3, bottomRight = 0 }
+                                                                    ]
+                                                                    (text
+                                                                        ("L: "
+                                                                            ++ (if String.length loserGame.name > 12 then
+                                                                                    String.left 12 loserGame.name ++ "…"
+
+                                                                                else
+                                                                                    loserGame.name
+                                                                               )
+                                                                        )
+                                                                    )
+                                                                ]
+                                                            ]
+
+                                                        ( Just draw, Nothing ) ->
+                                                            [ row
+                                                                [ El.htmlAttribute (style "position" "absolute")
+                                                                , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
+                                                                , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 72) ++ "px"))
+                                                                , El.width (El.px 178)
+                                                                , Font.size 9
+                                                                , Font.italic
+                                                                ]
+                                                                [ el
+                                                                    [ El.paddingXY 4 2
+                                                                    , Background.color theme.greyLight
+                                                                    , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
+                                                                    , Border.color theme.grey
+                                                                    , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 0, bottomRight = 3 }
+                                                                    ]
+                                                                    (text (draw.startsAt |> String.replace "at  " " " |> String.replace "à  " " " |> String.replace " pm" "pm" |> String.replace " am" "am"))
+                                                                ]
+                                                            ]
+
+                                                        ( Nothing, Just loserGame ) ->
+                                                            [ row
+                                                                [ El.htmlAttribute (style "position" "absolute")
+                                                                , El.htmlAttribute (style "left" (String.fromInt (coords.col * gridSize) ++ "px"))
+                                                                , El.htmlAttribute (style "top" (String.fromInt (coords.row * gridSize + 72) ++ "px"))
+                                                                , El.width (El.px 178)
+                                                                , Font.size 9
+                                                                , Font.italic
+                                                                ]
+                                                                [ el
+                                                                    [ El.alignRight
+                                                                    , El.width (El.maximum 92 El.shrink)
+                                                                    , El.clipX
+                                                                    , El.paddingXY 4 2
+                                                                    , Background.color theme.greyLight
+                                                                    , Border.widthEach { left = 1, right = 1, top = 0, bottom = 1 }
+                                                                    , Border.color theme.grey
+                                                                    , Border.roundEach { topLeft = 0, topRight = 0, bottomLeft = 3, bottomRight = 0 }
+                                                                    ]
+                                                                    (text
+                                                                        ("L: "
+                                                                            ++ (if String.length loserGame.name > 12 then
+                                                                                    String.left 12 loserGame.name ++ "…"
+
+                                                                                else
+                                                                                    loserGame.name
+                                                                               )
+                                                                        )
+                                                                    )
+                                                                ]
+                                                            ]
+
+                                                        ( Nothing, Nothing ) ->
+                                                            []
+                                                   )
+                                            )
+
+                                    Nothing ->
+                                        El.none
+
+                            viewSvgConnectors : Html Msg
+                            viewSvgConnectors =
+                                let
+                                    lineConnectors : List LineConnector
+                                    lineConnectors =
+                                        let
+                                            getWinningSideIndex : List Side -> Maybe Int
+                                            getWinningSideIndex sides =
+                                                sides
+                                                    |> List.indexedMap (\index side -> ( index, side ))
+                                                    |> List.filterMap
+                                                        (\( index, side ) ->
+                                                            if side.result == Just SideResultWon then
+                                                                Just index
+
+                                                            else
+                                                                Nothing
+                                                        )
+                                                    |> List.head
+
+                                            getLosingSideIndex : List Side -> Maybe Int
+                                            getLosingSideIndex sides =
+                                                sides
+                                                    |> List.indexedMap (\index side -> ( index, side ))
+                                                    |> List.filterMap
+                                                        (\( index, side ) ->
+                                                            if side.result == Just SideResultLost then
+                                                                Just index
+
+                                                            else
+                                                                Nothing
+                                                        )
+                                                    |> List.head
+
+                                            connectorsFromGame : Game -> List LineConnector
+                                            connectorsFromGame sourceGame =
+                                                let
+                                                    getSourceCoords : GameResult -> Maybe ( Int, Int )
+                                                    getSourceCoords gameResult =
+                                                        case sourceGame.coords of
+                                                            Just coords ->
+                                                                let
+                                                                    yOffset =
+                                                                        if sourceGame.state == GameComplete then
+                                                                            case gameResult of
+                                                                                Winner ->
+                                                                                    case getWinningSideIndex sourceGame.sides of
+                                                                                        Just 0 ->
+                                                                                            32
+
+                                                                                        Just 1 ->
+                                                                                            57
+
+                                                                                        _ ->
+                                                                                            45
+
+                                                                                Loser ->
+                                                                                    case getLosingSideIndex sourceGame.sides of
+                                                                                        Just 0 ->
+                                                                                            32
+
+                                                                                        Just 1 ->
+                                                                                            57
+
+                                                                                        _ ->
+                                                                                            45
+
+                                                                        else
+                                                                            45
+                                                                in
+                                                                Just
+                                                                    ( coords.col * gridSize + 175
+                                                                    , coords.row * gridSize + yOffset
+                                                                    )
+
+                                                            _ ->
+                                                                Nothing
+
+                                                    winnerConnector =
+                                                        case ( sourceGame.winnerToGameId, sourceGame.winnerToSide, getSourceCoords Winner ) of
+                                                            ( Just targetGameId, Just targetSide, Just fromCoords ) ->
+                                                                case List.Extra.find (\g -> g.id == targetGameId) gamesForGroup of
+                                                                    Just targetGame ->
+                                                                        case targetGame.coords of
+                                                                            Just coords ->
+                                                                                Just
+                                                                                    (LineConnector Winner
+                                                                                        fromCoords
+                                                                                        ( coords.col * gridSize + 1
+                                                                                        , coords.row
+                                                                                            * gridSize
+                                                                                            + (if targetSide == 0 then
+                                                                                                32
+
+                                                                                               else
+                                                                                                57
+                                                                                              )
+                                                                                        )
+                                                                                    )
+
+                                                                            Nothing ->
+                                                                                Nothing
+
+                                                                    Nothing ->
+                                                                        Nothing
+
+                                                            _ ->
+                                                                Nothing
+
+                                                    loserConnector =
+                                                        case ( sourceGame.loserToGameId, sourceGame.loserToSide, getSourceCoords Loser ) of
+                                                            ( Just targetGameId, Just targetSide, Just fromCoords ) ->
+                                                                case List.Extra.find (\g -> g.id == targetGameId) gamesForGroup of
+                                                                    Just targetGame ->
+                                                                        case targetGame.coords of
+                                                                            Just coords ->
+                                                                                Just
+                                                                                    (LineConnector Loser
+                                                                                        fromCoords
+                                                                                        ( coords.col * gridSize + 1
+                                                                                        , coords.row
+                                                                                            * gridSize
+                                                                                            + (if targetSide == 0 then
+                                                                                                32
+
+                                                                                               else
+                                                                                                57
+                                                                                              )
+                                                                                        )
+                                                                                    )
+
+                                                                            Nothing ->
+                                                                                Nothing
+
+                                                                    Nothing ->
+                                                                        Nothing
+
+                                                            _ ->
+                                                                Nothing
+                                                in
+                                                [ winnerConnector, loserConnector ] |> List.filterMap identity
+                                        in
+                                        gamesForGroup
+                                            |> List.map connectorsFromGame
+                                            |> List.concat
+
+                                    rowsForGroup =
+                                        gamesForGroup
+                                            |> List.filter (\g -> Maybe.map (\coords -> coords.groupId == group.id) g.coords |> Maybe.withDefault False)
+                                            |> List.map (\g -> Maybe.map (\coords -> coords.row + 3) g.coords |> Maybe.withDefault 4)
+                                            |> List.maximum
+                                            |> Maybe.withDefault 4
+
+                                    colsForGames =
+                                        gamesForGroup
+                                            |> List.map (\g -> Maybe.map (\coords -> coords.col + 5) g.coords |> Maybe.withDefault 0)
+                                            |> List.maximum
+                                            |> Maybe.withDefault 10
+                                in
+                                viewSvgConnector ((colsForGames + 1) * gridSize) ((rowsForGroup - 1) * gridSize) lineConnectors
+                        in
+                        column
+                            [ El.width El.fill, El.spacing 20, El.paddingXY 0 20 ]
+                            [ el
+                                [ El.width El.fill
+                                , El.paddingEach { left = 10, top = 7, right = 0, bottom = 7 }
+                                , Background.color theme.greyLight
+                                , Font.size 20
+                                , Font.medium
+                                , El.htmlAttribute (class "cio__event_bracket_group")
+                                ]
+                                (text ("☷ " ++ group.name))
+                            , column [ El.width El.fill, El.htmlAttribute (style "position" "relative") ]
+                                [ el [ El.width El.fill ] (El.html viewSvgConnectors)
+                                , el [ El.width El.fill, El.height (El.px 12), El.htmlAttribute (style "position" "absolute") ]
+                                    (column [ El.htmlAttribute (style "position" "relative") ] (List.map viewGroupGame gamesForGroup))
+                                ]
+                            ]
+                in
+                case onStage.groups of
+                    Just groups ->
+                        column [ El.width El.fill, El.htmlAttribute (class "cio__event_bracket") ] (List.map viewGroup groups)
+
+                    Nothing ->
+                        el [] (text "No groups")
         ]
 
 
@@ -2301,12 +2301,6 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
         { scoringHilight } =
             eventConfig
 
-        maxNumberOfEnds =
-            List.map (\s -> List.length s.endScores) game.sides
-                |> List.maximum
-                |> Maybe.withDefault 0
-                |> max event.numberOfEnds
-
         teamName side =
             teamForSide event.teams side
                 |> Maybe.map .name
@@ -2317,60 +2311,62 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                 || (side.result == Just SideResultTied)
 
         viewGameCaption =
-            let
-                label =
-                    case game.state of
-                        GameComplete ->
-                            let
-                                winner =
-                                    List.Extra.find (\s -> s.result == Just SideResultWon) game.sides
-
-                                loser =
-                                    List.Extra.find (\s -> s.result /= Just SideResultWon) game.sides
-
-                                sideResultText result =
-                                    sideResultToString translations result
-                            in
-                            if not detailed && event.endScoresEnabled then
-                                text (translate translations "final_game_statistics")
-
-                            else if List.any (\s -> s.result == Just SideResultTied) game.sides then
-                                let
-                                    joinedResult =
-                                        List.map teamName game.sides
-                                            |> String.join (" " ++ sideResultText (Just SideResultTied) ++ " ")
-                                in
-                                text (joinedResult ++ ".")
-
-                            else
-                                case ( winner, loser ) of
-                                    ( Just w, Just l ) ->
-                                        text (teamName w ++ " " ++ sideResultText w.result ++ ", " ++ teamName l ++ " " ++ sideResultText l.result ++ ".")
-
-                                    _ ->
-                                        text "Unknown result."
-
-                        GameActive ->
-                            text (translate translations "game_in_progress" ++ ": " ++ game.name)
-
-                        GamePending ->
-                            text (translate translations "upcoming_game" ++ ": " ++ game.name)
-            in
             if List.any (\s -> s.result == Just SideResultUnnecessary) game.sides then
                 -- Unnecessary games are never linked.
                 el [ Font.italic, Font.color theme.greyDark, El.padding 8 ] (text (translate translations "unnecessary"))
 
-            else if detailed then
-                el [ Font.italic, Font.color theme.greyDark, El.padding 8 ] label
-
             else
-                button
-                    [ Font.color theme.primary
-                    , Font.italic
-                    , El.padding 8
-                    , El.focused [ Background.color theme.transparent ]
-                    ]
-                    { onPress = Just (NavigateTo gamePath), label = label }
+                let
+                    label =
+                        case game.state of
+                            GameComplete ->
+                                let
+                                    sideResultText result =
+                                        sideResultToString translations result
+                                in
+                                if not detailed && event.endScoresEnabled then
+                                    text (translate translations "final_game_statistics")
+
+                                else if List.any (\s -> s.result == Just SideResultTied) game.sides then
+                                    let
+                                        joinedResult =
+                                            List.map teamName game.sides
+                                                |> String.join (" " ++ sideResultText (Just SideResultTied) ++ " ")
+                                    in
+                                    text (joinedResult ++ ".")
+
+                                else
+                                    let
+                                        winner =
+                                            List.Extra.find (\s -> s.result == Just SideResultWon) game.sides
+
+                                        loser =
+                                            List.Extra.find (\s -> s.result /= Just SideResultWon) game.sides
+                                    in
+                                    case ( winner, loser ) of
+                                        ( Just w, Just l ) ->
+                                            text (teamName w ++ " " ++ sideResultText w.result ++ ", " ++ teamName l ++ " " ++ sideResultText l.result ++ ".")
+
+                                        _ ->
+                                            text "Unknown result."
+
+                            GameActive ->
+                                text (translate translations "game_in_progress" ++ ": " ++ game.name)
+
+                            GamePending ->
+                                text (translate translations "upcoming_game" ++ ": " ++ game.name)
+                in
+                if detailed then
+                    el [ Font.italic, Font.color theme.greyDark, El.padding 8 ] label
+
+                else
+                    button
+                        [ Font.color theme.primary
+                        , Font.italic
+                        , El.padding 8
+                        , El.focused [ Background.color theme.transparent ]
+                        ]
+                        { onPress = Just (NavigateTo gamePath), label = label }
 
         viewGameHilight =
             case eventConfig.scoringHilight of
@@ -2425,9 +2421,6 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
 
         gamePath =
             gameUrl event.id game.id
-
-        drawPath =
-            drawUrl event.id draw.id
 
         viewLsd : Side -> Element Msg
         viewLsd side =
@@ -2524,96 +2517,6 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                 ]
                 (el [ El.centerX ] (text endScoreStr))
 
-        teamColumn =
-            let
-                teamNameElement side =
-                    el
-                        [ El.paddingXY 10 12
-                        , Border.widthEach { left = 1, top = 0, right = 1, bottom = 1 }
-                        , Border.color theme.grey
-                        , Font.color
-                            (if side.firstHammer && scoringHilight == Just HilightHammers then
-                                theme.primary
-
-                             else
-                                theme.defaultText
-                            )
-                        , if wonOrTied side then
-                            Font.bold
-
-                          else
-                            Font.regular
-                        ]
-                        (el
-                            [ El.paddingXY 0 2
-                            , Border.widthEach { top = 0, right = 0, bottom = 3, left = 0 }
-                            , Border.color
-                                (rockColorNameToRGB
-                                    (if side.topRock then
-                                        event.topRock
-
-                                     else
-                                        event.botRock
-                                    )
-                                )
-                            ]
-                            (row []
-                                [ case teamForSide event.teams side of
-                                    Just team ->
-                                        button [] { onPress = Just (NavigateTo (teamUrl event.id team.id)), label = text team.name }
-
-                                    Nothing ->
-                                        text "TDB"
-                                , text
-                                    (if side.firstHammer then
-                                        " *"
-
-                                     else
-                                        ""
-                                    )
-                                ]
-                            )
-                        )
-            in
-            { header =
-                row
-                    [ El.paddingXY 10 15
-                    , El.spacing 10
-                    , Border.widthEach { left = 1, top = 1, right = 1, bottom = 2 }
-                    , Border.color theme.grey
-                    , Font.semiBold
-                    ]
-                    [ text sheetLabel
-                    , if detailed then
-                        El.none
-
-                      else
-                        button
-                            [ Font.color theme.primary
-                            , Font.size 12
-                            , El.focused [ Background.color theme.transparent ]
-                            ]
-                            { onPress = Just (NavigateTo gamePath)
-                            , label = text game.name
-                            }
-                    ]
-            , width = El.fill
-            , view = teamNameElement
-            }
-
-        lsdColumn =
-            { header =
-                el
-                    [ El.paddingXY 10 15
-                    , Border.widthEach { left = 0, top = 1, right = 1, bottom = 2 }
-                    , Border.color theme.grey
-                    , Font.bold
-                    ]
-                    (el [ El.centerX ] (text "LSD"))
-            , width = El.px 60
-            , view = viewLsd
-            }
-
         endColumn endNumber =
             { header =
                 el
@@ -2627,39 +2530,136 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
             , view = viewEndScore endNumber
             }
 
-        totalColumn =
-            { header =
-                el
-                    [ El.paddingXY 10 15
-                    , Border.widthEach { left = 0, top = 1, right = 1, bottom = 2 }
-                    , Border.color theme.grey
-                    , Font.bold
-                    ]
-                    (el [ El.centerX ] (text (translate translations "total")))
-            , width = El.px 64
-            , view =
-                \side ->
-                    el
-                        [ El.paddingXY 10 15
-                        , Border.widthEach { left = 0, top = 0, right = 1, bottom = 1 }
-                        , Border.color theme.grey
-                        , if wonOrTied side then
-                            Font.bold
-
-                          else
-                            Font.regular
-                        ]
-                        (el [ El.centerX ] (text (String.fromInt (List.sum side.endScores))))
-            }
-
         tableColumns =
             let
                 hasLsd =
                     event.lastStoneDrawEnabled
                         && List.any (\side -> side.lsd /= Nothing) game.sides
+
+                totalColumn =
+                    { header =
+                        el
+                            [ El.paddingXY 10 15
+                            , Border.widthEach { left = 0, top = 1, right = 1, bottom = 2 }
+                            , Border.color theme.grey
+                            , Font.bold
+                            ]
+                            (el [ El.centerX ] (text (translate translations "total")))
+                    , width = El.px 64
+                    , view =
+                        \side ->
+                            el
+                                [ El.paddingXY 10 15
+                                , Border.widthEach { left = 0, top = 0, right = 1, bottom = 1 }
+                                , Border.color theme.grey
+                                , if wonOrTied side then
+                                    Font.bold
+
+                                  else
+                                    Font.regular
+                                ]
+                                (el [ El.centerX ] (text (String.fromInt (List.sum side.endScores))))
+                    }
+
+                teamColumn =
+                    let
+                        teamNameElement side =
+                            el
+                                [ El.paddingXY 10 12
+                                , Border.widthEach { left = 1, top = 0, right = 1, bottom = 1 }
+                                , Border.color theme.grey
+                                , Font.color
+                                    (if side.firstHammer && scoringHilight == Just HilightHammers then
+                                        theme.primary
+
+                                     else
+                                        theme.defaultText
+                                    )
+                                , if wonOrTied side then
+                                    Font.bold
+
+                                  else
+                                    Font.regular
+                                ]
+                                (el
+                                    [ El.paddingXY 0 2
+                                    , Border.widthEach { top = 0, right = 0, bottom = 3, left = 0 }
+                                    , Border.color
+                                        (rockColorNameToRGB
+                                            (if side.topRock then
+                                                event.topRock
+
+                                             else
+                                                event.botRock
+                                            )
+                                        )
+                                    ]
+                                    (row []
+                                        [ case teamForSide event.teams side of
+                                            Just team ->
+                                                button [] { onPress = Just (NavigateTo (teamUrl event.id team.id)), label = text team.name }
+
+                                            Nothing ->
+                                                text "TDB"
+                                        , text
+                                            (if side.firstHammer then
+                                                " *"
+
+                                             else
+                                                ""
+                                            )
+                                        ]
+                                    )
+                                )
+                    in
+                    { header =
+                        row
+                            [ El.paddingXY 10 15
+                            , El.spacing 10
+                            , Border.widthEach { left = 1, top = 1, right = 1, bottom = 2 }
+                            , Border.color theme.grey
+                            , Font.semiBold
+                            ]
+                            [ text sheetLabel
+                            , if detailed then
+                                El.none
+
+                              else
+                                button
+                                    [ Font.color theme.primary
+                                    , Font.size 12
+                                    , El.focused [ Background.color theme.transparent ]
+                                    ]
+                                    { onPress = Just (NavigateTo gamePath)
+                                    , label = text game.name
+                                    }
+                            ]
+                    , width = El.fill
+                    , view = teamNameElement
+                    }
+
+                maxNumberOfEnds =
+                    List.map (\s -> List.length s.endScores) game.sides
+                        |> List.maximum
+                        |> Maybe.withDefault 0
+                        |> max event.numberOfEnds
             in
             [ teamColumn ]
                 ++ (if hasLsd then
+                        let
+                            lsdColumn =
+                                { header =
+                                    el
+                                        [ El.paddingXY 10 15
+                                        , Border.widthEach { left = 0, top = 1, right = 1, bottom = 2 }
+                                        , Border.color theme.grey
+                                        , Font.bold
+                                        ]
+                                        (el [ El.centerX ] (text "LSD"))
+                                , width = El.px 60
+                                , view = viewLsd
+                                }
+                        in
                         [ lsdColumn ]
 
                     else
@@ -2671,6 +2671,10 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
     column [ El.width El.fill, El.spacing 10 ]
         -- Breadcrumb
         [ if detailed then
+            let
+                drawPath =
+                    drawUrl event.id draw.id
+            in
             el [ El.width El.fill, El.paddingEach { top = 0, right = 0, bottom = 10, left = 0 } ]
                 (row
                     [ El.width El.fill
@@ -2737,7 +2741,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                     (List.map (teamForSide event.teams) game.sides
                         |> List.filterMap identity
                         |> Just
-                        |> Results.Reports.ScoringAnalysis.view theme translations eventConfig event
+                        |> Results.Reports.ScoringAnalysis.view theme translations event
                     )
                 ]
 
@@ -2956,187 +2960,187 @@ viewTeam theme translations flags event team =
 
         viewTeamSchedule : Element Msg
         viewTeamSchedule =
-            let
-                hasSideForTeam game =
-                    List.any (\s -> s.teamId == Just team.id) game.sides
+            if not (List.isEmpty event.draws) then
+                let
+                    hasSideForTeam game =
+                        List.any (\s -> s.teamId == Just team.id) game.sides
 
-                drawsAndGames : List { draw : Draw, game : Game }
-                drawsAndGames =
-                    let
-                        gameForDraw draw =
-                            List.filterMap identity draw.drawSheets
-                                |> List.map (findGameById event)
-                                |> List.filterMap identity
-                                |> List.filter hasSideForTeam
-                                |> List.head
-                    in
-                    event.draws
-                        |> List.map
-                            (\draw ->
-                                case gameForDraw draw of
-                                    Just g ->
-                                        Just { draw = draw, game = g }
+                    drawsAndGames : List { draw : Draw, game : Game }
+                    drawsAndGames =
+                        let
+                            gameForDraw draw =
+                                List.filterMap identity draw.drawSheets
+                                    |> List.map (findGameById event)
+                                    |> List.filterMap identity
+                                    |> List.filter hasSideForTeam
+                                    |> List.head
+                        in
+                        event.draws
+                            |> List.map
+                                (\draw ->
+                                    case gameForDraw draw of
+                                        Just g ->
+                                            Just { draw = draw, game = g }
 
-                                    Nothing ->
-                                        Nothing
-                            )
-                        |> List.filterMap identity
+                                        Nothing ->
+                                            Nothing
+                                )
+                            |> List.filterMap identity
 
-                opponent game =
-                    List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
-                        |> Maybe.andThen (teamForSide event.teams)
+                    opponent game =
+                        List.Extra.find (\s -> s.teamId /= Just team.id) game.sides
+                            |> Maybe.andThen (teamForSide event.teams)
 
-                drawAndSheetName draw game =
-                    draw.label ++ " - " ++ sheetNameForGame event game
+                    drawAndSheetName draw game =
+                        draw.label ++ " - " ++ sheetNameForGame event game
 
-                viewTeamDrawLabel { draw, game } =
-                    if event.endScoresEnabled then
-                        tableCell
-                            (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                { onPress = Just (NavigateTo (drawUrl event.id draw.id))
-                                , label = text (drawAndSheetName draw game)
-                                }
-                            )
-
-                    else
-                        tableCell (text (drawAndSheetName draw game))
-
-                viewTeamDrawStartsAt { draw } =
-                    if event.endScoresEnabled then
-                        tableCell
-                            (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                { onPress = Just (NavigateTo (drawUrl event.id draw.id))
-                                , label = text draw.startsAt
-                                }
-                            )
-
-                    else
-                        tableCell (text draw.startsAt)
-
-                viewTeamDrawResult { game } =
-                    let
-                        resultText =
-                            let
-                                sideResultText res =
-                                    sideResultToString translations res
-                            in
-                            case game.state of
-                                GameComplete ->
-                                    List.Extra.find (\s -> s.teamId == Just team.id) game.sides
-                                        |> Maybe.map .result
-                                        |> Maybe.map sideResultText
-
-                                GameActive ->
-                                    Just (translate translations "game_in_progress")
-
-                                GamePending ->
-                                    Nothing
-                    in
-                    case resultText of
-                        Just t ->
-                            if event.endScoresEnabled then
-                                tableCell
-                                    (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                        { onPress = Just (NavigateTo (gameUrl event.id game.id))
-                                        , label = text t
-                                        }
-                                    )
-
-                            else
-                                tableCell (text t)
-
-                        Nothing ->
-                            tableCell (text "-")
-
-                viewTeamDrawScore { game } =
-                    case opponent game of
-                        Just oppo ->
-                            case gameScore game (Just ( team.id, oppo.id )) of
-                                Just score ->
-                                    if event.endScoresEnabled then
-                                        tableCell
-                                            (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                                { onPress = Just (NavigateTo (gameUrl event.id game.id))
-                                                , label = text score
-                                                }
-                                            )
-
-                                    else
-                                        tableCell (text score)
-
-                                Nothing ->
-                                    tableCell (text "-")
-
-                        Nothing ->
-                            tableCell (text "-")
-
-                viewTeamDrawOpponent { game } =
-                    case opponent game of
-                        Just oppo ->
-                            let
-                                oppoPath =
-                                    teamUrl event.id oppo.id
-                            in
+                    viewTeamDrawLabel { draw, game } =
+                        if event.endScoresEnabled then
                             tableCell
                                 (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
-                                    { onPress = Just (NavigateTo oppoPath)
-                                    , label = text oppo.name
+                                    { onPress = Just (NavigateTo (drawUrl event.id draw.id))
+                                    , label = text (drawAndSheetName draw game)
                                     }
                                 )
 
-                        Nothing ->
-                            tableCell (text "-")
+                        else
+                            tableCell (text (drawAndSheetName draw game))
 
-                tableHeader content =
-                    el
-                        [ Font.bold
-                        , El.paddingXY 12 16
-                        , Border.widthEach { bottom = 2, left = 0, right = 0, top = 0 }
-                        , Border.color theme.grey
-                        ]
-                        (text (translate translations content))
+                    viewTeamDrawStartsAt { draw } =
+                        if event.endScoresEnabled then
+                            tableCell
+                                (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                    { onPress = Just (NavigateTo (drawUrl event.id draw.id))
+                                    , label = text draw.startsAt
+                                    }
+                                )
 
-                tableCell content =
-                    el
-                        [ El.paddingXY 12 16
-                        , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
-                        , Border.color theme.grey
+                        else
+                            tableCell (text draw.startsAt)
+
+                    viewTeamDrawResult { game } =
+                        let
+                            resultText =
+                                let
+                                    sideResultText res =
+                                        sideResultToString translations res
+                                in
+                                case game.state of
+                                    GameComplete ->
+                                        List.Extra.find (\s -> s.teamId == Just team.id) game.sides
+                                            |> Maybe.map .result
+                                            |> Maybe.map sideResultText
+
+                                    GameActive ->
+                                        Just (translate translations "game_in_progress")
+
+                                    GamePending ->
+                                        Nothing
+                        in
+                        case resultText of
+                            Just t ->
+                                if event.endScoresEnabled then
+                                    tableCell
+                                        (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                            { onPress = Just (NavigateTo (gameUrl event.id game.id))
+                                            , label = text t
+                                            }
+                                        )
+
+                                else
+                                    tableCell (text t)
+
+                            Nothing ->
+                                tableCell (text "-")
+
+                    viewTeamDrawScore { game } =
+                        case opponent game of
+                            Just oppo ->
+                                case gameScore game (Just ( team.id, oppo.id )) of
+                                    Just score ->
+                                        if event.endScoresEnabled then
+                                            tableCell
+                                                (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                                    { onPress = Just (NavigateTo (gameUrl event.id game.id))
+                                                    , label = text score
+                                                    }
+                                                )
+
+                                        else
+                                            tableCell (text score)
+
+                                    Nothing ->
+                                        tableCell (text "-")
+
+                            Nothing ->
+                                tableCell (text "-")
+
+                    viewTeamDrawOpponent { game } =
+                        case opponent game of
+                            Just oppo ->
+                                let
+                                    oppoPath =
+                                        teamUrl event.id oppo.id
+                                in
+                                tableCell
+                                    (button [ Font.color theme.primary, El.focused [ Background.color theme.transparent ] ]
+                                        { onPress = Just (NavigateTo oppoPath)
+                                        , label = text oppo.name
+                                        }
+                                    )
+
+                            Nothing ->
+                                tableCell (text "-")
+
+                    tableHeader content =
+                        el
+                            [ Font.bold
+                            , El.paddingXY 12 16
+                            , Border.widthEach { bottom = 2, left = 0, right = 0, top = 0 }
+                            , Border.color theme.grey
+                            ]
+                            (text (translate translations content))
+
+                    tableCell content =
+                        el
+                            [ El.paddingXY 12 16
+                            , Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                            , Border.color theme.grey
+                            ]
+                            content
+                in
+                El.table [ El.width El.fill, El.spacingXY 0 15 ]
+                    { data = drawsAndGames
+                    , columns =
+                        [ { header = tableHeader "draw"
+                          , width = El.fill
+                          , view = viewTeamDrawLabel
+                          }
+                        , { header = tableHeader "starts_at"
+                          , width = El.fillPortion 2
+                          , view = viewTeamDrawStartsAt
+                          }
+                        , { header = tableHeader "result"
+                          , width = El.fill
+                          , view = viewTeamDrawResult
+                          }
+                        , { header = tableHeader "score"
+                          , width = El.fill
+                          , view = viewTeamDrawScore
+                          }
+                        , { header = tableHeader "opponent"
+                          , width = El.fillPortion 2
+                          , view = viewTeamDrawOpponent
+                          }
                         ]
-                        content
-            in
-            El.table [ El.width El.fill, El.spacingXY 0 15 ]
-                { data = drawsAndGames
-                , columns =
-                    [ { header = tableHeader "draw"
-                      , width = El.fill
-                      , view = viewTeamDrawLabel
-                      }
-                    , { header = tableHeader "starts_at"
-                      , width = El.fillPortion 2
-                      , view = viewTeamDrawStartsAt
-                      }
-                    , { header = tableHeader "result"
-                      , width = El.fill
-                      , view = viewTeamDrawResult
-                      }
-                    , { header = tableHeader "score"
-                      , width = El.fill
-                      , view = viewTeamDrawScore
-                      }
-                    , { header = tableHeader "opponent"
-                      , width = El.fillPortion 2
-                      , view = viewTeamDrawOpponent
-                      }
-                    ]
-                }
+                    }
+
+            else
+                El.none
     in
     column [ El.spacing 20, El.paddingEach { top = 0, right = 0, bottom = 20, left = 0 }, El.htmlAttribute (class "cio__event_team") ]
         [ el [ Font.size 24, Font.semiBold ] (text team.name)
         , viewTeamLineup
         , viewTeamInfo
-        , if not (List.isEmpty event.draws) then
-            viewTeamSchedule
-
-          else
-            El.none
+        , viewTeamSchedule
         ]

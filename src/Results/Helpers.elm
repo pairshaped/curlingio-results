@@ -297,34 +297,33 @@ isBlankEnd sideA sideB endIndex =
 gameScore : Game -> Maybe ( Int, Int ) -> Maybe String
 gameScore game orderByTeamIds =
     let
-        sides =
-            -- If we passed team ids to order by, use them. Otherwise just use the default side positions.
-            case orderByTeamIds of
-                Just teamIds ->
-                    [ List.Extra.find (\side -> side.teamId == Just (Tuple.first teamIds)) game.sides
-                    , List.Extra.find (\side -> side.teamId == Just (Tuple.second teamIds)) game.sides
-                    ]
-                        |> List.filterMap identity
-
-                Nothing ->
-                    game.sides
-
-        sideResults =
-            List.map (\s -> s.result) sides
-                |> List.filterMap identity
-
-        intScores =
-            List.map (\s -> s.score) sides
-                |> List.filterMap identity
-
-        strScores =
-            List.map String.fromInt intScores
-
         fromScores =
             case game.state of
                 GameComplete ->
+                    let
+                        sides =
+                            -- If we passed team ids to order by, use them. Otherwise just use the default side positions.
+                            case orderByTeamIds of
+                                Just teamIds ->
+                                    [ List.Extra.find (\side -> side.teamId == Just (Tuple.first teamIds)) game.sides
+                                    , List.Extra.find (\side -> side.teamId == Just (Tuple.second teamIds)) game.sides
+                                    ]
+                                        |> List.filterMap identity
+
+                                Nothing ->
+                                    game.sides
+
+                        intScores =
+                            List.map (\s -> s.score) sides
+                                |> List.filterMap identity
+                    in
                     case ( Maybe.withDefault 0 (List.head intScores), Maybe.withDefault 0 (List.Extra.getAt 1 intScores) ) of
                         ( 0, 0 ) ->
+                            let
+                                sideResults =
+                                    List.map (\s -> s.result) sides
+                                        |> List.filterMap identity
+                            in
                             -- Display a W if a won, an L if a lost, or a T if they tied.
                             case List.head sideResults of
                                 Nothing ->
@@ -351,6 +350,10 @@ gameScore game orderByTeamIds =
                             --
                             -- else
                             --     String.join " = " strScores
+                            let
+                                strScores =
+                                    List.map String.fromInt intScores
+                            in
                             String.join " - " strScores
 
                 _ ->

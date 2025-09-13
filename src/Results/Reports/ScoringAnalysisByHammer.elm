@@ -106,13 +106,13 @@ view theme translations event =
 
                                         _ ->
                                             []
+
+                                games : List Game
+                                games =
+                                    gamesWithTeam event team
+                                        |> List.filter (\game -> game.state /= GamePending)
                             in
                             List.map endStatsForGame games
-
-                        games : List Game
-                        games =
-                            gamesWithTeam event team
-                                |> List.filter (\game -> game.state /= GamePending)
 
                         gamesCount : Int
                         gamesCount =
@@ -133,8 +133,8 @@ view theme translations event =
                         endsCountByHammer =
                             List.length endsByHammer
 
-                        endsCountByHammerAndFilter : Bool -> (EndStat -> Bool) -> Int
-                        endsCountByHammerAndFilter for statFilter =
+                        endsCountByHammerAndFilter : (EndStat -> Bool) -> Int
+                        endsCountByHammerAndFilter statFilter =
                             endsByHammer
                                 |> List.filter statFilter
                                 |> List.length
@@ -150,7 +150,7 @@ view theme translations event =
                                     else
                                         es.blankAgainst
                             in
-                            endsCountByHammerAndFilter for statFilter
+                            endsCountByHammerAndFilter statFilter
 
                         blankEndsPercent : Bool -> Int
                         blankEndsPercent for =
@@ -170,7 +170,7 @@ view theme translations event =
                                     else
                                         es.stolenAgainst
                             in
-                            endsCountByHammerAndFilter for statFilter
+                            endsCountByHammerAndFilter statFilter
 
                         stolenEndsPercent : Bool -> Int
                         stolenEndsPercent for =
@@ -190,7 +190,7 @@ view theme translations event =
                                     else
                                         es.onePointAgainst
                             in
-                            endsCountByHammerAndFilter for statFilter
+                            endsCountByHammerAndFilter statFilter
 
                         singlePointsPercent : Bool -> Int
                         singlePointsPercent for =
@@ -210,7 +210,7 @@ view theme translations event =
                                     else
                                         es.multiPointAgainst
                             in
-                            endsCountByHammerAndFilter for statFilter
+                            endsCountByHammerAndFilter statFilter
 
                         multiPointsPercent : Bool -> Int
                         multiPointsPercent for =

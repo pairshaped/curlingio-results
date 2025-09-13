@@ -1,10 +1,13 @@
 module Results.CustomSvg exposing (svgNoImage, viewSvgConnector)
 
-import Results.Types exposing (GameResult(..))
+import Html exposing (Html)
+import Results.Reports.Helpers exposing (LineConnector)
+import Results.Types exposing (GameResult(..), Msg)
 import Svg exposing (path, polyline, svg)
 import Svg.Attributes exposing (d, fill, height, points, stroke, strokeDasharray, strokeOpacity, strokeWidth, viewBox, width)
 
 
+svgNoImage : Html Msg
 svgNoImage =
     svg
         [ width "130"
@@ -16,6 +19,7 @@ svgNoImage =
         ]
 
 
+viewSvgConnector : Int -> Int -> List LineConnector -> Html Msg
 viewSvgConnector width_ height_ connectors =
     let
         viewSvgConnectorLine { gameResult, fromCoords, toCoords } =

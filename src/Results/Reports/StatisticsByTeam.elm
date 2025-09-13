@@ -29,75 +29,6 @@ view theme translations eventConfig event cumulative =
                     Nothing ->
                         List.head event.draws
 
-        viewDrawSelector =
-            let
-                drawOption draw_ =
-                    el
-                        [ El.width El.fill
-                        , El.padding 10
-                        , Events.onClick (UpdateDrawSelected draw_.id)
-                        , if Just draw_.id == eventConfig.drawSelected then
-                            Background.color theme.greyLight
-
-                          else
-                            Background.color theme.transparent
-                        ]
-                        (text (translate translations "draw" ++ " " ++ draw_.label))
-
-                drawOptions =
-                    if eventConfig.drawSelectionOpen then
-                        let
-                            scrolling =
-                                if List.length event.draws > 5 then
-                                    [ El.height (El.fill |> El.minimum 210), El.scrollbarY ]
-
-                                else
-                                    []
-                        in
-                        column
-                            ([ El.width El.fill
-                             , Border.width 1
-                             , Border.color theme.grey
-                             , Background.color theme.white
-                             ]
-                                ++ scrolling
-                            )
-                            (List.map drawOption event.draws)
-
-                    else
-                        El.none
-            in
-            row
-                [ El.width (El.px 150)
-                , El.padding 10
-                , Border.width 1
-                , Border.color theme.grey
-                , El.pointer
-                , Events.onClick ToggleDrawSelection
-                , El.below drawOptions
-                , El.htmlAttribute (class "cio__draw_dropdown")
-                ]
-                [ el []
-                    (text
-                        (case draw of
-                            Just draw_ ->
-                                translate translations "draw" ++ " " ++ draw_.label
-
-                            Nothing ->
-                                "-"
-                        )
-                    )
-                , el [ El.alignRight ]
-                    (text
-                        (if eventConfig.drawSelectionOpen then
-                            "▼"
-
-                         else
-                            "►"
-                        )
-                    )
-                ]
-
         selectableTeams =
             case draw of
                 Just draw_ ->
@@ -518,6 +449,76 @@ view theme translations eventConfig event cumulative =
                     El.none
 
                   else
+                    let
+                        viewDrawSelector =
+                            let
+                                drawOption draw_ =
+                                    el
+                                        [ El.width El.fill
+                                        , El.padding 10
+                                        , Events.onClick (UpdateDrawSelected draw_.id)
+                                        , if Just draw_.id == eventConfig.drawSelected then
+                                            Background.color theme.greyLight
+
+                                          else
+                                            Background.color theme.transparent
+                                        ]
+                                        (text (translate translations "draw" ++ " " ++ draw_.label))
+
+                                drawOptions =
+                                    if eventConfig.drawSelectionOpen then
+                                        let
+                                            scrolling =
+                                                if List.length event.draws > 5 then
+                                                    [ El.height (El.fill |> El.minimum 210), El.scrollbarY ]
+
+                                                else
+                                                    []
+                                        in
+                                        column
+                                            ([ El.width El.fill
+                                             , Border.width 1
+                                             , Border.color theme.grey
+                                             , Background.color theme.white
+                                             ]
+                                                ++ scrolling
+                                            )
+                                            (List.map drawOption event.draws)
+
+                                    else
+                                        El.none
+                            in
+                            row
+                                [ El.width (El.px 150)
+                                , El.padding 10
+                                , Border.width 1
+                                , Border.color theme.grey
+                                , El.pointer
+                                , Events.onClick ToggleDrawSelection
+                                , El.below drawOptions
+                                , El.htmlAttribute (class "cio__draw_dropdown")
+                                ]
+                                [ el []
+                                    (text
+                                        (case draw of
+                                            Just draw_ ->
+                                                translate translations "draw" ++ " " ++ draw_.label
+
+                                            Nothing ->
+                                                "-"
+                                        )
+                                    )
+                                , el [ El.alignRight ]
+                                    (text
+                                        (if eventConfig.drawSelectionOpen then
+                                            "▼"
+
+                                         else
+                                            "►"
+                                        )
+                                    )
+                                ]
+                    in
                     el [ El.alignRight ] viewDrawSelector
                 , el [ El.alignRight ] viewTeamSelector
                 ]

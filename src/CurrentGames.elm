@@ -1,4 +1,4 @@
-module CurrentGames exposing (init)
+module CurrentGames exposing (main)
 
 import Browser
 import Element as El exposing (Element, column, el, row, text)
@@ -185,10 +185,6 @@ errorMessage error =
 baseUrl : Flags -> String
 baseUrl { host, lang } =
     let
-        devUrl =
-            -- Development
-            "http://api.curling.test:3000/" ++ lang
-
         productionCachedUrl =
             -- Production cached via CDN (Fastly)
             "https://api-curlingio.global.ssl.fastly.net/" ++ lang
@@ -196,6 +192,11 @@ baseUrl { host, lang } =
     case host of
         Just h ->
             if String.contains "localhost" h || String.contains ".curling.test" h then
+                let
+                    devUrl =
+                        -- Development
+                        "http://api.curling.test:3000/" ++ lang
+                in
                 devUrl
 
             else
@@ -496,6 +497,7 @@ viewGames { theme, showEndScores } translations sides =
 -- MAIN
 
 
+main : Program Json.Decode.Value Model Msg
 main =
     Browser.element
         { init = init

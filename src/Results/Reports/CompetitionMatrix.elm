@@ -69,11 +69,12 @@ view theme translations event =
 
                                                             Nothing ->
                                                                 False
-
-                                                    gamePath =
-                                                        gameUrl event.id game.id
                                                 in
                                                 if gameHasBeenScheduled then
+                                                    let
+                                                        gamePath =
+                                                            gameUrl event.id game.id
+                                                    in
                                                     button
                                                         [ Font.color theme.primary
                                                         , El.focused [ Background.color theme.transparent ]

@@ -93,7 +93,7 @@ viewReport theme translations eventConfig event report =
         "scoring_analysis" ->
             column [ El.width El.fill, El.paddingXY 0 20, El.spacing 20, Font.size 24 ]
                 [ text (translate translations "scoring_analysis")
-                , Lazy.lazy5 Results.Reports.ScoringAnalysis.view theme translations eventConfig event Nothing
+                , Lazy.lazy4 Results.Reports.ScoringAnalysis.view theme translations event Nothing
                 ]
 
         "scoring_analysis_by_hammer" ->

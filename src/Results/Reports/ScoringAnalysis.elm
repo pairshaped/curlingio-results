@@ -14,8 +14,8 @@ import Shared.Theme exposing (Theme)
 import Shared.Translation exposing (Translation, translate)
 
 
-view : Theme -> List Translation -> EventConfig -> Event -> Maybe (List Team) -> Element Msg
-view theme translations eventConfig event restrictToTeams =
+view : Theme -> List Translation -> Event -> Maybe (List Team) -> Element Msg
+view theme translations event restrictToTeams =
     let
         teams =
             case restrictToTeams of
@@ -198,12 +198,6 @@ view theme translations eventConfig event restrictToTeams =
                                 , List.Extra.find (\s -> s.teamId == Just team.id) game.sides
                                 )
 
-                        -- We don't care about the event's number of ends, just the max of either side.
-                        numberOfEnds =
-                            List.map (\side -> List.length side.endScores) game.sides
-                                |> List.maximum
-                                |> Maybe.withDefault 0
-
                         stolenEnd : Side -> Side -> Int -> Maybe Int
                         stolenEnd sideFor sideAgainst endIndex =
                             if hasHammerInEnd event.mixedDoubles sideFor sideAgainst endIndex then
@@ -214,6 +208,13 @@ view theme translations eventConfig event restrictToTeams =
                     in
                     case sides of
                         ( Just sideFor, Just sideAgainst ) ->
+                            let
+                                -- We don't care about the event's number of ends, just the max of either side.
+                                numberOfEnds =
+                                    List.map (\side -> List.length side.endScores) game.sides
+                                        |> List.maximum
+                                        |> Maybe.withDefault 0
+                            in
                             List.range 0 numberOfEnds
                                 |> List.map (stolenEnd sideFor sideAgainst)
                                 |> List.filterMap identity

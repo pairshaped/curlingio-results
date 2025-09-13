@@ -17,10 +17,6 @@ import Url.Parser exposing ((</>), Parser)
 
 init : Decode.Value -> ( Model, Cmd Msg )
 init flags_ =
-    let
-        device =
-            Element.classifyDevice { width = 800, height = 600 }
-    in
     case Decode.decodeValue decodeFlags flags_ of
         Ok flags ->
             let
@@ -80,6 +76,9 @@ init flags_ =
 
         Err error ->
             let
+                device =
+                    Element.classifyDevice { width = 800, height = 600 }
+
                 flags =
                     { host = Nothing
                     , hash = Nothing
@@ -265,10 +264,6 @@ stageUrl eventId stage =
 baseUrl : Flags -> String
 baseUrl { host, lang } =
     let
-        devUrl =
-            -- Development
-            "http://api.curling.test:3000/" ++ lang
-
         -- "https://api-curlingio.global.ssl.fastly.net/" ++ lang
         -- productionUrl =
         --     -- Production without caching
@@ -281,6 +276,11 @@ baseUrl { host, lang } =
     case host of
         Just h ->
             if String.contains "localhost" h || String.contains ".curling.test" h then
+                let
+                    devUrl =
+                        -- Development
+                        "http://api.curling.test:3000/" ++ lang
+                in
                 devUrl
                 --
                 -- else if String.contains ".curling.io" h then
@@ -314,16 +314,17 @@ baseClubUrl flags =
 baseClubSubdomainUrl : Flags -> String
 baseClubSubdomainUrl flags =
     let
-        devUrl =
-            -- Development
-            "http://" ++ clubId flags ++ ".curling.test:3000/" ++ flags.lang
-
         productionUrl =
             "https://" ++ clubId flags ++ ".curling.io/" ++ flags.lang
     in
     case flags.host of
         Just h ->
             if String.contains "localhost" h || String.contains ".curling.test" h then
+                let
+                    devUrl =
+                        -- Development
+                        "http://" ++ clubId flags ++ ".curling.test:3000/" ++ flags.lang
+                in
                 devUrl
 
             else
