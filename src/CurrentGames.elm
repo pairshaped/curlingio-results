@@ -497,7 +497,7 @@ viewGames { theme, showEndScores } translations sides =
 -- MAIN
 
 
-main : Program Json.Decode.Value Model Msg
+main : Program Decode.Value Model Msg
 main =
     Browser.element
         { init = init
