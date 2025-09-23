@@ -453,7 +453,7 @@ viewGames { theme, showEndScores } translations sides =
                     row
                         [ El.width El.fill
                         , El.spacing 10
-                        , El.paddingXY 0 5
+                        , El.paddingXY 0 6
                         , Font.color
                             (case side.result of
                                 Just SideResultWon ->
@@ -468,8 +468,8 @@ viewGames { theme, showEndScores } translations sides =
             column
                 -- [ El.width El.fill
                 [ El.width (El.px 280)
-                , El.spacing 5
-                , El.padding 5
+                , El.spacing 6
+                , El.padding 6
                 , Border.width 1
                 , case Maybe.map .gameState (List.head gameSides) of
                     Just GameActive ->

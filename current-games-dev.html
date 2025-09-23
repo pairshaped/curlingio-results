@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Curling I/O - Current Games Dev</title>
   <link rel="icon" href="data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAAC">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
   <script src="current-games-dev.js"></script>
 </head>
 <body>
@@ -17,16 +18,12 @@
       {
         node: document.getElementById("cio_current_games"),
         flags: {
-          // subdomain: "demo",
-          subdomain: "stucurls",
-          // lang: "en",
-          // theme: {
-          //   primary: "#ed1940",
-          //   secondary: "#5c5c5c",
-          // },
-          // host: "demo.curling.io"  // To pull in the demo server data during development.
-          host: document.location.host
-          // host: "stucurls.curling.io"
+          subdomain: "demo",
+          lang: "en",
+          theme: {
+            primary: "#3b71ca",
+            secondary: "#9fa6b2"
+          }
         }
       }
     )
