@@ -1430,12 +1430,23 @@ viewDraws theme translations event =
                     { data = event.draws
                     , columns = tableColumns False
                     }
-                , case event.timeZone of
-                    Just timeZone ->
-                        el [ Font.italic, Font.color theme.greyDark, El.paddingXY 10 10 ] (text ("* " ++ timeZone))
+                , row [ El.width El.fill ]
+                    [ case event.timeZone of
+                        Just timeZone ->
+                            el [ Font.italic, Font.color theme.greyDark, El.paddingXY 10 10 ] (text ("* " ++ timeZone))
 
-                    Nothing ->
-                        El.none
+                        Nothing ->
+                            El.none
+                    , El.newTabLink
+                        [ El.alignRight
+                        , Font.color theme.primary
+                        , Font.underline
+                        , Font.size 12
+                        ]
+                        { url = "https://curling.io"
+                        , label = text "Powered by Curling IO »"
+                        }
+                    ]
                 , case event.note of
                     Just note ->
                         El.paragraph [ El.paddingXY 10 10 ]
@@ -2692,7 +2703,12 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                    )
                 ++ List.map endColumn (List.range 1 maxNumberOfEnds)
                 ++ [ totalColumn ]
-                ++ (if bothHaveTimeRemaining then [ timeRemainingColumn ] else [])
+                ++ (if bothHaveTimeRemaining then
+                        [ timeRemainingColumn ]
+
+                    else
+                        []
+                   )
     in
     column [ El.width El.fill, El.spacing 10 ]
         -- Breadcrumb
