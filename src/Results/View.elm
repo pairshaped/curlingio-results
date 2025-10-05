@@ -855,6 +855,16 @@ viewEvent flags translations eventConfig nestedRoute event =
 
             ReportRoute report ->
                 Lazy.lazy5 Results.Reports.View.viewReport theme translations eventConfig event report
+        , El.newTabLink
+            [ El.alignRight
+            , El.paddingEach { left = 0, top = 20, right = 0, bottom = 0 }
+            , Font.color theme.primary
+            , Font.underline
+            , Font.size 12
+            ]
+            { url = "https://curling.io"
+            , label = text "Powered by Curling IO »"
+            }
         ]
 
 
@@ -1430,32 +1440,19 @@ viewDraws theme translations event =
                     { data = event.draws
                     , columns = tableColumns False
                     }
-                , row [ El.width El.fill ]
-                    [ case event.timeZone of
-                        Just timeZone ->
-                            el [ Font.italic, Font.color theme.greyDark, El.paddingXY 10 10 ] (text ("* " ++ timeZone))
+                , case event.timeZone of
+                    Just timeZone ->
+                        el [ Font.italic, Font.color theme.greyDark, El.paddingXY 10 10 ] (text ("* " ++ timeZone))
 
-                        Nothing ->
-                            El.none
-                    , El.newTabLink
-                        [ El.alignRight
-                        , Font.color theme.primary
-                        , Font.underline
-                        , Font.size 12
-                        ]
-                        { url = "https://curling.io"
-                        , label = text "Powered by Curling IO »"
-                        }
-                    ]
+                    Nothing ->
+                        El.none
                 , case event.note of
                     Just note ->
-                        El.paragraph [ El.paddingXY 10 10 ]
-                            [ el
-                                [ Font.italic
-                                , Font.color theme.greyDark
-                                ]
-                                (text note)
+                        el
+                            [ Font.italic
+                            , Font.color theme.greyDark
                             ]
+                            (text note)
 
                     Nothing ->
                         El.none
@@ -2299,7 +2296,7 @@ viewDraw theme translations eventConfig event draw =
         , column [ El.width El.fill, El.spacing 30 ] (List.map viewDrawSheet draw.drawSheets)
         , case event.timeZone of
             Just timeZone ->
-                el [ Font.italic, Font.color theme.greyDark, El.paddingXY 0 10 ] (text ("* " ++ timeZone))
+                el [ Font.italic, Font.color theme.greyDark ] (text ("* " ++ timeZone))
 
             Nothing ->
                 El.none
