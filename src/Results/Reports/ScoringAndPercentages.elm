@@ -36,15 +36,16 @@ viewForGame theme translations event game =
                              , drawId = 0
                              , drawEpoch = 0
                              , sideNumber = 0
-                             , teamId = 0
-                             , teamName = ""
-                             , curlerId = 0
-                             , curlerName = translate translations "total"
-                             , numberOfShots = List.map .numberOfShots group |> List.sum
-                             , totalRatings = List.map .totalRatings group |> List.sum
-                             , percentage = 0
-                             , overUnder = 0
-                             , plusMinus = 0
+                     , teamId = 0
+                     , teamName = ""
+                     , curlerId = 0
+                     , curlerName = translate translations "total"
+                     , gender = Unknown
+                     , numberOfShots = List.map .numberOfShots group |> List.sum
+                     , totalRatings = List.map .totalRatings group |> List.sum
+                     , percentage = 0
+                     , overUnder = 0
+                     , plusMinus = 0
                              }
                            ]
             in

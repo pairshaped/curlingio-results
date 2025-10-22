@@ -80,6 +80,7 @@ update msg model =
                         | drawSelectionOpen = False
                         , teamSelectionOpen = False
                         , drawSelected = Nothing
+                        , positionalComparisonGender = GenderFemale
                     }
             in
             ( { model
@@ -219,6 +220,15 @@ update msg model =
             let
                 updatedEventConfig eventConfig =
                     { eventConfig | teamSelected = Just teamId }
+            in
+            ( { model | eventConfig = updatedEventConfig model.eventConfig }
+            , Cmd.none
+            )
+
+        SetPositionalComparisonGender genderSelection ->
+            let
+                updatedEventConfig eventConfig =
+                    { eventConfig | positionalComparisonGender = genderSelection }
             in
             ( { model | eventConfig = updatedEventConfig model.eventConfig }
             , Cmd.none

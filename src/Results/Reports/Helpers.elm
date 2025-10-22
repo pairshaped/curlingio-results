@@ -44,6 +44,7 @@ type alias ShotExpanded =
     , teamShortName : String
     , curlerId : Int
     , curlerName : String
+    , gender : Gender
     , endNumber : Int
     , lineupPosition : Int
     , position : Int
@@ -64,6 +65,7 @@ type alias ShotSummaryByPosition =
     , teamName : String
     , curlerId : Int
     , curlerName : String
+    , gender : Gender
     , numberOfShots : Int
     , totalRatings : Int
     , percentage : Float
@@ -175,6 +177,7 @@ expandShotsForGame { mixedDoubles, teams, draws, stages } game =
                                                                 , teamShortName = team.shortName
                                                                 , curlerId = curlerId
                                                                 , curlerName = curler.name
+                                                                , gender = curler.gender
                                                                 , endNumber = shot.endNumber
                                                                 , lineupPosition = List.Extra.find (\l -> l.curlerId == curlerId) team.lineup |> Maybe.map .position |> Maybe.withDefault (Just 5) |> Maybe.withDefault 5
                                                                 , position = shotNumberToPosition shot.shotNumber
@@ -241,6 +244,7 @@ summarizeShotsByPositionForGame event game =
             , teamName = shotsHead.teamShortName
             , curlerId = shotsHead.curlerId
             , curlerName = shotsHead.curlerName
+            , gender = shotsHead.gender
             , numberOfShots = numberOfShots
             , totalRatings = totalRatings
             , percentage = toFloat totalRatings / toFloat numberOfShots * 100 / 4

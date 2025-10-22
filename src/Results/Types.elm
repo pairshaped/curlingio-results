@@ -109,11 +109,18 @@ type RockDelivery
     | RockDeliveryLeft
 
 
+type Gender
+    = Male
+    | Female
+    | Unknown
+
+
 type alias TeamCurler =
     { curlerId : Int
     , position : Maybe Int
     , skip : Bool
     , name : String
+    , gender : Gender
     , delivery : Maybe RockDelivery
     , photoUrl : Maybe String
     , waiver : Bool
@@ -182,7 +189,13 @@ type alias EventConfig =
     , drawSelectionOpen : Bool
     , teamSelected : Maybe Int
     , teamSelectionOpen : Bool
+    , positionalComparisonGender : PositionalComparisonGender
     }
+
+
+type PositionalComparisonGender
+    = GenderFemale
+    | GenderMale
 
 
 type alias Spare =
@@ -366,6 +379,7 @@ type Msg
     | UpdateDrawSelected Int
     | ToggleTeamSelection
     | UpdateTeamSelected Int
+    | SetPositionalComparisonGender PositionalComparisonGender
 
 
 type Route

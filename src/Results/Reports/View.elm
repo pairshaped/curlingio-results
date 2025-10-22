@@ -107,11 +107,11 @@ viewReport theme translations eventConfig event report =
 
         "positional_percentage_comparison" ->
             -- Tie in to routing to get the currently selected stage?
-            Lazy.lazy3 Results.Reports.PositionalComparison.viewPercentage theme translations event
+            Lazy.lazy4 Results.Reports.PositionalComparison.viewPercentage theme translations eventConfig event
 
         "positional_plus_minus_comparison" ->
             -- Tie in to routing to get the currently selected stage?
-            Lazy.lazy3 Results.Reports.PositionalComparison.viewPlusMinus theme translations event
+            Lazy.lazy4 Results.Reports.PositionalComparison.viewPlusMinus theme translations eventConfig event
 
         "statistics_by_team" ->
             Lazy.lazy5 Results.Reports.StatisticsByTeam.view theme translations eventConfig event False

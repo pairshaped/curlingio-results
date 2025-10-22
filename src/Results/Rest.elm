@@ -60,7 +60,7 @@ init flags_ =
                     , itemFilter = ItemFilter 1 0 "" False
                     , product = NotAsked
                     , event = NotAsked
-                    , eventConfig = EventConfig Nothing Nothing False Nothing False
+                    , eventConfig = EventConfig Nothing Nothing False Nothing False GenderFemale
                     , errorMsg = Nothing
                     }
             in
@@ -106,7 +106,7 @@ init flags_ =
               , itemFilter = ItemFilter 1 0 "" False
               , product = NotAsked
               , event = NotAsked
-              , eventConfig = EventConfig Nothing Nothing False Nothing False
+              , eventConfig = EventConfig Nothing Nothing False Nothing False GenderFemale
               , errorMsg = Just (Decode.errorToString error)
               }
             , Cmd.none
@@ -782,12 +782,32 @@ decodeTeamCurler =
                             _ ->
                                 Decode.succeed RockDeliveryRight
                     )
+
+        decodeGender : Decoder Gender
+        decodeGender =
+            Decode.oneOf
+                [ string
+                    |> Decode.andThen
+                        (\str ->
+                            case String.toLower str of
+                                "female" ->
+                                    Decode.succeed Female
+
+                                "male" ->
+                                    Decode.succeed Male
+
+                                _ ->
+                                    Decode.succeed Unknown
+                        )
+                , Decode.null Unknown
+                ]
     in
     Decode.succeed TeamCurler
         |> required "curler_id" int
         |> optional "position" (nullable decodeTeamPosition) Nothing
         |> optional "skip" bool False
         |> required "name" string
+        |> optional "gender" decodeGender Unknown
         |> optional "delivery" (nullable decodeDelivery) Nothing
         |> optional "photo_url" (nullable string) Nothing
         |> optional "waiver" bool False

@@ -4,16 +4,63 @@ import Element as El exposing (Element, column, el, text)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
+import Element.Input exposing (button)
 import List.Extra
 import Results.Helpers exposing (..)
 import Results.Reports.Helpers exposing (..)
 import Results.Types exposing (..)
 import Shared.Theme exposing (Theme)
 import Shared.Translation exposing (Translation, translate)
+import Html.Attributes exposing (class)
 
 
-viewPercentage : Theme -> List Translation -> Event -> Element Msg
-viewPercentage theme translations event =
+viewGenderTabs : Theme -> List Translation -> PositionalComparisonGender -> Bool -> Element Msg
+viewGenderTabs theme translations selected hasTabs =
+    if hasTabs then
+        let
+            tabConfig =
+                [ ( GenderFemale, translate translations "womens" )
+                , ( GenderMale, translate translations "mens" )
+                ]
+
+            viewTab ( selection, label ) =
+                let
+                    isSelected =
+                        selection == selected
+                in
+                button
+                    [ El.paddingXY 18 10
+                    , El.focused [ Background.color theme.transparent ]
+                    , Border.color theme.grey
+                    , Font.color
+                        (if isSelected then
+                            theme.defaultText
+
+                         else
+                            theme.primary
+                        )
+                    , Border.widthEach
+                        (if isSelected then
+                            { bottom = 0, left = 1, right = 1, top = 1 }
+
+                         else
+                            { bottom = 1, left = 0, right = 0, top = 0 }
+                        )
+                    , Border.rounded 3
+                    , El.htmlAttribute (class "cio__event_stage_link")
+                    ]
+                    { onPress = Just (SetPositionalComparisonGender selection)
+                    , label = text label
+                    }
+        in
+        El.row [] (List.map viewTab tabConfig)
+
+    else
+        El.none
+
+
+viewPercentage : Theme -> List Translation -> EventConfig -> Event -> Element Msg
+viewPercentage theme translations eventConfig event =
     -- We need to figure out how many shots were taken per position per game,
     -- then we'll want to use that to determine if the curler has taken at least
     -- 50% of those shots to determine if they'll be listed in the positional
@@ -23,6 +70,9 @@ viewPercentage theme translations event =
     let
         draws =
             drawsWithCompletedGames event
+
+        positions =
+            [ 4, 3, 2, 1, 5 ]
 
         shotSummariesByPosition : Int -> List ShotSummaryByPosition
         shotSummariesByPosition position =
@@ -39,11 +89,43 @@ viewPercentage theme translations event =
                             ss.lineupPosition == position
                     )
 
+        allShotSummaries =
+            positions
+                |> List.concatMap shotSummariesByPosition
+
+        hasMale =
+            List.any (\ss -> ss.gender == Male) allShotSummaries
+
+        hasFemale =
+            List.any (\ss -> ss.gender == Female) allShotSummaries
+
+        tabsEnabled =
+            hasMale && hasFemale
+
+        selectedGender =
+            eventConfig.positionalComparisonGender
+
+        filterByGender summaries =
+            if tabsEnabled then
+                case selectedGender of
+                    GenderFemale ->
+                        List.filter (\ss -> ss.gender == Female) summaries
+
+                    GenderMale ->
+                        List.filter (\ss -> ss.gender == Male || ss.gender == Unknown) summaries
+
+            else
+                summaries
+
         viewPosition position =
             let
+                summariesForPosition =
+                    shotSummariesByPosition position
+                        |> filterByGender
+
                 groupSummarizedShotsByCurler : List (List ShotSummaryByPosition)
                 groupSummarizedShotsByCurler =
-                    shotSummariesByPosition position
+                    summariesForPosition
                         |> List.sortBy (\ss -> ss.drawEpoch)
                         |> List.sortBy (\ss -> ss.curlerId)
                         |> List.Extra.groupWhile (\a b -> a.curlerId == b.curlerId)
@@ -129,13 +211,14 @@ viewPercentage theme translations event =
     in
     column [ El.spacing 20, El.width El.fill ]
         [ el [ Font.size 24 ] (text (translate translations "positional_percentage_comparison"))
-        , column [ El.spacing 60 ] (List.map viewPosition [ 4, 3, 2, 1, 5 ])
+        , viewGenderTabs theme translations selectedGender tabsEnabled
+        , column [ El.spacing 60 ] (List.map viewPosition positions)
         , el [] (text "")
         ]
 
 
-viewPlusMinus : Theme -> List Translation -> Event -> Element Msg
-viewPlusMinus theme translations event =
+viewPlusMinus : Theme -> List Translation -> EventConfig -> Event -> Element Msg
+viewPlusMinus theme translations eventConfig event =
     -- We need to figure out how many shots were taken per position per game,
     -- then we'll want to use that to determine if the curler has taken at least
     -- 50% of those shots to determine if they'll be listed in the positional
@@ -145,6 +228,9 @@ viewPlusMinus theme translations event =
     let
         draws =
             drawsWithCompletedGames event
+
+        positions =
+            [ 4, 3, 2, 1, 5 ]
 
         shotSummariesByPosition : Int -> List ShotSummaryByPosition
         shotSummariesByPosition position =
@@ -161,11 +247,43 @@ viewPlusMinus theme translations event =
                             ss.lineupPosition == position
                     )
 
+        allShotSummaries =
+            positions
+                |> List.concatMap shotSummariesByPosition
+
+        hasMale =
+            List.any (\ss -> ss.gender == Male) allShotSummaries
+
+        hasFemale =
+            List.any (\ss -> ss.gender == Female) allShotSummaries
+
+        tabsEnabled =
+            hasMale && hasFemale
+
+        selectedGender =
+            eventConfig.positionalComparisonGender
+
+        filterByGender summaries =
+            if tabsEnabled then
+                case selectedGender of
+                    GenderFemale ->
+                        List.filter (\ss -> ss.gender == Female) summaries
+
+                    GenderMale ->
+                        List.filter (\ss -> ss.gender == Male || ss.gender == Unknown) summaries
+
+            else
+                summaries
+
         viewPosition position =
             let
+                summariesForPosition =
+                    shotSummariesByPosition position
+                        |> filterByGender
+
                 groupSummarizedShotsByCurler : List (List ShotSummaryByPosition)
                 groupSummarizedShotsByCurler =
-                    shotSummariesByPosition position
+                    summariesForPosition
                         |> List.sortBy (\ss -> ss.drawEpoch)
                         |> List.sortBy (\ss -> ss.curlerId)
                         |> List.Extra.groupWhile (\a b -> a.curlerId == b.curlerId)
@@ -282,6 +400,7 @@ viewPlusMinus theme translations event =
     in
     column [ El.spacing 20, El.width El.fill ]
         [ el [ Font.size 24 ] (text (translate translations "positional_plus_minus_comparison"))
-        , column [ El.spacing 60 ] (List.map viewPosition [ 4, 3, 2, 1, 5 ])
+        , viewGenderTabs theme translations selectedGender tabsEnabled
+        , column [ El.spacing 60 ] (List.map viewPosition positions)
         , el [] (text "")
         ]
