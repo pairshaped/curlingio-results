@@ -2,7 +2,7 @@
 
 Instructions on embedding the Curling I/O V2 Widgets onto the Northern Ontario Curling Association wordpress site.
 
-** Alternatively, if you don't want to tackle this right now, you can instead just link to your competition widgets hosted by Curling IO here: (https://widget.curling.io/en/clubs/noca/competitions)[https://widget.curling.io/en/clubs/noca/competitions] **
+** Alternatively, if you don't want to tackle this right now, you can instead just link to your competition widgets hosted by Curling IO here: https://widget.curling.io/en/clubs/noca/competitions
 
 You'll first need the ability to embed raw javascript code into your pages and sidebar.
 If you don't have a plugin or theme that allows this yet, you could potentially install: https://en-ca.wordpress.org/plugins/simple-embed-code/
