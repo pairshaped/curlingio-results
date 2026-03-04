@@ -26,6 +26,32 @@ fromNonempty ( x, xs ) =
     x :: xs
 
 
+formatFloat : Int -> Float -> String
+formatFloat decimals value =
+    let
+        multiplier =
+            toFloat (10 ^ decimals)
+
+        rounded =
+            toFloat (round (value * multiplier)) / multiplier
+
+        str =
+            String.fromFloat rounded
+
+        parts =
+            String.split "." str
+    in
+    case parts of
+        [ whole ] ->
+            whole ++ "." ++ String.repeat decimals "0"
+
+        [ whole, frac ] ->
+            whole ++ "." ++ String.padRight decimals '0' frac
+
+        _ ->
+            str
+
+
 attrNone : Element.Attribute msg
 attrNone =
     Element.htmlAttribute (Html.Attributes.classList [])

@@ -1684,7 +1684,7 @@ viewStages theme device translations event onStage =
                                             (text
                                                 (case standing.lsd of
                                                     Just lsd ->
-                                                        String.fromFloat lsd
+                                                        formatFloat 2 lsd
 
                                                     Nothing ->
                                                         "-"
@@ -2441,7 +2441,7 @@ viewGame theme translations eventConfig event sheetLabel detailed draw game =
                     (text
                         (case side.lsd of
                             Just lsd ->
-                                String.fromFloat lsd
+                                formatFloat 1 lsd
 
                             Nothing ->
                                 " "
