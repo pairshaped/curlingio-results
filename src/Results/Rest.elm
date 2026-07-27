@@ -183,7 +183,7 @@ toRoute defaultEventSection hash =
                     hash
                         |> String.replace "#" ""
             in
-            { host = "api-curlingio.global.ssl.fastly.net"
+            { host = "api.curling.io"
             , port_ = Nothing
             , protocol = Url.Https
             , query = Nothing
@@ -264,14 +264,8 @@ stageUrl eventId stage =
 baseUrl : Flags -> String
 baseUrl { host, lang } =
     let
-        -- "https://api-curlingio.global.ssl.fastly.net/" ++ lang
-        -- productionUrl =
-        --     -- Production without caching
-        --     "https://api.curling.io/" ++ lang
-        --
-        productionCachedUrl =
-            -- Production cached via CDN (Fastly)
-            "https://api-curlingio.global.ssl.fastly.net/" ++ lang
+        productionUrl =
+            "https://api.curling.io/" ++ lang
     in
     case host of
         Just h ->
@@ -282,15 +276,12 @@ baseUrl { host, lang } =
                         "http://api.curling.test:3000/" ++ lang
                 in
                 devUrl
-                --
-                -- else if String.contains ".curling.io" h then
-                --     productionUrl
 
             else
-                productionCachedUrl
+                productionUrl
 
         Nothing ->
-            productionCachedUrl
+            productionUrl
 
 
 clubId : Flags -> String

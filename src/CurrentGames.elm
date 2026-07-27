@@ -185,9 +185,8 @@ errorMessage error =
 baseUrl : Flags -> String
 baseUrl { host, lang } =
     let
-        productionCachedUrl =
-            -- Production cached via CDN (Fastly)
-            "https://api-curlingio.global.ssl.fastly.net/" ++ lang
+        productionUrl =
+            "https://api.curling.io/" ++ lang
     in
     case host of
         Just h ->
@@ -200,10 +199,10 @@ baseUrl { host, lang } =
                 devUrl
 
             else
-                productionCachedUrl
+                productionUrl
 
         Nothing ->
-            productionCachedUrl
+            productionUrl
 
 
 baseClubUrl : Flags -> String
