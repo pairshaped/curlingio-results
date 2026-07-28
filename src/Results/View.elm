@@ -330,7 +330,15 @@ viewItems flags translations itemFilter items =
                     in
                     List.filter matches items.items
     in
-    column [ El.spacing 10, El.width El.fill ]
+    column
+        [ El.spacing 10
+        , El.width El.fill
+        , if List.length items.seasons > 1 then
+            El.height (El.fill |> El.minimum 270)
+
+          else
+            attrNone
+        ]
         [ row [ El.spacing 20, El.htmlAttribute (class "cio__filter_container") ]
             [ if flags.searchable then
                 El.html

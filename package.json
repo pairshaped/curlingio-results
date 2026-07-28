@@ -1,13 +1,13 @@
 {
+  "packageManager": "pnpm@11.17.0",
   "scripts": {
+    "build": "./prod.sh",
     "start": "elm-live src/Results.elm --start-page=dev.html --open -- --output=dev.js --debug",
     "current": "elm-live src/CurrentGames.elm --start-page=current-games-dev.html --open -- --output=current-games-dev.js --debug"
   },
   "devDependencies": {
-    "elm": "^0.19.1-5",
-    "elm-live": "^4.0.2"
-  },
-  "dependencies": {
-    "uglifyjs": "^2.4.11"
+    "elm": "^0.19.2-0",
+    "elm-live": "^4.0.2",
+    "uglify-js": "^3.19.3"
   }
 }

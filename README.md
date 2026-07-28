@@ -89,10 +89,10 @@ Please review the comments in the embedded code to make configuration tweaks. He
 
 ### Installing Dependencies
 
-We use elm and elm-live for development. You can install these via npm.
+Node.js and pnpm versions are pinned in `.tool-versions`. Install the project dependencies with:
 
 ```
-npm install
+pnpm install
 ```
 
 ### Running It
@@ -102,20 +102,15 @@ You will want to change the host to your Curling IO site.
 Then run it:
 
 ```
-npm start
+pnpm start
 ```
 
 ### Production Deployment
 
-Make sure you have uglify-js installed to compress the production js.
-```
-npm install -g uglify-js
-```
-
-Compile and optimize for production using:
+Compile and minify both widgets using the project-local Elm and UglifyJS versions:
 
 ```
-./prod.sh
+pnpm build
 ```
 
 ## Copyright and License

@@ -10,12 +10,12 @@
 - Build script: `prod.sh`.
 
 ## Build, Test, and Development Commands
-- Install deps: `npm install`
-- Run Results dev server: `npm start`
+- Install deps: `pnpm install`
+- Run Results dev server: `pnpm start`
   - Serves `src/Results.elm`, opens `dev.html`, outputs `dev.js` with Elm debugger.
-- Run Current Games dev server: `npm run current`
+- Run Current Games dev server: `pnpm current`
   - Serves `src/CurrentGames.elm`, opens `current-games-dev.html`, outputs `current-games-dev.js`.
-- Production build (both widgets): `./prod.sh`
+- Production build (both widgets): `pnpm build`
   - Compiles with `elm make --optimize` and minifies with `uglifyjs` to `prod.min.js` and `current-games-prod.min.js`.
 
 ## Coding Style & Naming Conventions
@@ -32,7 +32,7 @@
 
 ### Linting & Review
 - Run `elm-review` before committing to catch unused code and API issues.
-- Command: `npx elm-review` (uses the repo’s default configuration automatically).
+- Command: `pnpm dlx elm-review` (uses the repo’s default configuration automatically).
 - Examine the output and address findings deliberately. Only apply `--fix` after reviewing changes; do not auto‑apply blindly.
 
 ## Testing Guidelines
